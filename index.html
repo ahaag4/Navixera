@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Auto Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>🚖 Smart Auto Monitoring</h1>
+  </header>
+
+  <main>
+    <section id="status">
+      <h2>🔍 Live Status</h2>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="last-active">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status-text">Loading...</span></p>
+    </section>
+
+    <section id="map-section">
+      <h2>🗺️ Live Map</h2>
+      <div id="map"></div>
+    </section>
+
+    <section id="history">
+      <h2>📈 Movement History</h2>
+      <ul id="history-list"></ul>
+    </section>
+  </main>
+</body>
+</html>
