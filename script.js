@@ -38,4 +38,10 @@ function updateHistory(history) {
   historyList.innerHTML = "";
   history.slice(-5).forEach(([lat, lng], index) => {
     const li = document.createElement("li");
-    li.textContent = `#
+    li.textContent = `#${index + 1}: ${lat}, ${lng}`;
+    historyList.appendChild(li);
+  });
+}
+
+fetchData();
+setInterval(fetchData, 15000); // update every 15 seconds
