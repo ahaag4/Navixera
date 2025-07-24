@@ -1,47 +1,26 @@
-const locationEl = document.getElementById("location");
-const lastActiveEl = document.getElementById("last-active");
-const statusTextEl = document.getElementById("status-text");
-const historyList = document.getElementById("history-list");
+document.addEventListener("DOMContentLoaded", () => {
+  const location = document.getElementById("location");
+  const lastActive = document.getElementById("lastActive");
+  const status = document.getElementById("status");
+  const history = document.getElementById("history");
 
-const LAT_LNG_HISTORY = [];  // for plotting history
+  // Example: Fetch from GitHub Pages or Realtime URL
+  fetch("https://your-url.com/data.json")
+    .then(res => res.json())
+    .then(data => {
+      location.textContent = data.current_location || "Unavailable";
+      lastActive.textContent = data.last_active || "Unavailable";
+      status.textContent = data.status || "Unknown";
 
-async function fetchData() {
-  try {
-    const res = await fetch('https://your-domain.com/data.json'); // Replace with Cloudflare GitHub raw file URL
-    const data = await res.json();
-
-    const { latitude, longitude, last_active } = data;
-    const now = new Date();
-    const lastActiveDate = new Date(last_active);
-    const daysInactive = Math.floor((now - lastActiveDate) / (1000 * 60 * 60 * 24));
-
-    locationEl.textContent = `${latitude}, ${longitude}`;
-    lastActiveEl.textContent = last_active;
-    statusTextEl.textContent = daysInactive >= 3 ? "🛑 Inactive for 3+ days!" : "✅ Active";
-
-    LAT_LNG_HISTORY.push([latitude, longitude]);
-    updateMap(latitude, longitude);
-    updateHistory(LAT_LNG_HISTORY);
-
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    statusTextEl.textContent = "❌ Error loading data";
-  }
-}
-
-function updateMap(lat, lng) {
-  const mapDiv = document.getElementById("map");
-  mapDiv.innerHTML = `<iframe width="100%" height="300" src="https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed"></iframe>`;
-}
-
-function updateHistory(history) {
-  historyList.innerHTML = "";
-  history.slice(-5).forEach(([lat, lng], index) => {
-    const li = document.createElement("li");
-    li.textContent = `#${index + 1}: ${lat}, ${lng}`;
-    historyList.appendChild(li);
-  });
-}
-
-fetchData();
-setInterval(fetchData, 15000); // update every 15 seconds
+      history.innerHTML = "";
+      data.history.forEach(entry => {
+        const row = `<tr><td>${entry.time}</td><td>${entry.location}</td></tr>`;
+        history.innerHTML += row;
+      });
+    })
+    .catch(err => {
+      location.textContent = "Error";
+      lastActive.textContent = "Error";
+      status.textContent = "Error loading data";
+    });
+});
