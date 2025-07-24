@@ -1,33 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Smart Vehicle Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Vehicle Monitoring</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="assets/favicon.ico"/>
 </head>
 <body>
-  <header>
-    <h1>🚖 Smart Vehicle Monitoring</h1>
-  </header>
+  <div class="dashboard">
+    <header>
+      <img src="assets/logo.png" alt="Smart Auto Logo" class="logo"/>
+      <h1>Smart Vehicle Monitoring</h1>
+    </header>
 
-  <main>
-    <section id="status">
+    <section class="card status-card">
       <h2>🔍 Live Status</h2>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-      <p><strong>Last Active:</strong> <span id="last-active">Loading...</span></p>
-      <p><strong>Status:</strong> <span id="status-text">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
     </section>
 
-    <section id="map-section">
+    <section class="card map-card">
       <h2>🗺️ Live Map</h2>
-      <div id="map"></div>
+      <div id="map">Loading map...</div>
     </section>
 
-    <section id="history">
+    <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <ul id="history-list"></ul>
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Location</th></tr>
+        </thead>
+        <tbody id="history">
+          <tr><td>Loading...</td><td>...</td></tr>
+        </tbody>
+      </table>
     </section>
-  </main>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
