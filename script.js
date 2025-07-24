@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const history = document.getElementById("history");
 
   // Example: Fetch from GitHub Pages or Realtime URL
-  fetch("https://your-url.com/data.json")
+  fetch("data.json")
     .then(res => res.json())
     .then(data => {
       location.textContent = data.current_location || "Unavailable";
