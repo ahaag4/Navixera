@@ -1,5 +1,10 @@
 {
-  "latitude": "19.0760",
-  "longitude": "72.8777",
-  "last_active": "2025-07-09T10:00:00Z"
+  "current_location": "Mumbai",
+  "last_active": "2 minutes ago",
+  "status": "✅ Active",
+  "history": [
+    {"time": "14:01", "location": "Mumbai"},
+    {"time": "13:45", "location": "Thane"},
+    {"time": "13:20", "location": "Navi Mumbai"}
+  ]
 }
