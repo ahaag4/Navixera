@@ -8,13 +8,55 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #f5f6fa;
+      color: #333;
+    }
+
+    .dashboard {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #2e86de;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 10px;
+    }
+
+    .logo {
+      height: 40px;
+      margin-right: 10px;
+    }
+
+    .user-info span {
+      margin-right: 10px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+
     .switch {
       position: relative;
       display: inline-block;
       width: 60px;
       height: 30px;
     }
+
     .switch input { opacity: 0; width: 0; height: 0; }
+
     .slider {
       position: absolute;
       cursor: pointer;
@@ -23,6 +65,7 @@
       transition: .4s;
       border-radius: 30px;
     }
+
     .slider:before {
       position: absolute;
       content: "";
@@ -34,34 +77,55 @@
       transition: .4s;
       border-radius: 50%;
     }
+
     input:checked + .slider {
       background-color: #28a745;
     }
+
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-    button.view-btn {
-      padding: 4px 10px;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    table th, table td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+
+    .view-btn {
       background-color: #007bff;
       color: white;
       border: none;
-      border-radius: 4px;
+      padding: 6px 10px;
+      border-radius: 5px;
       cursor: pointer;
+    }
+
+    #map {
+      height: 300px;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <img src="assets/logo.png" alt="Logo" class="logo"/>
-      <h1>Smart Tracker</h1>
+      <div style="display:flex; align-items:center;">
+        <img src="assets/logo.png" alt="Logo" class="logo"/>
+        <h1>Smart Tracker</h1>
+      </div>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <!-- Live Status -->
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
@@ -69,7 +133,6 @@
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
     </section>
 
-    <!-- Alarm Toggle -->
     <section class="card alarm-card">
       <h2>🔔 Vehicle Alarm</h2>
       <label class="switch">
@@ -79,38 +142,31 @@
       <p id="alarmStatusText">Loading alarm status...</p>
     </section>
 
-    <!-- Map -->
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
-      <div id="map" style="height: 300px;">Loading map...</div>
+      <div id="map">Loading map...</div>
     </section>
 
-    <!-- History -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
       <table>
         <thead>
-          <tr>
-            <th>Time</th>
-            <th>Location</th>
-            <th>Action</th>
-          </tr>
+          <tr><th>Time</th><th>Location</th><th>Map</th></tr>
         </thead>
         <tbody id="history">
-          <tr><td>Loading...</td><td>...</td><td>...</td></tr>
+          <tr><td colspan="3">Loading...</td></tr>
         </tbody>
       </table>
     </section>
   </div>
 
-  <!-- Firebase + Leaflet -->
+  <!-- Firebase & Leaflet Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script>
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -121,7 +177,6 @@
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
 
-    // Initialize
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
@@ -133,7 +188,7 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
 
-    let map, marker;
+    let map, marker, historyMarker;
 
     function updateMap(lat, lng) {
       if (!map) {
@@ -147,20 +202,20 @@
     }
 
     function focusOnMap(lat, lng) {
-      if (map && marker) {
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng], 17);
-        marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
-      }
+      if (!map) return;
+      map.setView([lat, lng], 15);
+      if (historyMarker) map.removeLayer(historyMarker);
+      historyMarker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
     }
 
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      // Live Data
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+
         const { latitude, longitude, status, last_active } = data;
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
@@ -168,7 +223,6 @@
         updateMap(latitude, longitude);
       });
 
-      // History Data
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
@@ -186,7 +240,6 @@
         }
       });
 
-      // Alarm toggle
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
@@ -199,7 +252,6 @@
       });
     }
 
-    // Auth Check
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
