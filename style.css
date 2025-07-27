@@ -1,8 +1,9 @@
+/* General */
 body {
   font-family: 'Segoe UI', sans-serif;
   margin: 0;
-  background: #f2f4f8;
-  color: #333;
+  background: #f4f6fa;
+  color: #222;
 }
 
 header {
@@ -11,29 +12,93 @@ header {
   padding: 1rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .logo {
-  width: 50px;
+  height: 40px;
 }
 
 .dashboard {
-  padding: 1rem;
   max-width: 1000px;
   margin: auto;
+  padding: 1rem;
 }
 
 .card {
-  background: white;
-  padding: 1rem;
+  background: #fff;
+  padding: 1.2rem;
   margin: 1rem 0;
   border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+  margin-top: 0;
+  color: #1e3a8a;
+  font-size: 1.2rem;
 }
 
 #map {
   height: 300px;
   width: 100%;
   border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+table thead {
+  background: #1e3a8a;
+  color: white;
+}
+
+table th, table td {
+  padding: 0.6rem;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+
+  table thead {
+    display: none;
+  }
+
+  table td {
+    position: relative;
+    padding-left: 50%;
+    border: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  table td::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 45%;
+    padding-left: 0.5rem;
+    font-weight: bold;
+    color: #555;
+    content: attr(data-label);
+  }
 }
