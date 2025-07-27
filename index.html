@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Vehicle Monitoring</title>
+  <title>Smart Vehicle Dashboard</title>
   <link rel="stylesheet" href="style.css"/>
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -13,36 +12,31 @@
     <header>
       <img src="assets/logo.png" alt="Smart Auto Logo" class="logo"/>
       <h1>Smart Vehicle Monitoring</h1>
-    </header>
+      <button id="logoutBtn">Logout</button>
+    </header><section class="card status-card">
+  <h2>🔍 Live Status</h2>
+  <p><strong>Vehicle:</strong> <span id="vehicleType">Loading...</span></p>
+  <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+  <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+  <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+</section>
 
-    <section class="card status-card">
-      <h2>🔍 Live Status</h2>
-      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
-      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
-    </section>
+<section class="card map-card">
+  <h2>🗌️ Live Map</h2>
+  <div id="map">Loading map...</div>
+</section>
 
-    <section class="card map-card">
-      <h2>🗺️ Live Map</h2>
-      <div id="map">Loading map...</div>
-    </section>
+<section class="card history-card">
+  <h2>📈 Movement History</h2>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Location</th></tr>
+    </thead>
+    <tbody id="history">
+      <tr><td>Loading...</td><td>...</td></tr>
+    </tbody>
+  </table>
+</section>
 
-    <section class="card history-card">
-      <h2>📈 Movement History</h2>
-      <table>
-        <thead>
-          <tr><th>Time</th><th>Location</th></tr>
-        </thead>
-        <tbody id="history">
-          <tr><td>Loading...</td><td>...</td></tr>
-        </tbody>
-      </table>
-    </section>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="script.js"></script>
-</body>
+  </div>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script src="script.js"></script></body>
 </html>
