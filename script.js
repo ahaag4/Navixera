@@ -1,16 +1,17 @@
-
-// Your Firebase Config
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
   databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
   projectId: "svms-c0232",
-  storageBucket: "svms-c0232.firebasestorage.app",
+  storageBucket: "svms-c0232.appspot.com",
   messagingSenderId: "359201898609",
   appId: "1:359201898609:web:893ef076207abb06471bd0"
 };
 
+// Initialize
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.database();
 
 const locationEl = document.getElementById("location");
@@ -31,13 +32,15 @@ function updateMap(lat, lng) {
   }
 }
 
-function loadLiveData() {
-  db.ref("vehicle/current").on("value", snapshot => {
+function loadDashboard(uid) {
+  const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+  // Live status
+  vehicleRef.child("current").on("value", (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
 
     const { latitude, longitude, status, last_active } = data;
-
     locationEl.textContent = `${latitude}, ${longitude}`;
     lastActiveEl.textContent = last_active || "Unknown";
     statusEl.textContent = status || "Unknown";
@@ -45,7 +48,8 @@ function loadLiveData() {
     updateMap(latitude, longitude);
   });
 
-  db.ref("vehicle/history").on("value", snapshot => {
+  // History
+  vehicleRef.child("history").on("value", (snapshot) => {
     const history = snapshot.val();
     historyEl.innerHTML = "";
 
@@ -58,4 +62,11 @@ function loadLiveData() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", loadLiveData);
+// 🔐 Check login and redirect if needed
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    loadDashboard(user.uid);
+  } else {
+    window.location.href = "login.html";
+  }
+});
