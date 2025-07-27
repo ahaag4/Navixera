@@ -8,6 +8,54 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+    .logo {
+      height: 40px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      color: #343a40;
+    }
+    #map {
+      height: 300px;
+      width: 100%;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ccc;
+    }
     .switch {
       position: relative;
       display: inline-block;
@@ -40,18 +88,32 @@
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-    tr.selected { background: #e6f7ff; }
-    .map-btn {
-      padding: 2px 10px;
-      background: #1e3a8a;
-      color: #fff;
+    .view-btn {
+      background-color: #007bff;
+      color: white;
+      padding: 5px 12px;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.3s ease;
+    }
+    .view-btn:hover {
+      background-color: #0056b3;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #logoutBtn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
       cursor: pointer;
     }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { padding: 0.5em; text-align: left; }
-    #map { height: 300px; width: 100%; border-radius: 10px; }
   </style>
 </head>
 <body>
@@ -64,6 +126,7 @@
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
+
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
@@ -89,14 +152,10 @@
       <h2>📈 Movement History</h2>
       <table>
         <thead>
-          <tr>
-            <th>Time</th>
-            <th>Location</th>
-            <th>Map</th>
-          </tr>
+          <tr><th>Time</th><th>Location</th><th>Map</th></tr>
         </thead>
         <tbody id="history">
-          <tr><td>Loading...</td><td>...</td><td></td></tr>
+          <tr><td colspan="3">Loading...</td></tr>
         </tbody>
       </table>
     </section>
@@ -129,17 +188,23 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
 
-    let map, marker, historyMarker = null;
+    let map, marker;
 
-    function updateMap(lat, lng) {
+    function updateMap(lat, lng, popupText = null) {
       if (!map) {
         map = L.map('map').setView([lat, lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
+        if (popupText) marker.bindPopup(popupText).openPopup();
       } else {
         marker.setLatLng([lat, lng]);
         map.setView([lat, lng], 15);
+        if (popupText) marker.bindPopup(popupText).openPopup();
       }
+    }
+
+    function focusOnMap(lat, lng) {
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
 
     function loadDashboard(uid) {
@@ -157,51 +222,24 @@
         updateMap(latitude, longitude);
       });
 
-      // ---------- MOVEMENT HISTORY LOGIC ----------
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
         if (history) {
           Object.values(history).reverse().forEach(entry => {
-            // Parse lat/lng
-            let lat = entry.latitude, lng = entry.longitude;
-            if ((!lat || !lng) && entry.location) {
-              const locArr = entry.location.split(",").map(x => parseFloat(x.trim()));
-              if (locArr.length === 2) [lat, lng] = locArr;
-            }
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${entry.time}</td>
-              <td>${entry.location}</td>
-              <td>
-                ${(lat && lng)
-                  ? `<button class="map-btn">View</button>`
-                  : ""}
-              </td>
-            `;
-            // "View" button logic
-            if (lat && lng) {
-              row.querySelector("button.map-btn").addEventListener("click", () => {
-                // Highlight selected
-                [...historyEl.children].forEach(r => r.classList.remove("selected"));
-                row.classList.add("selected");
-                // Show marker on map
-                if (historyMarker) map.removeLayer(historyMarker);
-                historyMarker = L.marker([lat, lng], {
-                  icon: L.icon({
-                    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-                    iconSize: [25,41],
-                    iconAnchor: [12,41]
-                  })
-                }).addTo(map).bindPopup(`Location at ${entry.time}`).openPopup();
-                map.setView([lat, lng], 16);
-              });
-            }
-            historyEl.appendChild(row);
+            const [lat, lng] = entry.location.split(",");
+            const row = `
+              <tr>
+                <td>${entry.time}</td>
+                <td>${entry.location}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+              </tr>`;
+            historyEl.innerHTML += row;
           });
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
       });
-      // ---------- END MOVEMENT HISTORY LOGIC ----------
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
