@@ -9,54 +9,60 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
       margin: 0;
-      background: #f5f6fa;
-      color: #333;
+      background: #f7f9fc;
     }
-
     .dashboard {
-      max-width: 900px;
+      max-width: 1000px;
       margin: auto;
       padding: 20px;
     }
-
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #2e86de;
+      background: #343a40;
       color: white;
-      padding: 15px 20px;
+      padding: 10px 20px;
       border-radius: 10px;
     }
-
     .logo {
       height: 40px;
-      margin-right: 10px;
     }
-
-    .user-info span {
-      margin-right: 10px;
-    }
-
     .card {
       background: white;
       padding: 20px;
-      margin-top: 20px;
+      margin: 20px 0;
       border-radius: 12px;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-
+    h2 {
+      margin-top: 0;
+      color: #343a40;
+    }
+    #map {
+      height: 300px;
+      width: 100%;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ccc;
+    }
     .switch {
       position: relative;
       display: inline-block;
       width: 60px;
       height: 30px;
     }
-
     .switch input { opacity: 0; width: 0; height: 0; }
-
     .slider {
       position: absolute;
       cursor: pointer;
@@ -65,7 +71,6 @@
       transition: .4s;
       border-radius: 30px;
     }
-
     .slider:before {
       position: absolute;
       content: "";
@@ -77,49 +82,45 @@
       transition: .4s;
       border-radius: 50%;
     }
-
     input:checked + .slider {
       background-color: #28a745;
     }
-
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    table th, table td {
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
-      text-align: center;
-    }
-
     .view-btn {
       background-color: #007bff;
       color: white;
+      padding: 5px 12px;
       border: none;
-      padding: 6px 10px;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 14px;
+      transition: 0.3s ease;
     }
-
-    #map {
-      height: 300px;
-      border-radius: 10px;
+    .view-btn:hover {
+      background-color: #0056b3;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #logoutBtn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <div style="display:flex; align-items:center;">
-        <img src="assets/logo.png" alt="Logo" class="logo"/>
-        <h1>Smart Tracker</h1>
-      </div>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Smart Tracker</h1>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
@@ -165,7 +166,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -188,25 +188,23 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
 
-    let map, marker, historyMarker;
+    let map, marker;
 
-    function updateMap(lat, lng) {
+    function updateMap(lat, lng, popupText = null) {
       if (!map) {
         map = L.map('map').setView([lat, lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
+        if (popupText) marker.bindPopup(popupText).openPopup();
       } else {
         marker.setLatLng([lat, lng]);
         map.setView([lat, lng], 15);
+        if (popupText) marker.bindPopup(popupText).openPopup();
       }
     }
 
     function focusOnMap(lat, lng) {
-      if (!map) return;
-      map.setView([lat, lng], 15);
-      if (historyMarker) map.removeLayer(historyMarker);
-      historyMarker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
 
     function loadDashboard(uid) {
@@ -220,6 +218,7 @@
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
+
         updateMap(latitude, longitude);
       });
 
@@ -228,7 +227,7 @@
         historyEl.innerHTML = "";
         if (history) {
           Object.values(history).reverse().forEach(entry => {
-            const [lat, lng] = entry.location.split(',').map(Number);
+            const [lat, lng] = entry.location.split(",");
             const row = `
               <tr>
                 <td>${entry.time}</td>
@@ -237,6 +236,8 @@
               </tr>`;
             historyEl.innerHTML += row;
           });
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
       });
 
@@ -263,4 +264,4 @@
     });
   </script>
 </body>
-</html>
+  </html>
