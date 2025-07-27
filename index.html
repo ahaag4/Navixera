@@ -1,36 +1,76 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart Tracker Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="icon" href="assets/favicon.ico" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="assets/favicon.ico"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #28a745;
+    }
+    input:checked + .slider:before {
+      transform: translateX(30px);
+    }
+  </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <img src="assets/logo.png" alt="Logo" class="logo" />
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
       <h1>Smart Tracker</h1>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
       </div>
-    </header><!-- Live Status Section -->
-<section class="card status-card">
+    </header><section class="card status-card">
   <h2>🔍 Live Status</h2>
   <p><strong>Location:</strong> <span id="location">Loading...</span></p>
   <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
   <p><strong>Status:</strong> <span id="status">Loading...</span></p>
 </section>
 
-<!-- Live Map Section -->
-<section class="card map-card">
-  <h2>🗺️ Live Map</h2>
-  <div id="map" style="height: 300px; border-radius: 10px;">Loading map...</div>
+<section class="card alarm-card">
+  <h2>🔔 Vehicle Alarm</h2>
+  <label class="switch">
+    <input type="checkbox" id="alarmToggle">
+    <span class="slider round"></span>
+  </label>
+  <p id="alarmStatusText">Loading alarm status...</p>
 </section>
 
-<!-- Movement History Section -->
+<section class="card map-card">
+  <h2>🗼 Live Map</h2>
+  <div id="map">Loading map...</div>
+</section>
+
 <section class="card history-card">
   <h2>📈 Movement History</h2>
   <table>
@@ -43,7 +83,7 @@
   </table>
 </section>
 
-  </div>  <!-- Firebase and Leaflet Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script>
+  </div>  <!-- Firebase & Leaflet Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -62,17 +102,15 @@
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
     const historyEl = document.getElementById("history");
-    const userEmail = document.getElementById("userEmail");
-    const logoutBtn = document.getElementById("logoutBtn");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
 
     let map, marker;
 
     function updateMap(lat, lng) {
       if (!map) {
-        map = L.map("map").setView([lat, lng], 15);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap contributors"
-        }).addTo(map);
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
       } else {
         marker.setLatLng([lat, lng]);
@@ -83,7 +121,6 @@
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      // Live Status
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -96,34 +133,37 @@
         updateMap(latitude, longitude);
       });
 
-      // History
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
-
         if (history) {
-          Object.values(history).reverse().forEach((entry) => {
+          Object.values(history).reverse().forEach(entry => {
             const row = `<tr><td>${entry.time}</td><td>${entry.location}</td></tr>`;
             historyEl.innerHTML += row;
           });
         }
       });
+
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
+        alarmToggle.checked = (status === "on");
+        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
+      });
+
+      alarmToggle.addEventListener("change", () => {
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState);
+      });
     }
 
-    // Auth check
     auth.onAuthStateChanged((user) => {
       if (user) {
-        userEmail.textContent = user.email || "User";
         loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
       } else {
         window.location.href = "login.html";
       }
-    });
-
-    logoutBtn.addEventListener("click", () => {
-      auth.signOut().then(() => {
-        window.location.href = "login.html";
-      });
     });
   </script></body>
 </html>
