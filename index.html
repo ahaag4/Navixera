@@ -1,44 +1,129 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart Tracker Dashboard</title>
-  <link rel="stylesheet" href="style.css"/>
-  <link rel="icon" href="assets/favicon.ico"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="assets/favicon.ico" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <img src="assets/logo.png" alt="Logo" class="logo" />
       <h1>Smart Tracker</h1>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
       </div>
-    </header><section class="card status-card">
+    </header><!-- Live Status Section -->
+<section class="card status-card">
   <h2>🔍 Live Status</h2>
   <p><strong>Location:</strong> <span id="location">Loading...</span></p>
   <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
   <p><strong>Status:</strong> <span id="status">Loading...</span></p>
 </section>
 
+<!-- Live Map Section -->
 <section class="card map-card">
   <h2>🗺️ Live Map</h2>
-  <div id="map">Loading map...</div>
+  <div id="map" style="height: 300px; border-radius: 10px;">Loading map...</div>
 </section>
 
+<!-- Movement History Section -->
 <section class="card history-card">
   <h2>📈 Movement History</h2>
   <table>
     <thead>
-      <tr><th>Time</th><th>Location</th><th>Action</th></tr>
+      <tr><th>Time</th><th>Location</th></tr>
     </thead>
     <tbody id="history">
-      <tr><td>Loading...</td><td>...</td><td>...</td></tr>
+      <tr><td>Loading...</td><td>...</td></tr>
     </tbody>
   </table>
 </section>
 
-  </div>  <!-- Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script src="script.js"></script></body>
+  </div>  <!-- Firebase and Leaflet Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const historyEl = document.getElementById("history");
+    const userEmail = document.getElementById("userEmail");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    let map, marker;
+
+    function updateMap(lat, lng) {
+      if (!map) {
+        map = L.map("map").setView([lat, lng], 15);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors"
+        }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
+    }
+
+    function loadDashboard(uid) {
+      const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      // Live Status
+      vehicleRef.child("current").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const { latitude, longitude, status, last_active } = data;
+        locationEl.textContent = `${latitude}, ${longitude}`;
+        lastActiveEl.textContent = last_active || "Unknown";
+        statusEl.textContent = status || "Unknown";
+
+        updateMap(latitude, longitude);
+      });
+
+      // History
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
+        historyEl.innerHTML = "";
+
+        if (history) {
+          Object.values(history).reverse().forEach((entry) => {
+            const row = `<tr><td>${entry.time}</td><td>${entry.location}</td></tr>`;
+            historyEl.innerHTML += row;
+          });
+        }
+      });
+    }
+
+    // Auth check
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        userEmail.textContent = user.email || "User";
+        loadDashboard(user.uid);
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      auth.signOut().then(() => {
+        window.location.href = "login.html";
+      });
+    });
+  </script></body>
 </html>
