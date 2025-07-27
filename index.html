@@ -1,152 +1,197 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Tracker - Home</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Tracker - Real-Time Tracking System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     * {
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
     }
+
     body {
-      background: linear-gradient(to right, #1c1c1c, #2c3e50);
+      background: linear-gradient(120deg, #1e3a8a, #2563eb);
       color: white;
     }
+
     header {
-      padding: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background-color: #121212;
+      padding: 1.2rem 2rem;
+      background-color: rgba(0, 0, 0, 0.1);
     }
+
     .logo {
-      font-size: 1.8rem;
+      font-size: 1.6rem;
       font-weight: bold;
-      color: #00adb5;
     }
+
     nav a {
-      margin: 0 15px;
-      text-decoration: none;
       color: white;
-      font-weight: 500;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 1rem;
+      transition: color 0.3s ease;
     }
+
     nav a:hover {
-      color: #00adb5;
+      color: #a5d8ff;
     }
+
     .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
-      padding: 80px 20px;
+      padding: 4rem 2rem;
     }
+
     .hero h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
+      font-size: 2.8rem;
+      max-width: 800px;
     }
+
     .hero p {
       font-size: 1.1rem;
-      color: #ddd;
-      max-width: 600px;
-      margin: auto;
+      margin: 1rem 0 2rem;
+      max-width: 700px;
+      line-height: 1.6;
     }
-    .cta-buttons {
-      margin-top: 30px;
+
+    .hero-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
-    .cta-buttons a {
+
+    .hero-buttons a {
+      padding: 0.8rem 1.6rem;
+      background-color: white;
+      color: #1e3a8a;
       text-decoration: none;
-      color: white;
-      background-color: #00adb5;
-      padding: 12px 25px;
-      margin: 0 10px;
-      border-radius: 5px;
-      transition: background 0.3s;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
     }
-    .cta-buttons a:hover {
-      background-color: #028d94;
+
+    .hero-buttons a:hover {
+      background-color: #dbeafe;
     }
+
     .features {
-      padding: 60px 20px;
+      background-color: white;
+      color: #1e3a8a;
+      padding: 3rem 2rem;
       text-align: center;
-      background-color: #1f2c3b;
     }
+
     .features h2 {
-      margin-bottom: 40px;
       font-size: 2rem;
+      margin-bottom: 1.5rem;
     }
-    .feature-list {
+
+    .feature-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 30px;
+      gap: 2rem;
+      max-width: 1000px;
+      margin: auto;
     }
+
     .feature {
-      padding: 20px;
-      background-color: #2f3e4d;
+      background-color: #f1f5f9;
+      padding: 1.5rem;
       border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }
+
     .feature i {
       font-size: 2rem;
-      color: #00adb5;
-      margin-bottom: 10px;
+      margin-bottom: 0.8rem;
+      color: #2563eb;
     }
+
+    .feature h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
     footer {
+      background-color: #1e3a8a;
+      padding: 1rem 2rem;
       text-align: center;
-      padding: 20px;
-      background-color: #121212;
-      color: #aaa;
+      color: #cbd5e1;
+      font-size: 0.9rem;
     }
+
     @media (max-width: 600px) {
       .hero h1 {
         font-size: 2rem;
-      }
-      .cta-buttons a {
-        display: block;
-        margin: 10px auto;
       }
     }
   </style>
 </head>
 <body>
+
   <header>
-    <div class="logo">Smart Tracker</div>
+    <div class="logo">🚀 Smart Tracker</div>
     <nav>
-      <a href="index.html">Dashboard</a>
       <a href="login.html">Login</a>
       <a href="signup.html">Sign Up</a>
+      <a href="dashboard.html">Dashboard</a>
     </nav>
-  </header>  <section class="hero">
-    <h1>Monitor & Secure Your Vehicle Anytime, Anywhere</h1>
-    <p>Track your vehicle's real-time location, manage alarms, and view historical movement data from a single dashboard.</p>
-    <div class="cta-buttons">
+  </header>
+
+  <section class="hero">
+    <h1>Real-Time Smart Tracking System for Vehicles, Students & More</h1>
+    <p>
+      Monitor and secure your vehicle, cycle, or even student transit — all in real-time. Stay informed, stay protected.
+    </p>
+    <div class="hero-buttons">
       <a href="signup.html">Get Started</a>
       <a href="login.html">Login</a>
+      <a href="dashboard.html">View Demo</a>
     </div>
-  </section>  <section class="features">
-    <h2>Key Features</h2>
-    <div class="feature-list">
+  </section>
+
+  <section class="features">
+    <h2>🌟 Key Features</h2>
+    <div class="feature-grid">
       <div class="feature">
         <i class="fas fa-map-marker-alt"></i>
-        <h3>Live Tracking</h3>
-        <p>Track your vehicle's location in real-time using GPS and see it on the map.</p>
-      </div>
-      <div class="feature">
-        <i class="fas fa-bell"></i>
-        <h3>Alarm Control</h3>
-        <p>Activate or deactivate vehicle alarms remotely to ensure safety.</p>
+        <h3>Live GPS Tracking</h3>
+        <p>Real-time location of vehicles, cycles, or students via GPS and Firebase.</p>
       </div>
       <div class="feature">
         <i class="fas fa-history"></i>
         <h3>Movement History</h3>
-        <p>Review the movement log of your vehicle with timestamps and coordinates.</p>
+        <p>View complete location logs with timestamps and map previews.</p>
       </div>
       <div class="feature">
-        <i class="fas fa-user-shield"></i>
-        <h3>Secure Access</h3>
-        <p>Only registered users can view and control their own vehicle data.</p>
+        <i class="fas fa-bell"></i>
+        <h3>Alarm Control</h3>
+        <p>Enable alarms remotely to detect unauthorized movement.</p>
+      </div>
+      <div class="feature">
+        <i class="fas fa-lock"></i>
+        <h3>User-Specific Access</h3>
+        <p>Each user sees only their data — highly secure & private.</p>
+      </div>
+      <div class="feature">
+        <i class="fas fa-bicycle"></i>
+        <h3>Supports All Vehicles</h3>
+        <p>Track cars, bikes, autos, cycles, and even students easily.</p>
       </div>
     </div>
-  </section>  <footer>
-    &copy; 2025 Smart Tracker. All rights reserved.
+  </section>
+
+  <footer>
+    © 2025 Smart Tracker Project. All rights reserved.
   </footer>
+
 </body>
 </html>
