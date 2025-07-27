@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -40,17 +39,6 @@
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-    tr.selected { background: #e6f7ff; }
-    .map-btn {
-      padding: 2px 10px;
-      background: #1e3a8a;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { padding: 0.5em; text-align: left; }
   </style>
 </head>
 <body>
@@ -62,47 +50,40 @@
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
       </div>
-    </header>
-    <section class="card status-card">
-      <h2>🔍 Live Status</h2>
-      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
-      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
-    </section>
+    </header><section class="card status-card">
+  <h2>🔍 Live Status</h2>
+  <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+  <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+  <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+</section>
 
-    <section class="card alarm-card">
-      <h2>🔔 Vehicle Alarm</h2>
-      <label class="switch">
-        <input type="checkbox" id="alarmToggle">
-        <span class="slider round"></span>
-      </label>
-      <p id="alarmStatusText">Loading alarm status...</p>
-    </section>
+<section class="card alarm-card">
+  <h2>🔔 Vehicle Alarm</h2>
+  <label class="switch">
+    <input type="checkbox" id="alarmToggle">
+    <span class="slider round"></span>
+  </label>
+  <p id="alarmStatusText">Loading alarm status...</p>
+</section>
 
-    <section class="card map-card">
-      <h2>🗼 Live Map</h2>
-      <div id="map">Loading map...</div>
-    </section>
+<section class="card map-card">
+  <h2>🗼 Live Map</h2>
+  <div id="map">Loading map...</div>
+</section>
 
-    <section class="card history-card">
-      <h2>📈 Movement History</h2>
-      <table>
-        <thead>
-          <tr><th>Time</th><th>Location</th><th>Map</th></tr>
-        </thead>
-        <tbody id="history">
-          <tr><td>Loading...</td><td>...</td><td></td></tr>
-        </tbody>
-      </table>
-    </section>
+<section class="card history-card">
+  <h2>📈 Movement History</h2>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Location</th></tr>
+    </thead>
+    <tbody id="history">
+      <tr><td>Loading...</td><td>...</td></tr>
+    </tbody>
+  </table>
+</section>
 
-  </div>
-  <!-- Firebase & Leaflet Scripts -->  
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  
-  <script>
+  </div>  <!-- Firebase & Leaflet Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -124,7 +105,7 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
 
-    let map, marker, historyMarker = null;
+    let map, marker;
 
     function updateMap(lat, lng) {
       if (!map) {
@@ -143,10 +124,12 @@
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+
         const { latitude, longitude, status, last_active } = data;
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
+
         updateMap(latitude, longitude);
       });
 
@@ -154,36 +137,9 @@
         const history = snapshot.val();
         historyEl.innerHTML = "";
         if (history) {
-          Object.values(history).reverse().forEach((entry, idx) => {
-            // Parse coords
-            let lat = entry.latitude, lng = entry.longitude;
-            if ((!lat || !lng) && entry.location) {
-              const locArr = entry.location.split(",").map(x => parseFloat(x.trim()));
-              if (locArr.length === 2) [lat, lng] = locArr;
-            }
-            // Table row
-            const row = document.createElement("tr");
-            row.innerHTML = `<td>${entry.time}</td>
-              <td>${entry.location}</td>
-              <td>${(lat && lng) ? `<button class="map-btn">View</button>` : ""}</td>`;
-            // Map button
-            if (lat && lng) {
-              row.querySelector("button.map-btn").addEventListener("click", (e) => {
-                // Highlight selected
-                [...historyEl.children].forEach(r => r.classList.remove("selected"));
-                row.classList.add("selected");
-                // Show marker
-                if (historyMarker) map.removeLayer(historyMarker);
-                historyMarker = L.marker([lat, lng], {
-                  icon: L.icon({
-                    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-                    iconSize: [25,41], iconAnchor: [12,41]
-                  })
-                }).addTo(map).bindPopup(`Location at ${entry.time}`).openPopup();
-                map.setView([lat, lng], 16);
-              });
-            }
-            historyEl.appendChild(row);
+          Object.values(history).reverse().forEach(entry => {
+            const row = `<tr><td>${entry.time}</td><td>${entry.location}</td></tr>`;
+            historyEl.innerHTML += row;
           });
         }
       });
@@ -209,6 +165,5 @@
         window.location.href = "login.html";
       }
     });
-  </script>
-</body>
+  </script></body>
 </html>
