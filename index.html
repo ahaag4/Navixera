@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -39,6 +40,14 @@
     input:checked + .slider:before {
       transform: translateX(30px);
     }
+    button.view-btn {
+      padding: 4px 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -50,40 +59,58 @@
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
       </div>
-    </header><section class="card status-card">
-  <h2>🔍 Live Status</h2>
-  <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-  <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
-  <p><strong>Status:</strong> <span id="status">Loading...</span></p>
-</section>
+    </header>
 
-<section class="card alarm-card">
-  <h2>🔔 Vehicle Alarm</h2>
-  <label class="switch">
-    <input type="checkbox" id="alarmToggle">
-    <span class="slider round"></span>
-  </label>
-  <p id="alarmStatusText">Loading alarm status...</p>
-</section>
+    <!-- Live Status -->
+    <section class="card status-card">
+      <h2>🔍 Live Status</h2>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+    </section>
 
-<section class="card map-card">
-  <h2>🗼 Live Map</h2>
-  <div id="map">Loading map...</div>
-</section>
+    <!-- Alarm Toggle -->
+    <section class="card alarm-card">
+      <h2>🔔 Vehicle Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <p id="alarmStatusText">Loading alarm status...</p>
+    </section>
 
-<section class="card history-card">
-  <h2>📈 Movement History</h2>
-  <table>
-    <thead>
-      <tr><th>Time</th><th>Location</th></tr>
-    </thead>
-    <tbody id="history">
-      <tr><td>Loading...</td><td>...</td></tr>
-    </tbody>
-  </table>
-</section>
+    <!-- Map -->
+    <section class="card map-card">
+      <h2>🗼 Live Map</h2>
+      <div id="map" style="height: 300px;">Loading map...</div>
+    </section>
 
-  </div>  <!-- Firebase & Leaflet Scripts -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  <script>
+    <!-- History -->
+    <section class="card history-card">
+      <h2>📈 Movement History</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Location</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="history">
+          <tr><td>Loading...</td><td>...</td><td>...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- Firebase + Leaflet -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -94,6 +121,7 @@
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
 
+    // Initialize
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
@@ -118,32 +146,47 @@
       }
     }
 
+    function focusOnMap(lat, lng) {
+      if (map && marker) {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 17);
+        marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
+      }
+    }
+
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
+      // Live Data
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-
         const { latitude, longitude, status, last_active } = data;
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
-
         updateMap(latitude, longitude);
       });
 
+      // History Data
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
         if (history) {
           Object.values(history).reverse().forEach(entry => {
-            const row = `<tr><td>${entry.time}</td><td>${entry.location}</td></tr>`;
+            const [lat, lng] = entry.location.split(',').map(Number);
+            const row = `
+              <tr>
+                <td>${entry.time}</td>
+                <td>${entry.location}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+              </tr>`;
             historyEl.innerHTML += row;
           });
         }
       });
 
+      // Alarm toggle
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
@@ -156,6 +199,7 @@
       });
     }
 
+    // Auth Check
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
@@ -165,5 +209,6 @@
         window.location.href = "login.html";
       }
     });
-  </script></body>
+  </script>
+</body>
 </html>
