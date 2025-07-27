@@ -11,58 +11,93 @@
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      background: #f7f9fc;
+      background: #f5f5f5;
     }
+
     .dashboard {
-      max-width: 1000px;
-      margin: auto;
       padding: 20px;
+      max-width: 1200px;
+      margin: auto;
     }
+
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #343a40;
+      background: #2c3e50;
       color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
+      padding: 15px;
+      border-radius: 8px;
     }
-    .logo {
+
+    header .logo {
       height: 40px;
+      margin-right: 10px;
     }
+
+    header h1 {
+      flex: 1;
+      font-size: 22px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button {
+      padding: 6px 12px;
+      border: none;
+      background-color: #e74c3c;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     .card {
       background: white;
       padding: 20px;
-      margin: 20px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h2 {
-      margin-top: 0;
-      color: #343a40;
-    }
-    #map {
-      height: 300px;
-      width: 100%;
-      border-radius: 10px;
-    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      table-layout: auto;
     }
+
     th, td {
       padding: 10px;
       text-align: left;
       border-bottom: 1px solid #ccc;
+      vertical-align: middle;
     }
+
+    td button {
+      padding: 5px 10px;
+      background-color: #2980b9;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     .switch {
       position: relative;
       display: inline-block;
       width: 60px;
       height: 30px;
     }
-    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
     .slider {
       position: absolute;
       cursor: pointer;
@@ -71,6 +106,7 @@
       transition: .4s;
       border-radius: 30px;
     }
+
     .slider:before {
       position: absolute;
       content: "";
@@ -82,37 +118,20 @@
       transition: .4s;
       border-radius: 50%;
     }
+
     input:checked + .slider {
       background-color: #28a745;
     }
+
     input:checked + .slider:before {
       transform: translateX(30px);
     }
-    .view-btn {
-      background-color: #007bff;
-      color: white;
-      padding: 5px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: 0.3s ease;
-    }
-    .view-btn:hover {
-      background-color: #0056b3;
-    }
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    #logoutBtn {
-      background: #dc3545;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
+
+    @media (max-width: 768px) {
+      header, .user-info {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
   </style>
 </head>
@@ -144,8 +163,8 @@
     </section>
 
     <section class="card map-card">
-      <h2>🗼 Live Map</h2>
-      <div id="map">Loading map...</div>
+      <h2>🗺️ Live Map</h2>
+      <div id="map" style="height: 300px;">Loading map...</div>
     </section>
 
     <section class="card history-card">
@@ -161,11 +180,12 @@
     </section>
   </div>
 
-  <!-- Firebase & Leaflet Scripts -->
+  <!-- Firebase & Leaflet -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -190,21 +210,22 @@
 
     let map, marker;
 
-    function updateMap(lat, lng, popupText = null) {
+    function updateMap(lat, lng) {
       if (!map) {
         map = L.map('map').setView([lat, lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
-        if (popupText) marker.bindPopup(popupText).openPopup();
       } else {
         marker.setLatLng([lat, lng]);
         map.setView([lat, lng], 15);
-        if (popupText) marker.bindPopup(popupText).openPopup();
       }
     }
 
     function focusOnMap(lat, lng) {
-      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+      if (map && marker) {
+        map.setView([lat, lng], 15);
+        marker.setLatLng([lat, lng]);
+      }
     }
 
     function loadDashboard(uid) {
@@ -232,12 +253,10 @@
               <tr>
                 <td>${entry.time}</td>
                 <td>${entry.location}</td>
-                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+                <td><button onclick="focusOnMap(${lat}, ${lng})">View</button></td>
               </tr>`;
             historyEl.innerHTML += row;
           });
-        } else {
-          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
       });
 
