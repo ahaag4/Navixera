@@ -1,26 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Track Your Package</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Track Shipment - Smart Logistics</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial; margin: 0; padding: 20px; }
-    #map { height: 300px; width: 100%; margin-top: 20px; }
-    input, button { padding: 10px; margin: 5px 0; width: 100%; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f8fb;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    h1 {
+      font-size: 24px;
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .info {
+      margin-top: 20px;
+      font-size: 15px;
+      color: #333;
+    }
+    .info span {
+      display: block;
+      margin-bottom: 8px;
+    }
+    #map {
+      height: 300px;
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+      margin-top: 10px;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h2>📦 Track Your Shipment</h2>
-  <input type="text" id="trackIdInput" placeholder="Enter Tracking ID">
-  <button onclick="track()">Track Now</button>
-  <p><strong>Status:</strong> <span id="status">Not tracked yet</span></p>
-  <p><strong>Last Update:</strong> <span id="lastUpdate">N/A</span></p>
-  <div id="map"></div>
+  <div class="container">
+    <h1>📦 Track Your Shipment</h1>
+    <input type="text" id="trackIdInput" placeholder="Enter Tracking ID" />
+    <button onclick="track()">Track Now</button>
+    <p class="error" id="errorText">Tracking ID not found. Please check again.</p>
 
+    <div class="info">
+      <span><strong>Status:</strong> <span id="status">---</span></span>
+      <span><strong>Last Updated:</strong> <span id="lastUpdate">---</span></span>
+      <span><strong>Location:</strong> <span id="locationText">---</span></span>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -33,31 +102,51 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    
+
+    const errorText = document.getElementById("errorText");
+    const locationText = document.getElementById("locationText");
+    const statusEl = document.getElementById("status");
+    const lastUpdateEl = document.getElementById("lastUpdate");
+
     let map, marker;
+
+    function updateMap(lat, lng) {
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng]);
+      }
+    }
 
     function track() {
       const trackId = document.getElementById("trackIdInput").value.trim();
-      if (!trackId) return alert("Enter a tracking ID");
+      if (!trackId) {
+        alert("Please enter a tracking ID.");
+        return;
+      }
 
-      db.ref("tracking/" + trackId).on("value", snapshot => {
+      db.ref("tracking/" + trackId).on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) {
-          alert("Tracking ID not found.");
+          errorText.style.display = "block";
+          statusEl.textContent = "---";
+          lastUpdateEl.textContent = "---";
+          locationText.textContent = "---";
           return;
         }
 
-        document.getElementById("status").textContent = data.status || "Unknown";
-        document.getElementById("lastUpdate").textContent = data.last_update || "N/A";
-
-        const { lat, lng } = data.location;
-        if (!map) {
-          map = L.map('map').setView([lat, lng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-          marker = L.marker([lat, lng]).addTo(map);
+        errorText.style.display = "none";
+        statusEl.textContent = data.status || "Pending";
+        lastUpdateEl.textContent = data.last_update || "Unknown";
+        const { lat, lng } = data.location || {};
+        if (lat && lng) {
+          locationText.textContent = `${lat}, ${lng}`;
+          updateMap(lat, lng);
         } else {
-          marker.setLatLng([lat, lng]);
-          map.setView([lat, lng], 14);
+          locationText.textContent = "N/A";
         }
       });
     }
