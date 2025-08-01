@@ -10,10 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <!-- Leaflet CSS & JS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
@@ -99,12 +96,30 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    async function trackDelivery() {
+    let map, marker, tileLayer;
+    let currentTrackingId = null;
+    let currentRef = null;
+
+    function resetMap(lat, lng, name, vehicleType) {
+      if (map) {
+        map.setView([lat, lng], 13);
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map).bindPopup(`📍 ${name} - ${vehicleType}`).openPopup();
+      } else {
+        map = L.map("map").setView([lat, lng], 13);
+        tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map).bindPopup(`📍 ${name} - ${vehicleType}`).openPopup();
+      }
+    }
+
+    function trackDelivery() {
       const trackingId = document.getElementById("trackId").value.trim().toUpperCase();
       const output = document.getElementById("output");
       const mapDiv = document.getElementById("map");
-      mapDiv.style.display = "none";
       output.innerHTML = "";
+      mapDiv.style.display = "none";
 
       if (!trackingId) {
         output.innerHTML = "⚠️ Please enter a tracking ID.";
@@ -112,9 +127,16 @@
       }
 
       output.innerHTML = "🔍 Searching...";
+      currentTrackingId = trackingId;
 
-      try {
-        const usersSnap = await db.ref("users").once("value");
+      // Remove previous listener
+      if (currentRef) {
+        currentRef.off();
+        currentRef = null;
+      }
+
+      currentRef = db.ref("users");
+      currentRef.on("value", (usersSnap) => {
         const users = usersSnap.val();
         let found = false;
 
@@ -152,14 +174,8 @@
                   📧 <strong>Email:</strong> ${email}<br>
                 `;
 
-                // Show Map
                 mapDiv.style.display = "block";
-                mapDiv.innerHTML = ""; // Reset
-                const map = L.map("map").setView([lat, lng], 13);
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                  attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-                L.marker([lat, lng]).addTo(map).bindPopup(`📍 ${name} - ${vehicleType}`).openPopup();
+                resetMap(lat, lng, name, vehicleType);
                 return;
               }
             }
@@ -168,11 +184,9 @@
 
         if (!found) {
           output.innerHTML = "❌ Tracking ID not found.";
+          mapDiv.style.display = "none";
         }
-      } catch (err) {
-        output.innerHTML = "❌ Firebase error: " + err.message;
-        console.error("Firebase error:", err);
-      }
+      });
     }
   </script>
 </body>
