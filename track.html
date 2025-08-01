@@ -1,52 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Track Delivery - Smart Vehicle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 30px;
-      text-align: center;
+      font-family: 'Segoe UI', sans-serif;
+      background: #eef2f3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
     .card {
       background: white;
-      padding: 20px;
-      border-radius: 10px;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       max-width: 500px;
-      margin: auto;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      width: 100%;
+      text-align: center;
+    }
+    h2 {
+      color: #007bff;
+      margin-bottom: 20px;
     }
     input {
-      padding: 10px;
+      padding: 12px;
       width: 80%;
-      margin: 10px 0;
+      margin: 10px auto;
       font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
     button {
-      padding: 10px 20px;
+      padding: 12px 25px;
       background: #007bff;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
+      font-size: 16px;
       cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
     }
     .result {
       margin-top: 20px;
-      font-size: 16px;
+      font-size: 15px;
+      text-align: left;
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 10px;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
+
   <div class="card">
     <h2>📦 Track Your Delivery</h2>
     <input type="text" id="trackId" placeholder="Enter Tracking ID (e.g. ASI108)">
     <br>
     <button onclick="trackDelivery()">Track</button>
-
     <div class="result" id="output"></div>
   </div>
 
@@ -64,46 +83,60 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function trackDelivery() {
-      const trackingId = document.getElementById('trackId').value.trim();
+    async function trackDelivery() {
+      const trackingId = document.getElementById('trackId').value.trim().toUpperCase();
       const output = document.getElementById('output');
+      if (!trackingId) {
+        output.innerHTML = "⚠️ Please enter a tracking ID.";
+        return;
+      }
+
       output.innerHTML = "🔍 Searching...";
 
-      db.ref('users').once('value').then(snapshot => {
-        let found = false;
+      const usersSnap = await db.ref("users").once("value");
+      const users = usersSnap.val();
+      let found = false;
 
-        snapshot.forEach(userSnap => {
-          const companies = userSnap.child("vehicle/companies").val();
-          if (!companies) return;
+      for (const userId in users) {
+        const companies = users[userId]?.vehicle?.companies;
+        if (!companies) continue;
 
-          Object.entries(companies).forEach(([companyKey, company]) => {
-            const vehicles = company.vehicle || {};
-            Object.entries(vehicles).forEach(([vehKey, vehData]) => {
-              const deliveries = vehData.deliveries || {};
-              if (Object.keys(deliveries).includes(trackingId)) {
-                found = true;
-                const gps = vehData.gps || "Not available";
-                const battery = vehData.battery || "Unknown";
-                const vehicleType = vehData.vehicleType || "N/A";
+        for (const companyKey in companies) {
+          const company = companies[companyKey];
+          const vehicles = company.vehicle;
 
-                output.innerHTML = `
-                  ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
-                  🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
-                  📍 <strong>GPS:</strong> ${gps}<br>
-                  🔋 <strong>Battery:</strong> ${battery}%<br>
-                  🏢 <strong>Company:</strong> ${company.name || companyKey}<br>
-                  📧 <strong>Email:</strong> ${company.email || "N/A"}<br>
-                `;
-              }
-            });
-          });
-        });
+          for (const vehId in vehicles) {
+            const vehicle = vehicles[vehId];
+            const deliveries = vehicle.deliveries || {};
 
-        if (!found) {
-          output.innerHTML = "❌ Tracking ID not found.";
+            if (Object.keys(deliveries).includes(trackingId)) {
+              found = true;
+
+              const gps = vehicle.gps || "Not available";
+              const battery = vehicle.battery ?? "Unknown";
+              const vehicleType = vehicle.vehicleType || "Unknown";
+              const email = company.email || "Not available";
+              const name = company.name || companyKey;
+
+              output.innerHTML = `
+                ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
+                🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
+                📍 <strong>GPS:</strong> ${gps}<br>
+                🔋 <strong>Battery:</strong> ${battery}%<br>
+                🏢 <strong>Company:</strong> ${name}<br>
+                📧 <strong>Email:</strong> ${email}<br>
+              `;
+              return;
+            }
+          }
         }
-      });
+      }
+
+      if (!found) {
+        output.innerHTML = "❌ Tracking ID not found.";
+      }
     }
   </script>
+
 </body>
 </html>
