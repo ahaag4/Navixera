@@ -17,46 +17,32 @@
     .card { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
     .stat-card { text-align: center; padding: 20px; }
     .stat-card h3 { margin-bottom: 10px; font-weight: 600; }
+    .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 15px; }
   </style>
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">Super Admin - SVMS</a>
       <button class="btn btn-light ms-auto" onclick="logout()">Logout</button>
     </div>
-  </nav>  <div class="container py-4">
-    <!-- Dashboard Stats -->
+  </nav>
+  <div class="container py-4">
     <div class="row text-center">
-      <div class="col-md-3 stat-card bg-light">
-        <h3 id="totalCompanies">0</h3>
-        <p>Total Companies</p>
-      </div>
-      <div class="col-md-3 stat-card bg-light">
-        <h3 id="totalVehicles">0</h3>
-        <p>Total Vehicles</p>
-      </div>
-      <div class="col-md-3 stat-card bg-light">
-        <h3 id="totalDeliveries">0</h3>
-        <p>Total Deliveries</p>
-      </div>
-      <div class="col-md-3 stat-card bg-light">
-        <h3 id="alertsToday">0</h3>
-        <p>Alerts Today</p>
-      </div>
-    </div><!-- Live Map -->
-<div class="card">
+      <div class="col-md-3 stat-card bg-light"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div>
+      <div class="col-md-3 stat-card bg-light"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div>
+      <div class="col-md-3 stat-card bg-light"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div>
+      <div class="col-md-3 stat-card bg-light"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div>
+    </div><div class="card">
   <div class="card-body">
-    <h5 class="card-title">Live Vehicle Locations</h5>
+    <div class="section-title">Live Vehicle Locations</div>
     <div id="map"></div>
   </div>
 </div>
 
-<!-- Company Management -->
 <div class="card">
   <div class="card-body">
-    <h5 class="card-title">Company Management</h5>
+    <div class="section-title">Company Management</div>
     <table class="table table-bordered">
       <thead class="table-light">
         <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Actions</th></tr>
@@ -66,119 +52,60 @@
   </div>
 </div>
 
-<!-- Delivery Tracking -->
 <div class="card">
   <div class="card-body">
-    <h5 class="card-title">Track Delivery</h5>
+    <div class="section-title">Track Delivery</div>
     <input type="text" class="form-control mb-3" id="searchTrackId" placeholder="Enter Tracking ID...">
     <div id="deliveryResult"></div>
   </div>
 </div>
 
-  </div>  <!-- Firebase and Logic -->  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-      authDomain: "svms-c0232.firebaseapp.com",
-      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-      projectId: "svms-c0232",
-      storageBucket: "svms-c0232.appspot.com",
-      messagingSenderId: "359201898609",
-      appId: "1:359201898609:web:893ef076207abb06471bd0"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const auth = firebase.auth();
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">Analytics (Daily)</div>
+    <canvas id="analyticsChart" style="height: 300px;"></canvas>
+  </div>
+</div>
 
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        window.location.href = "login.html";
-      } else {
-        loadDashboard(user.uid);
-      }
-    });
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">Alert Monitoring</div>
+    <ul class="list-group" id="alertList"></ul>
+  </div>
+</div>
 
-    function logout() {
-      auth.signOut();
-    }
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">Vehicle Logs & History</div>
+    <input type="text" class="form-control mb-2" id="logVehicleId" placeholder="Vehicle ID">
+    <button class="btn btn-primary mb-2" onclick="fetchLogs()">Fetch Logs</button>
+    <button class="btn btn-secondary mb-2" onclick="exportCSV()">Export CSV</button>
+    <div id="logResult" class="table-responsive"></div>
+  </div>
+</div>
 
-    function loadDashboard(adminId) {
-      const map = L.map("map").setView([19.2183, 72.9781], 11);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-      const markers = {};
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">Admin Settings</div>
+    <p><strong>Firebase Config, Alerts Toggle, GPS Defaults...</strong> (To be added based on preference)</p>
+  </div>
+</div>
 
-      db.ref("users").once("value", snap => {
-        const users = snap.val();
-        let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alerts = 0;
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">Testing Tools</div>
+    <button class="btn btn-info me-2" onclick="simulateUpdate()">Simulate Vehicle Update</button>
+    <button class="btn btn-info me-2" onclick="testDelivery()">Test Delivery</button>
+    <button class="btn btn-danger" onclick="testAlarm()">Test Alarm Trigger</button>
+  </div>
+</div>
 
-        const table = document.getElementById("companyTable");
-        table.innerHTML = "";
+<div class="card">
+  <div class="card-body">
+    <div class="section-title">License / Subscription Management</div>
+    <p>Track hardware IDs, subscription plans, renewals. (Structure available, data needed)</p>
+  </div>
+</div>
 
-        for (let userId in users) {
-          const user = users[userId];
-          const companies = user.vehicle?.companies || {};
-
-          for (let company in companies) {
-            totalCompanies++;
-            const vehicles = companies[company]?.vehicle || {};
-            const vCount = Object.keys(vehicles).length;
-            totalVehicles += vCount;
-
-            let dCount = 0;
-            for (let vId in vehicles) {
-              const v = vehicles[vId];
-              if (v.gps) {
-                const [lat, lng] = v.gps.split(",").map(Number);
-                if (!markers[vId]) {
-                  markers[vId] = L.marker([lat, lng]).addTo(map).bindPopup(`${vId} (${v.vehicleType})`);
-                } else {
-                  markers[vId].setLatLng([lat, lng]);
-                }
-              }
-              const deliveries = v.deliveries || {};
-              dCount += Object.keys(deliveries).length;
-              totalDeliveries += dCount;
-            }
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `<td>${company}</td><td>${vCount}</td><td>${dCount}</td><td><button class='btn btn-danger btn-sm'>Block</button></td>`;
-            table.appendChild(tr);
-          }
-        }
-
-        document.getElementById("totalCompanies").textContent = totalCompanies;
-        document.getElementById("totalVehicles").textContent = totalVehicles;
-        document.getElementById("totalDeliveries").textContent = totalDeliveries;
-        document.getElementById("alertsToday").textContent = alerts; // You can count alerts from /last_trigger/status
-      });
-
-      document.getElementById("searchTrackId").addEventListener("input", (e) => {
-        const id = e.target.value.trim();
-        if (id.length < 4) return;
-        searchTrackingID(id);
-      });
-    }
-
-    function searchTrackingID(trackId) {
-      const result = document.getElementById("deliveryResult");
-      result.innerHTML = "<small>Searching...</small>";
-      db.ref("users").once("value", snap => {
-        const users = snap.val();
-        for (let userId in users) {
-          const companies = users[userId].vehicle?.companies || {};
-          for (let c in companies) {
-            const vehicles = companies[c].vehicle || {};
-            for (let vId in vehicles) {
-              const deliveries = vehicles[vId].deliveries || {};
-              if (deliveries[trackId]) {
-                const status = deliveries[trackId].status;
-                result.innerHTML = `<div class='alert alert-success'>Tracking ID: ${trackId} - Status: ${status} - Vehicle: ${vId}</div>`;
-                return;
-              }
-            }
-          }
-        }
-        result.innerHTML = `<div class='alert alert-warning'>Tracking ID not found.</div>`;
-      });
-    }
-  </script></body>
+  </div>  <!-- ChartJS -->  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  <script src="main-admin-logic.js"></script></body>
 </html>
