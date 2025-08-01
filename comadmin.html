@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Admin Panel - Smart Vehicle Logistics</title>
@@ -6,6 +7,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -17,11 +19,31 @@
   </style>
 </head>
 <body>
+
+<!-- Login Page -->
+<div class="container py-5" id="loginSection">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card p-4">
+        <h4 class="mb-3 text-center">Login to Admin Panel</h4>
+        <input type="email" id="email" class="form-control mb-3" placeholder="Email" />
+        <input type="password" id="password" class="form-control mb-3" placeholder="Password" />
+        <input type="text" id="companyName" class="form-control mb-3" placeholder="Company Name" />
+        <button class="btn btn-primary w-100" onclick="login()">Login</button>
+        <div class="text-danger mt-3" id="loginError"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div id="adminPanel" style="display:none;">
   <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">Admin Panel</a>
     </div>
-  </nav>  <div class="container py-4">
+  </nav>
+  <div class="container py-4">
     <div class="row">
       <div class="col-md-4">
         <div class="card p-3 mb-3">
@@ -30,99 +52,108 @@
           <input type="text" class="form-control mb-2" id="dVehicleId" placeholder="Vehicle ID (e.g. V123)" />
           <input type="text" class="form-control mb-2" id="dStatus" placeholder="Status (e.g. In Transit)" />
           <button class="btn btn-primary w-100" onclick="addDelivery()">Add Delivery</button>
-        </div><div class="card p-3 mb-3">
-      <h5>Add Vehicle</h5>
-      <input type="text" class="form-control mb-2" id="vId" placeholder="Vehicle ID" />
-      <input type="text" class="form-control mb-2" id="vType" placeholder="Vehicle Type" />
-      <button class="btn btn-success w-100" onclick="addVehicle()">Add Vehicle</button>
-    </div>
-
-    <div class="card p-3 mb-3">
-      <h5>Add Driver</h5>
-      <input type="text" class="form-control mb-2" id="driverName" placeholder="Driver Name" />
-      <input type="text" class="form-control mb-2" id="driverContact" placeholder="Contact Number" />
-      <button class="btn btn-info w-100" onclick="addDriver()">Add Driver</button>
-    </div>
-  </div>
-
-  <div class="col-md-8">
-    <div class="card p-3 mb-4">
-      <h5>Live Vehicle Locations</h5>
-      <div id="map"></div>
-    </div>
-
-    <div class="card p-3">
-      <h5>Deliveries</h5>
-      <ul class="list-group" id="deliveryList"></ul>
+        </div>
+        <div class="card p-3 mb-3">
+          <h5>Add Vehicle</h5>
+          <input type="text" class="form-control mb-2" id="vId" placeholder="Vehicle ID" />
+          <input type="text" class="form-control mb-2" id="vType" placeholder="Vehicle Type" />
+          <button class="btn btn-success w-100" onclick="addVehicle()">Add Vehicle</button>
+        </div>
+        <div class="card p-3 mb-3">
+          <h5>Add Driver</h5>
+          <input type="text" class="form-control mb-2" id="driverName" placeholder="Driver Name" />
+          <input type="text" class="form-control mb-2" id="driverContact" placeholder="Contact Number" />
+          <button class="btn btn-info w-100" onclick="addDriver()">Add Driver</button>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="card p-3 mb-4">
+          <h5>Live Vehicle Locations</h5>
+          <div id="map"></div>
+        </div>
+        <div class="card p-3">
+          <h5>Deliveries</h5>
+          <ul class="list-group" id="deliveryList"></ul>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-  </div>  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-      authDomain: "svms-c0232.firebaseapp.com",
-      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-      projectId: "svms-c0232",
-      storageBucket: "svms-c0232.appspot.com",
-      messagingSenderId: "359201898609",
-      appId: "1:359201898609:web:893ef076207abb06471bd0"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+    authDomain: "svms-c0232.firebaseapp.com",
+    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+    projectId: "svms-c0232",
+    storageBucket: "svms-c0232.appspot.com",
+    messagingSenderId: "359201898609",
+    appId: "1:359201898609:web:893ef076207abb06471bd0"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const auth = firebase.auth();
 
-    const userId = "YOUR_USER_ID_HERE";  // Replace dynamically if needed
-    const companyName = "COMPANY_NAME_HERE"; // Replace dynamically if needed
+  let userId = "";
+  let companyName = "";
 
-    function addDelivery() {
-      const trackId = document.getElementById("dTrackId").value.trim();
-      const vehicleId = document.getElementById("dVehicleId").value.trim();
-      const status = document.getElementById("dStatus").value.trim();
-      if (trackId && vehicleId && status) {
-        db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle/${vehicleId}/deliveries/${trackId}`).set({ status });
-        alert("✅ Delivery added");
-      }
+  function login() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    companyName = document.getElementById("companyName").value.trim();
+    const errorDiv = document.getElementById("loginError");
+    errorDiv.innerHTML = "";
+
+    if (!email || !password || !companyName) {
+      errorDiv.innerHTML = "⚠️ All fields are required.";
+      return;
     }
 
-    function addVehicle() {
-      const vId = document.getElementById("vId").value.trim();
-      const vType = document.getElementById("vType").value.trim();
-      if (vId && vType) {
-        db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle/${vId}`).set({
-          vehicleType: vType,
-          gps: "19.2183,72.9781",
-          battery: Math.floor(Math.random() * 20) + 80
-        });
-        alert("✅ Vehicle added");
-      }
+    auth.signInWithEmailAndPassword(email, password)
+      .then((userCred) => {
+        userId = userCred.user.uid;
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("adminPanel").style.display = "block";
+        setupPanel();
+      })
+      .catch((err) => {
+        errorDiv.innerHTML = "❌ " + err.message;
+      });
+  }
+
+  function addDelivery() {
+    const trackId = document.getElementById("dTrackId").value.trim();
+    const vehicleId = document.getElementById("dVehicleId").value.trim();
+    const status = document.getElementById("dStatus").value.trim();
+    if (trackId && vehicleId && status) {
+      db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle/${vehicleId}/deliveries/${trackId}`).set({ status });
+      alert("✅ Delivery added");
     }
+  }
 
-    function addDriver() {
-      const name = document.getElementById("driverName").value.trim();
-      const contact = document.getElementById("driverContact").value.trim();
-      if (name && contact) {
-        db.ref(`users/${userId}/drivers`).push({ name, contact });
-        alert("✅ Driver added");
-      }
+  function addVehicle() {
+    const vId = document.getElementById("vId").value.trim();
+    const vType = document.getElementById("vType").value.trim();
+    if (vId && vType) {
+      db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle/${vId}`).set({
+        vehicleType: vType,
+        gps: "19.2183,72.9781",
+        battery: Math.floor(Math.random() * 20) + 80
+      });
+      alert("✅ Vehicle added");
     }
+  }
 
-    db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle`).on("value", snap => {
-      const list = document.getElementById("deliveryList");
-      list.innerHTML = "";
-      const data = snap.val();
-      if (!data) return;
-      for (const vehId in data) {
-        const deliveries = data[vehId]?.deliveries || {};
-        for (const trackId in deliveries) {
-          const status = deliveries[trackId].status;
-          const li = document.createElement("li");
-          li.className = "list-group-item";
-          li.textContent = `📦 ${trackId} - 🚚 ${vehId} - ${status}`;
-          list.appendChild(li);
-        }
-      }
-    });
+  function addDriver() {
+    const name = document.getElementById("driverName").value.trim();
+    const contact = document.getElementById("driverContact").value.trim();
+    if (name && contact) {
+      db.ref(`users/${userId}/drivers`).push({ name, contact });
+      alert("✅ Driver added");
+    }
+  }
 
+  function setupPanel() {
     const map = L.map("map").setView([19.2183, 72.9781], 12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors"
@@ -141,5 +172,23 @@
         }
       }
     });
-  </script></body>
+
+    db.ref(`users/${userId}/vehicle/companies/${companyName}/vehicle`).on("value", snap => {
+      const list = document.getElementById("deliveryList");
+      list.innerHTML = "";
+      const data = snap.val();
+      for (const vehId in data) {
+        const deliveries = data[vehId]?.deliveries || {};
+        for (const trackId in deliveries) {
+          const status = deliveries[trackId].status;
+          const li = document.createElement("li");
+          li.className = "list-group-item";
+          li.textContent = `📦 ${trackId} - 🚚 ${vehId} - ${status}`;
+          list.appendChild(li);
+        }
+      }
+    });
+  }
+</script>
+</body>
 </html>
