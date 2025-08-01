@@ -1,73 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Track Delivery - Smart Vehicle</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- Leaflet CSS & JS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       background: #eef2f3;
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
+      align-items: flex-start;
+      min-height: 100vh;
       margin: 0;
+      padding: 20px;
     }
     .card {
-      background: white;
+      background: #fff;
       padding: 30px;
       border-radius: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      max-width: 500px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
       width: 100%;
-      text-align: center;
+      max-width: 600px;
     }
     h2 {
+      text-align: center;
       color: #007bff;
       margin-bottom: 20px;
     }
-    input {
+    input[type="text"] {
+      width: 100%;
       padding: 12px;
-      width: 80%;
-      margin: 10px auto;
       font-size: 16px;
       border: 1px solid #ccc;
       border-radius: 6px;
+      margin-bottom: 10px;
     }
     button {
-      padding: 12px 25px;
       background: #007bff;
-      color: white;
+      color: #fff;
       border: none;
-      border-radius: 6px;
+      padding: 12px 20px;
       font-size: 16px;
+      border-radius: 6px;
       cursor: pointer;
+      width: 100%;
     }
     button:hover {
-      background-color: #0056b3;
+      background: #0056b3;
     }
     .result {
       margin-top: 20px;
-      font-size: 15px;
-      text-align: left;
       background: #f9f9f9;
       padding: 15px;
       border-radius: 10px;
+      font-size: 15px;
       line-height: 1.6;
+    }
+    #map {
+      height: 250px;
+      margin-top: 15px;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
-
   <div class="card">
     <h2>📦 Track Your Delivery</h2>
-    <input type="text" id="trackId" placeholder="Enter Tracking ID (e.g. ASI108)">
-    <br>
+    <input type="text" id="trackId" placeholder="Enter Tracking ID (e.g. ASI108)" />
     <button onclick="trackDelivery()">Track</button>
     <div class="result" id="output"></div>
+    <div id="map" style="display:none;"></div>
   </div>
 
   <script>
@@ -85,8 +100,10 @@
     const db = firebase.database();
 
     async function trackDelivery() {
-      const trackingId = document.getElementById('trackId').value.trim().toUpperCase();
-      const output = document.getElementById('output');
+      const trackingId = document.getElementById("trackId").value.trim().toUpperCase();
+      const output = document.getElementById("output");
+      const mapDiv = document.getElementById("map");
+      mapDiv.style.display = "none";
       output.innerHTML = "";
 
       if (!trackingId) {
@@ -116,20 +133,33 @@
               if (Object.keys(deliveries).includes(trackingId)) {
                 found = true;
 
-                const gps = vehicle.gps || "Not available";
+                const gps = vehicle.gps || "0,0";
                 const battery = vehicle.battery ?? "Unknown";
                 const vehicleType = vehicle.vehicleType || "Unknown";
                 const email = company.email || "N/A";
                 const name = company.name || companyKey;
+                const status = deliveries[trackingId]?.status || "In Transit";
+
+                const [lat, lng] = gps.split(",").map(Number);
 
                 output.innerHTML = `
                   ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
                   🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
-                  📍 <strong>GPS:</strong> ${gps}<br>
                   🔋 <strong>Battery:</strong> ${battery}%<br>
+                  📍 <strong>GPS:</strong> ${lat}, ${lng}<br>
+                  🚚 <strong>Status:</strong> ${status}<br>
                   🏢 <strong>Company:</strong> ${name}<br>
                   📧 <strong>Email:</strong> ${email}<br>
                 `;
+
+                // Show Map
+                mapDiv.style.display = "block";
+                mapDiv.innerHTML = ""; // Reset
+                const map = L.map("map").setView([lat, lng], 13);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                  attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                L.marker([lat, lng]).addTo(map).bindPopup(`📍 ${name} - ${vehicleType}`).openPopup();
                 return;
               }
             }
@@ -145,6 +175,5 @@
       }
     }
   </script>
-
 </body>
 </html>
