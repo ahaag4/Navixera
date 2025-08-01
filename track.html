@@ -1,95 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Track Shipment - Smart Logistics</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <title>Track Delivery - Smart Vehicle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f8fb;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.05);
-    }
-    h1 {
-      font-size: 24px;
       text-align: center;
-      color: #333;
-      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     input {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
+      padding: 10px;
+      width: 80%;
+      margin: 10px 0;
       font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
     }
     button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 15px;
-      font-size: 16px;
+      padding: 10px 20px;
       background: #007bff;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 5px;
       cursor: pointer;
     }
-    button:hover {
-      background: #0056b3;
-    }
-    .info {
+    .result {
       margin-top: 20px;
-      font-size: 15px;
-      color: #333;
-    }
-    .info span {
-      display: block;
-      margin-bottom: 8px;
-    }
-    #map {
-      height: 300px;
-      width: 100%;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
-    .error {
-      color: red;
-      font-size: 14px;
-      margin-top: 10px;
-      display: none;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📦 Track Your Shipment</h1>
-    <input type="text" id="trackIdInput" placeholder="Enter Tracking ID" />
-    <button onclick="track()">Track Now</button>
-    <p class="error" id="errorText">Tracking ID not found. Please check again.</p>
+  <div class="card">
+    <h2>📦 Track Your Delivery</h2>
+    <input type="text" id="trackId" placeholder="Enter Tracking ID (e.g. ASI108)">
+    <br>
+    <button onclick="trackDelivery()">Track</button>
 
-    <div class="info">
-      <span><strong>Status:</strong> <span id="status">---</span></span>
-      <span><strong>Last Updated:</strong> <span id="lastUpdate">---</span></span>
-      <span><strong>Location:</strong> <span id="locationText">---</span></span>
-    </div>
-
-    <div id="map"></div>
+    <div class="result" id="output"></div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -100,53 +60,47 @@
       messagingSenderId: "359201898609",
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const errorText = document.getElementById("errorText");
-    const locationText = document.getElementById("locationText");
-    const statusEl = document.getElementById("status");
-    const lastUpdateEl = document.getElementById("lastUpdate");
+    function trackDelivery() {
+      const trackingId = document.getElementById('trackId').value.trim();
+      const output = document.getElementById('output');
+      output.innerHTML = "🔍 Searching...";
 
-    let map, marker;
+      db.ref('users').once('value').then(snapshot => {
+        let found = false;
 
-    function updateMap(lat, lng) {
-      if (!map) {
-        map = L.map('map').setView([lat, lng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        marker = L.marker([lat, lng]).addTo(map);
-      } else {
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng]);
-      }
-    }
+        snapshot.forEach(userSnap => {
+          const companies = userSnap.child("vehicle/companies").val();
+          if (!companies) return;
 
-    function track() {
-      const trackId = document.getElementById("trackIdInput").value.trim();
-      if (!trackId) {
-        alert("Please enter a tracking ID.");
-        return;
-      }
+          Object.entries(companies).forEach(([companyKey, company]) => {
+            const vehicles = company.vehicle || {};
+            Object.entries(vehicles).forEach(([vehKey, vehData]) => {
+              const deliveries = vehData.deliveries || {};
+              if (Object.keys(deliveries).includes(trackingId)) {
+                found = true;
+                const gps = vehData.gps || "Not available";
+                const battery = vehData.battery || "Unknown";
+                const vehicleType = vehData.vehicleType || "N/A";
 
-      db.ref("tracking/" + trackId).on("value", (snapshot) => {
-        const data = snapshot.val();
-        if (!data) {
-          errorText.style.display = "block";
-          statusEl.textContent = "---";
-          lastUpdateEl.textContent = "---";
-          locationText.textContent = "---";
-          return;
-        }
+                output.innerHTML = `
+                  ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
+                  🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
+                  📍 <strong>GPS:</strong> ${gps}<br>
+                  🔋 <strong>Battery:</strong> ${battery}%<br>
+                  🏢 <strong>Company:</strong> ${company.name || companyKey}<br>
+                  📧 <strong>Email:</strong> ${company.email || "N/A"}<br>
+                `;
+              }
+            });
+          });
+        });
 
-        errorText.style.display = "none";
-        statusEl.textContent = data.status || "Pending";
-        lastUpdateEl.textContent = data.last_update || "Unknown";
-        const { lat, lng } = data.location || {};
-        if (lat && lng) {
-          locationText.textContent = `${lat}, ${lng}`;
-          updateMap(lat, lng);
-        } else {
-          locationText.textContent = "N/A";
+        if (!found) {
+          output.innerHTML = "❌ Tracking ID not found.";
         }
       });
     }
