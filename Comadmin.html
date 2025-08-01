@@ -1,0 +1,183 @@
+<!-- Professional Responsive Logistics Company Admin Panel (HTML + CSS + Firebase Ready) --><!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logistics Admin Panel</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }header {
+  background: #007bff;
+  color: white;
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header h1 { font-size: 24px; }
+nav { display: flex; gap: 20px; }
+nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #fff;
+  border-right: 1px solid #ccc;
+  padding: 20px;
+}
+
+.sidebar a {
+  display: block;
+  margin-bottom: 15px;
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.main {
+  padding: 30px;
+}
+
+.section {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 30px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.section h2 {
+  margin-bottom: 15px;
+  color: #007bff;
+}
+
+input, select, button {
+  padding: 10px;
+  margin: 8px 0;
+  width: 100%;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+button {
+  background: #007bff;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+table, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+}
+
+th {
+  background: #007bff;
+  color: white;
+}
+
+.logout {
+  color: white;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🚚 Logistics Admin Panel</h1>
+    <nav>
+      <a href="#deliveries">Deliveries</a>
+      <a href="#vehicles">Vehicles</a>
+      <a href="#drivers">Drivers</a>
+      <a href="#live">Tracking</a>
+      <a href="#analytics">Dashboard</a>
+      <a href="#reports">Reports</a>
+      <a href="#settings">Settings</a>
+      <span class="logout">Logout</span>
+    </nav>
+  </header>  <div class="container">
+    <aside class="sidebar">
+      <a href="#deliveries"><i class="fas fa-box"></i> Delivery Management</a>
+      <a href="#vehicles"><i class="fas fa-truck"></i> Vehicle Management</a>
+      <a href="#drivers"><i class="fas fa-user"></i> Driver Management</a>
+      <a href="#live"><i class="fas fa-map-marker-alt"></i> Real-Time Tracking</a>
+      <a href="#analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+      <a href="#reports"><i class="fas fa-file-export"></i> Reports</a>
+      <a href="#settings"><i class="fas fa-cogs"></i> Settings</a>
+    </aside><main class="main">
+  <section class="section" id="deliveries">
+    <h2>📦 Delivery Management</h2>
+    <input type="text" placeholder="Enter customer name">
+    <input type="text" placeholder="Enter address">
+    <button>Assign Delivery</button>
+    <!-- Delivery table here -->
+  </section>
+
+  <section class="section" id="vehicles">
+    <h2>🚚 Vehicle Management</h2>
+    <input type="text" placeholder="Vehicle Number">
+    <input type="text" placeholder="Type (Bike/Truck/Van)">
+    <button>Add Vehicle</button>
+  </section>
+
+  <section class="section" id="drivers">
+    <h2>👨‍✈️ Driver Management</h2>
+    <input type="text" placeholder="Driver Name">
+    <input type="email" placeholder="Email">
+    <button>Add Driver</button>
+  </section>
+
+  <section class="section" id="live">
+    <h2>📍 Real-Time Vehicle Tracking</h2>
+    <div id="map">Map will show here (Leaflet/Firebase setup)</div>
+  </section>
+
+  <section class="section" id="analytics">
+    <h2>📊 Dashboard / Analytics</h2>
+    <p>Total Deliveries: 0 | Completed: 0 | Active Vehicles: 0</p>
+    <!-- Charts can go here -->
+  </section>
+
+  <section class="section" id="reports">
+    <h2>📄 Reports & Export</h2>
+    <button>Export CSV</button>
+    <button>Download PDF</button>
+  </section>
+
+  <section class="section" id="settings">
+    <h2>⚙️ Company Settings</h2>
+    <input type="text" placeholder="Company Name">
+    <input type="email" placeholder="Admin Email">
+    <button>Update Profile</button>
+  </section>
+</main>
+
+  </div>
+</body>
+</html>
