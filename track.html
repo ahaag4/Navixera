@@ -14,6 +14,7 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
+      margin: 0;
     }
     .card {
       background: white;
@@ -86,6 +87,8 @@
     async function trackDelivery() {
       const trackingId = document.getElementById('trackId').value.trim().toUpperCase();
       const output = document.getElementById('output');
+      output.innerHTML = "";
+
       if (!trackingId) {
         output.innerHTML = "⚠️ Please enter a tracking ID.";
         return;
@@ -93,47 +96,52 @@
 
       output.innerHTML = "🔍 Searching...";
 
-      const usersSnap = await db.ref("users").once("value");
-      const users = usersSnap.val();
-      let found = false;
+      try {
+        const usersSnap = await db.ref("users").once("value");
+        const users = usersSnap.val();
+        let found = false;
 
-      for (const userId in users) {
-        const companies = users[userId]?.vehicle?.companies;
-        if (!companies) continue;
+        for (const userId in users) {
+          const companies = users[userId]?.vehicle?.companies;
+          if (!companies) continue;
 
-        for (const companyKey in companies) {
-          const company = companies[companyKey];
-          const vehicles = company.vehicle;
+          for (const companyKey in companies) {
+            const company = companies[companyKey];
+            const vehicles = company?.vehicle || {};
 
-          for (const vehId in vehicles) {
-            const vehicle = vehicles[vehId];
-            const deliveries = vehicle.deliveries || {};
+            for (const vehKey in vehicles) {
+              const vehicle = vehicles[vehKey];
+              const deliveries = vehicle?.deliveries || {};
 
-            if (Object.keys(deliveries).includes(trackingId)) {
-              found = true;
+              if (Object.keys(deliveries).includes(trackingId)) {
+                found = true;
 
-              const gps = vehicle.gps || "Not available";
-              const battery = vehicle.battery ?? "Unknown";
-              const vehicleType = vehicle.vehicleType || "Unknown";
-              const email = company.email || "Not available";
-              const name = company.name || companyKey;
+                const gps = vehicle.gps || "Not available";
+                const battery = vehicle.battery ?? "Unknown";
+                const vehicleType = vehicle.vehicleType || "Unknown";
+                const email = company.email || "N/A";
+                const name = company.name || companyKey;
 
-              output.innerHTML = `
-                ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
-                🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
-                📍 <strong>GPS:</strong> ${gps}<br>
-                🔋 <strong>Battery:</strong> ${battery}%<br>
-                🏢 <strong>Company:</strong> ${name}<br>
-                📧 <strong>Email:</strong> ${email}<br>
-              `;
-              return;
+                output.innerHTML = `
+                  ✅ <strong>Tracking ID:</strong> ${trackingId}<br>
+                  🚗 <strong>Vehicle Type:</strong> ${vehicleType}<br>
+                  📍 <strong>GPS:</strong> ${gps}<br>
+                  🔋 <strong>Battery:</strong> ${battery}%<br>
+                  🏢 <strong>Company:</strong> ${name}<br>
+                  📧 <strong>Email:</strong> ${email}<br>
+                `;
+                return;
+              }
             }
           }
         }
-      }
 
-      if (!found) {
-        output.innerHTML = "❌ Tracking ID not found.";
+        if (!found) {
+          output.innerHTML = "❌ Tracking ID not found.";
+        }
+      } catch (err) {
+        output.innerHTML = "❌ Firebase error: " + err.message;
+        console.error("Firebase error:", err);
       }
     }
   </script>
