@@ -14,15 +14,30 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// === Auth Check ===
-auth.onAuthStateChanged(user => {
-  if (!user) window.location.href = "login.html";
-  else initializeDashboard();
-});
+// ✅ Admin Dashboard Initialization
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    alert("Not signed in. Redirecting...");
+    window.location.href = "signin.html";
+    return;
+  }
 
-function logout() {
-  auth.signOut();
-}
+    // ✅ Check if user is an admin
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    alert("User data not found. Redirecting...");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const userData = userSnap.data();
+  if (userData.role !== "super-admin") {
+    alert("Unauthorized access! Redirecting to dashboard...");
+    window.location.href = "dashboard.html"; // Redirect non-admin users
+    return;
+  }
 
 function initializeDashboard() {
   loadStats();
