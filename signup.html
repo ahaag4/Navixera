@@ -76,7 +76,7 @@
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const vehicleType = document.getElementById('vehicleType').value;
+     /*const vehicleType = document.getElementById('vehicleType').value;*/
       const role = document.getElementById('role').value;
 
       auth.createUserWithEmailAndPassword(email, password)
@@ -84,7 +84,7 @@
           const userId = userCredential.user.uid;
           return db.ref('users/' + userId).set({
             email: email,
-            vehicleType: vehicleType,
+           /* vehicleType: vehicleType,*/
             role: role,
           });
         })
