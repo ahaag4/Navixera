@@ -214,7 +214,7 @@
       });
     }
 
-    auth.onAuthStateChanged((user) => {
+    
       // ✅ customer Dashboard Initialization
 auth.onAuthStateChanged(async (user) => {
   if (!user) {
@@ -239,7 +239,7 @@ auth.onAuthStateChanged(async (user) => {
     window.location.href = "dashboard.html"; // Redirect non-admin users
     return;
   }
-    });
+    
   </script>
 </body>
 </html>
