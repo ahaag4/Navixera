@@ -45,6 +45,14 @@
           <option value="cycle">Cycle</option>
         </select>
       </div>
+      <div class="mb-3">
+        <select class="form-select" id="role" required>
+          <option value="">Select</option>
+          <option value="customer">customer</option>
+          <option value="company">company</option>
+          <option value="super-admin">super-admin</option>
+        </select>
+      </div>
       <button type="submit" class="btn btn-primary w-100">Sign Up</button>
     </form>
     <p class="text-center mt-3">Already have an account? <a href="login.html">Login</a></p>
@@ -68,18 +76,20 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       const vehicleType = document.getElementById('vehicleType').value;
+      const role = document.getElementById('role').value;
 
       auth.createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
           const userId = userCredential.user.uid;
           return db.ref('users/' + userId).set({
             email: email,
-            vehicleType: vehicleType
+            vehicleType: vehicleType,
+            role: role
           });
         })
         .then(() => {
           alert("Signup successful! Redirecting to dashboard...");
-          window.location.href = "sms.html";
+          window.location.href = "dashboard.html";
         })
         .catch(error => {
           alert("Error: " + error.message);
