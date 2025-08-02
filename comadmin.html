@@ -79,16 +79,31 @@
     let userId = "";
     let companyName = "";
 
-    // 🔐 Redirect if not logged in
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        window.location.href = "login.html";
-      } else {
-        userId = user.uid;
-        companyName = localStorage.getItem("companyName") || "DefaultCompany";
-        setupPanel();
-      }
-    });
+    
+      // ✅ company Dashboard Initialization
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    alert("Not signed in. Redirecting...");
+    window.location.href = "login.html";
+    return;
+  }
+
+    // ✅ Check if user is an company
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    alert("User data not found. Redirecting...");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const userData = userSnap.data();
+  if (userData.role !== "company") {
+    alert("Unauthorized access! Redirecting to dashboard...");
+    window.location.href = "dashboard.html"; // Redirect non-admin users
+    return;
+  }
 
     // 🚚 Add delivery
     function addDelivery() {
