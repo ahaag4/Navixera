@@ -9,7 +9,7 @@ export async function initializeDashboard() {
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
       alert("Not signed in. Redirecting to sign-in page.");
-      window.location.href = "signin.html";
+      window.location.href = "login.html";
       return;
     }
 
@@ -20,7 +20,7 @@ export async function initializeDashboard() {
       if (!userDoc.exists()) {
         alert("User data not found!");
         auth.signOut();
-        window.location.href = "signin.html";
+        window.location.href = "login.html";
         return;
       }
 
