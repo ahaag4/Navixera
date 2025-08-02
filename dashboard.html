@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <title>Dashboard</title>
+</head>
+<body>
+  <header>
+    <h1>Dashboard</h1>
+    <button onclick="logout()">Logout</button>
+  </header>
+  <main id="dashboard">
+    <!-- Role-specific dashboard will load here -->
+  </main>
+<!-- dashboard.html -->
+<script type="module">
+  import { initializeDashboard } from "/assets/js/dashboard.js";
+  
+  // Ensure the dashboard is initialized after the document is loaded
+  document.addEventListener("DOMContentLoaded", initializeDashboard);
+</script>
+
+
+</body>
+</html>
