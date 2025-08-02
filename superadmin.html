@@ -52,55 +52,102 @@
         </table>
       </div>
     </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">Track Delivery</div>
-        <input type="text" class="form-control mb-3" id="searchTrackId" placeholder="Enter Tracking ID...">
-        <div id="deliveryResult"></div>
+    <!-- Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editModalLabel">Edit Company Profile</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="text" id="editCompanyName" class="form-control mb-2" placeholder="Company Name">
+            <input type="email" id="editCompanyEmail" class="form-control mb-2" placeholder="Email">
+            <input type="text" id="editCompanyPhone" class="form-control mb-2" placeholder="Phone">
+            <input type="text" id="editCompanyAddress" class="form-control mb-2" placeholder="Address">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" onclick="saveCompanyChanges()">Save changes</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="card">
       <div class="card-body">
-        <div class="section-title">Analytics (Daily)</div>
-        <canvas id="analyticsChart" style="height: 300px;"></canvas>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">Alert Monitoring</div>
-        <ul class="list-group" id="alertsList"></ul>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">Vehicle Logs & History</div>
-        <input type="text" class="form-control mb-2" id="logVehicleId" placeholder="Vehicle ID">
-        <button class="btn btn-primary mb-2" onclick="fetchLogs()">Fetch Logs</button>
-        <button class="btn btn-secondary mb-2" onclick="exportLogsAsCSV()">Export CSV</button>
-        <div id="logsList" class="table-responsive"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">Admin Settings</div>
-        <p><strong>Firebase Config, Alerts Toggle, GPS Defaults...</strong> (Custom settings can be added here)</p>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">Testing Tools</div>
-        <button class="btn btn-info me-2" onclick="simulateUpdate()">Simulate Vehicle Update</button>
-        <button class="btn btn-info me-2" onclick="testDelivery()">Test Delivery</button>
-        <button class="btn btn-danger" onclick="testAlarm()">Test Alarm Trigger</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="section-title">License / Subscription Management</div>
-        <p>Track hardware IDs, subscription plans, renewals. (Feature structure ready)</p>
+        <div class="section-title">Other Panels</div>
+        <!-- Placeholder for other panels -->
       </div>
     </div>
   </div>
   <script src="main-admin-logic.js"></script>
+  <script>
+    let currentEditUID = "";
+    function approveCompany(uid) {
+      firebase.database().ref(`users/${uid}`).update({ approved: true });
+      alert("Company Approved");
+      loadCompanyTable();
+    }
+    function editCompany(uid) {
+      currentEditUID = uid;
+      firebase.database().ref(`users/${uid}`).once("value", snap => {
+        const data = snap.val();
+        document.getElementById("editCompanyName").value = data.companyName || "";
+        document.getElementById("editCompanyEmail").value = data.email || "";
+        document.getElementById("editCompanyPhone").value = data.phone || "";
+        document.getElementById("editCompanyAddress").value = data.address || "";
+        new bootstrap.Modal(document.getElementById("editModal")).show();
+      });
+    }
+    function saveCompanyChanges() {
+      const name = document.getElementById("editCompanyName").value.trim();
+      const email = document.getElementById("editCompanyEmail").value.trim();
+      const phone = document.getElementById("editCompanyPhone").value.trim();
+      const address = document.getElementById("editCompanyAddress").value.trim();
+      firebase.database().ref(`users/${currentEditUID}`).update({
+        companyName: name,
+        email: email,
+        phone: phone,
+        address: address
+      });
+      alert("Company profile updated");
+      bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
+      loadCompanyTable();
+    }
+    function deleteCompany(uid) {
+      if (confirm("Are you sure you want to delete this company profile?")) {
+        firebase.database().ref(`users/${uid}`).remove();
+        alert("Company deleted");
+        loadCompanyTable();
+      }
+    }
+    function loadCompanyTable() {
+      const tbody = document.getElementById("companyTable");
+      tbody.innerHTML = "";
+      firebase.database().ref("users").once("value", snap => {
+        const users = snap.val();
+        for (const uid in users) {
+          const user = users[uid];
+          const companies = user.vehicle?.companies || {};
+          for (const name in companies) {
+            const vehicles = companies[name].vehicle || {};
+            let deliveryCount = 0;
+            for (const v in vehicles) {
+              deliveryCount += Object.keys(vehicles[v].deliveries || {}).length;
+            }
+            const approved = user.approved === true;
+            const statusLabel = approved ? "✅ Approved" : "❌ Pending";
+            const actions = `
+              ${approved ? "" : `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>`}
+              <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}')">Edit</button>
+              <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
+            `;
+            const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td>${statusLabel}</td><td>${actions}</td></tr>`;
+            tbody.innerHTML += row;
+          }
+        }
+      });
+    }
+  </script>
 </body>
 </html>
