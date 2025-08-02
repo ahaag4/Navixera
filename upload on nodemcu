@@ -14,7 +14,7 @@
 #define WIFI_PASSWORD "Your_WiFi_Password"
 #define FIREBASE_HOST "svms-c0232-default-rtdb.firebaseio.com"
 #define FIREBASE_AUTH "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M"
-#define USER_ID       "FiH4Cg488wPTCQsWoxd6twHQOas1" // 🔁 Replace this!
+#define USER_ID       "hFcielg1J6SLceVwYynrCZosfPp2" // 🔁 Replace this!
 
 // === HARDWARE PINS ===
 #define GPS_RX D5
