@@ -41,13 +41,13 @@ export async function initializeDashboard() {
         default:
           alert("Role not recognized. Redirecting to sign-in.");
           auth.signOut();
-          window.location.href = "signin.html";
+          window.location.href = "login.html";
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
       alert("An error occurred. Please try again.");
       auth.signOut();
-      window.location.href = "signin.html";
+      window.location.href = "login.html";
     }
   });
 }
