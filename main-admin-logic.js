@@ -18,7 +18,7 @@ const auth = firebase.auth();
 auth.onAuthStateChanged(async (user) => {
   if (!user) {
     alert("Not signed in. Redirecting...");
-    window.location.href = "signin.html";
+    window.location.href = "login.html";
     return;
   }
 
