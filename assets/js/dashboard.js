@@ -1,50 +1,64 @@
-import { auth, db } from "./firebase.js"; import { doc, getDoc, } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+// dashboard.js (Realtime DB version)
+import { auth, db } from "./firebase.js";
+import {
+  ref,
+  get,
+  child
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-// Initialize Dashboard export async function initializeDashboard() { auth.onAuthStateChanged(async (user) => { if (!user) { alert("Not signed in. Redirecting to sign-in page."); window.location.href = "login.html"; return; }
-
-try {
-  const userDoc = await getDoc(doc(db, "users", user.uid));
-
-  if (!userDoc.exists()) {
-    alert("User data not found!");
-    auth.signOut();
-    window.location.href = "login.html";
-    return;
-  }
-
-  const userData = userDoc.data();
-  const role = userData.role;
-  const approved = userData.approved ?? false;
-
-  // 🔒 Check if user is approved
-  if (!approved) {
-    alert("⛔ Your account is not approved yet. Please wait for admin approval.");
-    auth.signOut();
-    return;
-  }
-
-  // ✅ Role-based redirection
-  switch (role) {
-    case "customer":
-      window.location.href = 'sms.html';
-      break;
-    case "company":
-      window.location.href = 'comadmin.html';
-      break;
-    case "super-admin":
-      window.location.href = 'superadmin.html';
-      break;
-    default:
-      alert("Role not recognized. Redirecting to sign-in.");
-      auth.signOut();
+// Initialize Dashboard
+export async function initializeDashboard() {
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+      alert("⚠️ Not signed in. Redirecting...");
       window.location.href = "login.html";
-  }
-} catch (error) {
-  console.error("Error fetching user data:", error);
-  alert("An error occurred. Please try again.");
-  auth.signOut();
-  window.location.href = "login.html";
+      return;
+    }
+
+    try {
+      const userRef = ref(db);
+      const snapshot = await get(child(userRef, `users/${user.uid}`));
+
+      if (!snapshot.exists()) {
+        alert("❌ User record not found.");
+        await auth.signOut();
+        window.location.href = "login.html";
+        return;
+      }
+
+      const userData = snapshot.val();
+
+      // ✅ Approval Check
+      if (!userData.approved) {
+        alert("⏳ Your account is pending approval by the admin.");
+        await auth.signOut();
+        window.location.href = "login.html";
+        return;
+      }
+
+      // ✅ Role Routing
+      const role = userData.role;
+      switch (role) {
+        case "customer":
+          window.location.href = "sms.html";
+          break;
+        case "company":
+          window.location.href = "comadmin.html";
+          break;
+        case "super-admin":
+          window.location.href = "superadmin.html";
+          break;
+        default:
+          alert("⚠️ Unknown role. Access denied.");
+          await auth.signOut();
+          window.location.href = "login.html";
+      }
+
+    } catch (error) {
+      console.error("Dashboard error:", error);
+      alert("❌ Something went wrong.");
+      await auth.signOut();
+      window.location.href = "login.html";
+    }
+  });
 }
-
-}); }
-
