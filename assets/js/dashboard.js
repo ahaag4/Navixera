@@ -1,4 +1,4 @@
-// dashboard.js (Realtime DB version)
+// dashboard.js
 import { auth, db } from "./firebase.js";
 import {
   ref,
@@ -6,7 +6,6 @@ import {
   child
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-// Initialize Dashboard
 export async function initializeDashboard() {
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
@@ -16,19 +15,22 @@ export async function initializeDashboard() {
     }
 
     try {
+      console.log("✅ Logged-in UID:", user.uid);
+
       const userRef = ref(db);
       const snapshot = await get(child(userRef, `users/${user.uid}`));
 
       if (!snapshot.exists()) {
-        alert("❌ User record not found.");
+        console.error("❌ No user found in DB");
+        alert("User not found in database.");
         await auth.signOut();
         window.location.href = "login.html";
         return;
       }
 
       const userData = snapshot.val();
+      console.log("✅ User Data:", userData);
 
-      // ✅ Approval Check
       if (!userData.approved) {
         alert("⏳ Your account is pending approval by the admin.");
         await auth.signOut();
@@ -36,8 +38,9 @@ export async function initializeDashboard() {
         return;
       }
 
-      // ✅ Role Routing
       const role = userData.role;
+      console.log("✅ User Role:", role);
+
       switch (role) {
         case "customer":
           window.location.href = "sms.html";
@@ -49,14 +52,14 @@ export async function initializeDashboard() {
           window.location.href = "superadmin.html";
           break;
         default:
-          alert("⚠️ Unknown role. Access denied.");
+          alert("⚠️ Unknown role. Redirecting.");
           await auth.signOut();
           window.location.href = "login.html";
       }
 
     } catch (error) {
-      console.error("Dashboard error:", error);
-      alert("❌ Something went wrong.");
+      console.error("🔥 Dashboard error:", error);
+      alert("❌ Something went wrong. Check console.");
       await auth.signOut();
       window.location.href = "login.html";
     }
