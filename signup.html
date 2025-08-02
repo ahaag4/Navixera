@@ -45,7 +45,7 @@
           <option value="cycle">Cycle</option>
         </select>
       </div>-->
-      <div class="mb-3">
+      
         <label for="role" class="form-label">Role</label>
         <select class="form-select" id="role" required>
           <option value="">Select</option>
@@ -53,7 +53,7 @@
           <option value="company">company</option>
           <option value="super-admin">super-admin</option>
         </select>
-      </div>
+      
       <button type="submit" class="btn btn-primary w-100">Sign Up</button>
     </form>
     <p class="text-center mt-3">Already have an account? <a href="login.html">Login</a></p>
@@ -85,7 +85,7 @@
           return db.ref('users/' + userId).set({
             email: email,
             vehicleType: vehicleType,
-            role: role
+            role: role,
           });
         })
         .then(() => {
