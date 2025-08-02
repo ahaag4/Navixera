@@ -2,14 +2,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Main Admin Panel - Smart Vehicle Logistics</title>
+  <title>Super Admin Panel - SVMS</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { background-color: #f9fafb; }
     .navbar { background-color: #0d6efd; }
@@ -52,102 +51,203 @@
         </table>
       </div>
     </div>
-    <!-- Modal -->
-    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="editModalLabel">Edit Company Profile</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <input type="text" id="editCompanyName" class="form-control mb-2" placeholder="Company Name">
-            <input type="email" id="editCompanyEmail" class="form-control mb-2" placeholder="Email">
-            <input type="text" id="editCompanyPhone" class="form-control mb-2" placeholder="Phone">
-            <input type="text" id="editCompanyAddress" class="form-control mb-2" placeholder="Address">
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" onclick="saveCompanyChanges()">Save changes</button>
-          </div>
-        </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Vehicle Tracker</div>
+        <input type="text" class="form-control mb-3" id="trackVehicleId" placeholder="Enter Vehicle ID...">
+        <div id="vehicleTrackerResult"></div>
       </div>
     </div>
     <div class="card">
       <div class="card-body">
-        <div class="section-title">Other Panels</div>
-        <!-- Placeholder for other panels -->
+        <div class="section-title">Manual Alarm Trigger</div>
+        <input type="text" class="form-control mb-3" id="alarmVehicleId" placeholder="Enter Vehicle ID to trigger alarm">
+        <button class="btn btn-danger" onclick="triggerManualAlarm()">Trigger Alarm</button>
+        <div id="alarmStatus"></div>
       </div>
     </div>
-  </div>
-  <script src="main-admin-logic.js"></script>
-  <script>
-    let currentEditUID = "";
-    function approveCompany(uid) {
-      firebase.database().ref(`users/${uid}`).update({ approved: true });
-      alert("Company Approved");
-      loadCompanyTable();
-    }
-    function editCompany(uid) {
-      currentEditUID = uid;
-      firebase.database().ref(`users/${uid}`).once("value", snap => {
+  </div>  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+
+    auth.onAuthStateChanged((user) => {
+      if (!user) return location.href = "login.html";
+      db.ref(`users/${user.uid}`).once("value", snap => {
         const data = snap.val();
-        document.getElementById("editCompanyName").value = data.companyName || "";
-        document.getElementById("editCompanyEmail").value = data.email || "";
-        document.getElementById("editCompanyPhone").value = data.phone || "";
-        document.getElementById("editCompanyAddress").value = data.address || "";
-        new bootstrap.Modal(document.getElementById("editModal")).show();
+        if (data?.role !== "super-admin") return location.href = "dashboard.html";
+        initializeDashboard();
       });
+    });
+
+    function initializeDashboard() {
+      loadStats();
+      loadCompanies();
+      setupMap();
     }
-    function saveCompanyChanges() {
-      const name = document.getElementById("editCompanyName").value.trim();
-      const email = document.getElementById("editCompanyEmail").value.trim();
-      const phone = document.getElementById("editCompanyPhone").value.trim();
-      const address = document.getElementById("editCompanyAddress").value.trim();
-      firebase.database().ref(`users/${currentEditUID}`).update({
-        companyName: name,
-        email: email,
-        phone: phone,
-        address: address
-      });
-      alert("Company profile updated");
-      bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
-      loadCompanyTable();
-    }
-    function deleteCompany(uid) {
-      if (confirm("Are you sure you want to delete this company profile?")) {
-        firebase.database().ref(`users/${uid}`).remove();
-        alert("Company deleted");
-        loadCompanyTable();
-      }
-    }
-    function loadCompanyTable() {
-      const tbody = document.getElementById("companyTable");
-      tbody.innerHTML = "";
-      firebase.database().ref("users").once("value", snap => {
-        const users = snap.val();
-        for (const uid in users) {
-          const user = users[uid];
-          const companies = user.vehicle?.companies || {};
-          for (const name in companies) {
-            const vehicles = companies[name].vehicle || {};
-            let deliveryCount = 0;
-            for (const v in vehicles) {
-              deliveryCount += Object.keys(vehicles[v].deliveries || {}).length;
+
+    function loadStats() {
+      db.ref("users").once("value", snap => {
+        let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
+        for (const uid in snap.val()) {
+          const u = snap.val()[uid];
+          const companies = u.vehicle?.companies || {};
+          for (const cname in companies) {
+            totalCompanies++;
+            const v = companies[cname].vehicle || {};
+            totalVehicles += Object.keys(v).length;
+            for (const vid in v) {
+              totalDeliveries += Object.keys(v[vid].deliveries || {}).length;
             }
-            const approved = user.approved === true;
-            const statusLabel = approved ? "✅ Approved" : "❌ Pending";
-            const actions = `
-              ${approved ? "" : `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>`}
-              <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}')">Edit</button>
-              <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
-            `;
-            const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td>${statusLabel}</td><td>${actions}</td></tr>`;
-            tbody.innerHTML += row;
+          }
+          if (u.vehicle?.last_trigger?.status === "alert") alertsToday++;
+        }
+        document.getElementById("totalCompanies").innerText = totalCompanies;
+        document.getElementById("totalVehicles").innerText = totalVehicles;
+        document.getElementById("totalDeliveries").innerText = totalDeliveries;
+        document.getElementById("alertsToday").innerText = alertsToday;
+      });
+    }
+
+    function loadCompanies() {
+      const table = document.getElementById("companyTable");
+      db.ref("users").once("value", snap => {
+        table.innerHTML = "";
+        for (const uid in snap.val()) {
+          const u = snap.val()[uid];
+          const companies = u.vehicle?.companies || {};
+          for (const cname in companies) {
+            const veh = companies[cname].vehicle || {};
+            let deliveries = 0;
+            for (const vid in veh) {
+              deliveries += Object.keys(veh[vid].deliveries || {}).length;
+            }
+            const row = `<tr>
+              <td>${cname}</td>
+              <td>${Object.keys(veh).length}</td>
+              <td>${deliveries}</td>
+              <td>${u.approved ? "✅ Approved" : "❌ Pending"}</td>
+              <td>
+                ${!u.approved ? `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>` : ""}
+                <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}')">Edit</button>
+                <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
+              </td>
+            </tr>`;
+            table.innerHTML += row;
           }
         }
       });
     }
-  </script>
-</body>
+
+    function approveCompany(uid) {
+      db.ref(`users/${uid}`).update({ approved: true });
+      alert("✅ Company approved");
+      loadCompanies();
+    }
+
+    function editCompany(uid) {
+      const name = prompt("Enter new company name");
+      if (name) {
+        db.ref(`users/${uid}/vehicle/companies`).once("value", snap => {
+          const companies = snap.val();
+          const oldKey = Object.keys(companies)[0];
+          const data = companies[oldKey];
+          const updates = {};
+          updates[`users/${uid}/vehicle/companies/${name}`] = data;
+          updates[`users/${uid}/vehicle/companies/${oldKey}`] = null;
+          db.ref().update(updates);
+          alert("✅ Company name updated");
+          loadCompanies();
+        });
+      }
+    }
+
+    function deleteCompany(uid) {
+      if (confirm("Are you sure to delete this company?")) {
+        db.ref(`users/${uid}/vehicle/companies`).remove();
+        alert("❌ Company deleted");
+        loadCompanies();
+      }
+    }
+
+    function setupMap() {
+      const map = L.map("map").setView([19.2183, 72.9781], 10);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+      const markers = {};
+      db.ref("users").on("value", snap => {
+        for (const uid in snap.val()) {
+          const companies = snap.val()[uid].vehicle?.companies || {};
+          for (const cname in companies) {
+            const vehicles = companies[cname].vehicle || {};
+            for (const vid in vehicles) {
+              const [lat, lng] = (vehicles[vid].gps || "0,0").split(",").map(Number);
+              if (!markers[vid]) {
+                markers[vid] = L.marker([lat, lng]).addTo(map).bindPopup(`${vid}`);
+              } else {
+                markers[vid].setLatLng([lat, lng]);
+              }
+            }
+          }
+        }
+      });
+    }
+
+    document.getElementById("trackVehicleId").addEventListener("input", (e) => {
+      const id = e.target.value.trim();
+      const result = document.getElementById("vehicleTrackerResult");
+      if (id.length < 2) return;
+      db.ref("users").once("value", snap => {
+        for (const uid in snap.val()) {
+          const comps = snap.val()[uid].vehicle?.companies || {};
+          for (const c in comps) {
+            const vehicles = comps[c].vehicle || {};
+            if (vehicles[id]) {
+              const v = vehicles[id];
+              result.innerHTML = `<div class='alert alert-info'>🚚 ${id} at ${v.gps || "Unknown"}, Battery: ${v.battery || "N/A"}%</div>`;
+              return;
+            }
+          }
+        }
+        result.innerHTML = `<div class='alert alert-warning'>Vehicle not found</div>`;
+      });
+    });
+
+    function triggerManualAlarm() {
+      const id = document.getElementById("alarmVehicleId").value.trim();
+      const statusBox = document.getElementById("alarmStatus");
+      if (!id) return;
+      db.ref("users").once("value", snap => {
+        for (const uid in snap.val()) {
+          const ref = snap.val()[uid].vehicle?.companies;
+          for (const c in ref) {
+            const veh = ref[c].vehicle;
+            if (veh && veh[id]) {
+              db.ref(`users/${uid}/vehicle/last_trigger`).set({
+                status: "alert",
+                vehicleId: id,
+                time: new Date().toISOString(),
+                location: veh[id].gps || "Unknown"
+              });
+              statusBox.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for ${id}</div>`;
+              return;
+            }
+          }
+        }
+        statusBox.innerHTML = `<div class='alert alert-warning'>Vehicle ID not found</div>`;
+      });
+    }
+
+    function logout() {
+      auth.signOut().then(() => location.href = "login.html");
+    }
+  </script></body>
 </html>
