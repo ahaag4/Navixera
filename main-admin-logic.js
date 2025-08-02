@@ -1,5 +1,3 @@
-// main-admin-logic.js
-
 // === Firebase Config ===
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -22,22 +20,16 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
 
-    // ✅ Check if user is an admin
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (!userSnap.exists()) {
-    alert("User data not found. Redirecting...");
-    window.location.href = "login.html";
-    return;
-  }
-
-  const userData = userSnap.data();
-  if (userData.role !== "super-admin") {
-    alert("Unauthorized access! Redirecting to dashboard...");
-    window.location.href = "dashboard.html"; // Redirect non-admin users
-    return;
-  }
+  db.ref(`users/${user.uid}`).once("value", snap => {
+    const userData = snap.val();
+    if (!userData || userData.role !== "super-admin") {
+      alert("Unauthorized access! Redirecting to dashboard...");
+      window.location.href = "dashboard.html";
+      return;
+    }
+    initializeDashboard();
+  });
+});
 
 function initializeDashboard() {
   loadStats();
@@ -78,18 +70,28 @@ function loadCompanyTable() {
   db.ref("users").once("value", snap => {
     const users = snap.val();
     for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
+      const user = users[uid];
+      const companies = user.vehicle?.companies || {};
       for (const name in companies) {
         const vehicles = companies[name].vehicle || {};
         let deliveryCount = 0;
         for (const v in vehicles) {
           deliveryCount += Object.keys(vehicles[v].deliveries || {}).length;
         }
-        const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td><button class='btn btn-danger btn-sm'>Block</button></td></tr>`;
+        const approved = user.approved === true;
+        const statusLabel = approved ? "✅ Approved" : "❌ Pending";
+        const approveBtn = approved ? "" : `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>`;
+        const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td>${statusLabel} ${approveBtn}</td></tr>`;
         tbody.innerHTML += row;
       }
     }
   });
+}
+
+function approveCompany(uid) {
+  db.ref(`users/${uid}`).update({ approved: true });
+  alert("Company Approved");
+  loadCompanyTable();
 }
 
 function loadAllVehiclesMap() {
@@ -144,7 +146,7 @@ function loadDeliveryTracking() {
 }
 
 function loadAlertsPanel() {
-  const alertsContainer = document.getElementById("alertsList");
+  const alertsContainer = document.getElementById("alertList");
   if (!alertsContainer) return;
   db.ref("users").on("value", snap => {
     const users = snap.val();
@@ -152,7 +154,7 @@ function loadAlertsPanel() {
     for (const uid in users) {
       const trigger = users[uid].vehicle?.last_trigger;
       if (trigger?.status === "alert") {
-        const item = `<div class='alert alert-danger'>🚨 Alert from ${trigger.location} at ${trigger.time}</div>`;
+        const item = `<div class='alert alert-danger'>🚨 Alert from ${trigger.location || "Unknown Location"} at ${trigger.time || "Unknown Time"}</div>`;
         alertsContainer.innerHTML += item;
       }
     }
@@ -160,31 +162,35 @@ function loadAlertsPanel() {
 }
 
 function loadVehicleLogs() {
-  const logsContainer = document.getElementById("logsList");
-  if (!logsContainer) return;
-  db.ref("users").once("value", snap => {
-    const users = snap.val();
-    logsContainer.innerHTML = "";
-    for (const uid in users) {
-      const hist = users[uid].vehicle?.history || {};
-      for (const logId in hist) {
-        const log = hist[logId];
-        const item = `<div class='border p-2 mb-2'>📍 ${log.location} | 🕒 ${log.time}</div>`;
-        logsContainer.innerHTML += item;
+  const result = document.getElementById("logResult");
+  document.getElementById("logVehicleId").addEventListener("input", (e) => {
+    const vId = e.target.value.trim();
+    if (!vId) return;
+    db.ref("users").once("value", snap => {
+      const users = snap.val();
+      let html = `<table class='table'><thead><tr><th>Location</th><th>Time</th></tr></thead><tbody>`;
+      for (const uid in users) {
+        const hist = users[uid].vehicle?.history || {};
+        for (const id in hist) {
+          if (hist[id].vehicleId === vId) {
+            html += `<tr><td>${hist[id].location}</td><td>${hist[id].time}</td></tr>`;
+          }
+        }
       }
-    }
+      html += `</tbody></table>`;
+      result.innerHTML = html;
+    });
   });
 }
 
-function exportLogsAsCSV() {
+function exportCSV() {
   db.ref("users").once("value", snap => {
     const users = snap.val();
-    let csv = "UserID,Location,Time\n";
+    let csv = "VehicleID,Location,Time\n";
     for (const uid in users) {
-      const logs = users[uid].vehicle?.history || {};
-      for (const id in logs) {
-        const l = logs[id];
-        csv += `${uid},${l.location},${l.time}\n`;
+      const hist = users[uid].vehicle?.history || {};
+      for (const id in hist) {
+        csv += `${hist[id].vehicleId},${hist[id].location},${hist[id].time}\n`;
       }
     }
     const blob = new Blob([csv], { type: "text/csv" });
@@ -193,4 +199,16 @@ function exportLogsAsCSV() {
     link.download = "vehicle_logs.csv";
     link.click();
   });
+}
+
+function simulateUpdate() {
+  alert("🚧 Simulated vehicle update!");
+}
+
+function testDelivery() {
+  alert("📦 Delivery creation tested!");
+}
+
+function testAlarm() {
+  alert("🚨 Alarm triggered test!");
 }
