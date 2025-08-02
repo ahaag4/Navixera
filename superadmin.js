@@ -111,8 +111,8 @@ function loadApprovedCompanies() {
             <td>${Object.keys(veh).length}</td>
             <td>${deliveries}</td>
             <td>
-              <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}')">Edit</button>
-              <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
+              <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}', '${cname}')">Edit</button>
+              <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}', '${cname}')">Delete</button>
             </td>
           </tr>`;
           table.innerHTML += row;
@@ -122,24 +122,23 @@ function loadApprovedCompanies() {
   });
 }
 
-function editCompany(uid) {
-  const name = prompt("Enter new company name:");
-  if (!name) return;
+function editCompany(uid, oldName) {
+  const name = prompt("Enter new company name:", oldName);
+  if (!name || name === oldName) return;
   db.ref(`users/${uid}/vehicle/companies`).once("value", snap => {
-    const oldKey = Object.keys(snap.val())[0];
-    const data = snap.val()[oldKey];
+    const oldData = snap.val()[oldName];
     const updates = {};
-    updates[`users/${uid}/vehicle/companies/${name}`] = data;
-    updates[`users/${uid}/vehicle/companies/${oldKey}`] = null;
+    updates[`users/${uid}/vehicle/companies/${name}`] = oldData;
+    updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
     db.ref().update(updates);
     alert("✅ Company updated");
     loadApprovedCompanies();
   });
 }
 
-function deleteCompany(uid) {
+function deleteCompany(uid, name) {
   if (confirm("Are you sure to delete this company?")) {
-    db.ref(`users/${uid}/vehicle/companies`).remove();
+    db.ref(`users/${uid}/vehicle/companies/${name}`).remove();
     alert("❌ Company deleted");
     loadApprovedCompanies();
   }
