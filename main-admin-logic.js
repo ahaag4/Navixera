@@ -1,73 +1,10 @@
-// === Firebase Config ===
-const firebaseConfig = {
-  apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-  authDomain: "svms-c0232.firebaseapp.com",
-  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-  projectId: "svms-c0232",
-  storageBucket: "svms-c0232.appspot.com",
-  messagingSenderId: "359201898609",
-  appId: "1:359201898609:web:893ef076207abb06471bd0"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const auth = firebase.auth();
+// ✅ Add company approval, full profile view, edit, delete, individual vehicle tracking, and alarm trigger
 
-// ✅ Admin Dashboard Initialization
-auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    alert("Not signed in. Redirecting...");
-    window.location.href = "login.html";
-    return;
-  }
-
-  db.ref(`users/${user.uid}`).once("value", snap => {
-    const userData = snap.val();
-    if (!userData || userData.role !== "super-admin") {
-      alert("Unauthorized access! Redirecting to dashboard...");
-      window.location.href = "dashboard.html";
-      return;
-    }
-    initializeDashboard();
-  });
-});
-
-function initializeDashboard() {
-  loadStats();
-  loadCompanyTable();
-  loadAllVehiclesMap();
-  loadDeliveryTracking();
-  loadAlertsPanel();
-  loadVehicleLogs();
-}
-
-function loadStats() {
-  let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
-  db.ref("users").once("value", snap => {
-    const users = snap.val();
-    for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
-      for (const comp in companies) {
-        totalCompanies++;
-        const veh = companies[comp].vehicle || {};
-        totalVehicles += Object.keys(veh).length;
-        for (const v in veh) {
-          const del = veh[v].deliveries || {};
-          totalDeliveries += Object.keys(del).length;
-        }
-      }
-      if (users[uid].vehicle?.last_trigger?.status === "alert") alertsToday++;
-    }
-    document.getElementById("totalCompanies").innerText = totalCompanies;
-    document.getElementById("totalVehicles").innerText = totalVehicles;
-    document.getElementById("totalDeliveries").innerText = totalDeliveries;
-    document.getElementById("alertsToday").innerText = alertsToday;
-  });
-}
-
+// === Company Table Update ===
 function loadCompanyTable() {
   const tbody = document.getElementById("companyTable");
   tbody.innerHTML = "";
-  db.ref("users").once("value", snap => {
+  db.ref("users").once("value", (snap) => {
     const users = snap.val();
     for (const uid in users) {
       const user = users[uid];
@@ -80,8 +17,13 @@ function loadCompanyTable() {
         }
         const approved = user.approved === true;
         const statusLabel = approved ? "✅ Approved" : "❌ Pending";
-        const approveBtn = approved ? "" : `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>`;
-        const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td>${statusLabel} ${approveBtn}</td></tr>`;
+        const actions = `
+          <button class='btn btn-sm btn-info me-1' onclick="viewProfile('${uid}')">View</button>
+          <button class='btn btn-sm btn-warning me-1' onclick="editProfile('${uid}')">Edit</button>
+          <button class='btn btn-sm btn-danger me-1' onclick="deleteCompany('${uid}')">Delete</button>
+          ${!approved ? `<button class='btn btn-success btn-sm' onclick="approveCompany('${uid}')">Approve</button>` : ""}
+        `;
+        const row = `<tr><td>${name}</td><td>${Object.keys(vehicles).length}</td><td>${deliveryCount}</td><td>${statusLabel}</td><td>${actions}</td></tr>`;
         tbody.innerHTML += row;
       }
     }
@@ -90,125 +32,81 @@ function loadCompanyTable() {
 
 function approveCompany(uid) {
   db.ref(`users/${uid}`).update({ approved: true });
-  alert("Company Approved");
+  alert("✅ Company Approved");
   loadCompanyTable();
 }
 
-function loadAllVehiclesMap() {
-  const map = L.map("map").setView([19.2183, 72.9781], 10);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-  const markers = {};
-  db.ref("users").on("value", snap => {
-    const users = snap.val();
-    for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
-      for (const comp in companies) {
-        const vehicles = companies[comp].vehicle || {};
-        for (const id in vehicles) {
-          const gps = vehicles[id].gps || "0,0";
-          const [lat, lng] = gps.split(",").map(Number);
-          if (!markers[id]) {
-            markers[id] = L.marker([lat, lng]).addTo(map).bindPopup(`${id}`);
-          } else {
-            markers[id].setLatLng([lat, lng]);
-          }
-        }
-      }
-    }
+function deleteCompany(uid) {
+  if (confirm("Are you sure to delete this company?")) {
+    db.ref(`users/${uid}`).remove();
+    alert("❌ Company Deleted");
+    loadCompanyTable();
+  }
+}
+
+function viewProfile(uid) {
+  db.ref(`users/${uid}`).once("value", (snap) => {
+    const data = snap.val();
+    alert(`📋 Profile Info:\nName: ${data.name || "-"}\nEmail: ${data.email || "-"}\nPhone: ${data.phone || "-"}`);
   });
 }
 
-function loadDeliveryTracking() {
-  document.getElementById("searchTrackId").addEventListener("input", e => {
-    const id = e.target.value.trim();
-    const result = document.getElementById("deliveryResult");
-    if (id.length < 4) return;
-    db.ref("users").once("value", snap => {
+function editProfile(uid) {
+  const name = prompt("Enter new name:");
+  const email = prompt("Enter new email:");
+  const phone = prompt("Enter phone:");
+  if (name || email || phone) {
+    db.ref(`users/${uid}`).update({
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(phone && { phone }),
+    });
+    alert("✅ Profile updated");
+  }
+}
+
+// ✅ Track Vehicle by ID (input box + map)
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.createElement("input");
+  input.className = "form-control my-3";
+  input.placeholder = "Enter Vehicle ID to track";
+  input.addEventListener("input", (e) => {
+    const vid = e.target.value.trim();
+    if (vid.length < 3) return;
+    db.ref("users").once("value", (snap) => {
       const users = snap.val();
-      let found = false;
       for (const uid in users) {
         const companies = users[uid].vehicle?.companies || {};
-        for (const comp in companies) {
-          const vehicles = companies[comp].vehicle || {};
-          for (const vid in vehicles) {
-            const deliveries = vehicles[vid].deliveries || {};
-            if (deliveries[id]) {
-              result.innerHTML = `<div class='alert alert-success'>📦 ${id} - Status: ${deliveries[id].status} - 🚚 ${vid}</div>`;
-              found = true;
-              break;
-            }
+        for (const cname in companies) {
+          const vehicles = companies[cname].vehicle || {};
+          if (vehicles[vid]) {
+            const [lat, lng] = (vehicles[vid].gps || "0,0").split(",").map(Number);
+            alert(`📍 ${vid} Location: ${lat}, ${lng}`);
+            return;
           }
         }
       }
-      if (!found) result.innerHTML = `<div class='alert alert-warning'>Tracking ID not found.</div>`;
+      alert("Vehicle not found.");
     });
   });
-}
+  document.querySelector("#map").parentNode.insertBefore(input, document.querySelector("#map"));
+});
 
-function loadAlertsPanel() {
-  const alertsContainer = document.getElementById("alertList");
-  if (!alertsContainer) return;
-  db.ref("users").on("value", snap => {
-    const users = snap.val();
-    alertsContainer.innerHTML = "";
-    for (const uid in users) {
-      const trigger = users[uid].vehicle?.last_trigger;
-      if (trigger?.status === "alert") {
-        const item = `<div class='alert alert-danger'>🚨 Alert from ${trigger.location || "Unknown Location"} at ${trigger.time || "Unknown Time"}</div>`;
-        alertsContainer.innerHTML += item;
-      }
-    }
+// ✅ Trigger Alarm for any company manually
+function triggerAlarm(uid) {
+  db.ref(`users/${uid}/vehicle/last_trigger`).set({
+    status: "alert",
+    time: new Date().toLocaleString(),
+    location: "Manual Trigger from Admin",
   });
+  alert("🚨 Alarm triggered for this company!");
 }
 
-function loadVehicleLogs() {
-  const result = document.getElementById("logResult");
-  document.getElementById("logVehicleId").addEventListener("input", (e) => {
-    const vId = e.target.value.trim();
-    if (!vId) return;
-    db.ref("users").once("value", snap => {
-      const users = snap.val();
-      let html = `<table class='table'><thead><tr><th>Location</th><th>Time</th></tr></thead><tbody>`;
-      for (const uid in users) {
-        const hist = users[uid].vehicle?.history || {};
-        for (const id in hist) {
-          if (hist[id].vehicleId === vId) {
-            html += `<tr><td>${hist[id].location}</td><td>${hist[id].time}</td></tr>`;
-          }
-        }
-      }
-      html += `</tbody></table>`;
-      result.innerHTML = html;
-    });
-  });
-}
+// ✅ Add a button in company table to manually trigger alarm
+// Inside loadCompanyTable actions block, add:
+// <button class='btn btn-danger btn-sm' onclick="triggerAlarm('${uid}')">Alarm</button>
 
-function exportCSV() {
-  db.ref("users").once("value", snap => {
-    const users = snap.val();
-    let csv = "VehicleID,Location,Time\n";
-    for (const uid in users) {
-      const hist = users[uid].vehicle?.history || {};
-      for (const id in hist) {
-        csv += `${hist[id].vehicleId},${hist[id].location},${hist[id].time}\n`;
-      }
-    }
-    const blob = new Blob([csv], { type: "text/csv" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "vehicle_logs.csv";
-    link.click();
-  });
-}
-
-function simulateUpdate() {
-  alert("🚧 Simulated vehicle update!");
-}
-
-function testDelivery() {
-  alert("📦 Delivery creation tested!");
-}
-
-function testAlarm() {
-  alert("🚨 Alarm triggered test!");
+// 🔐 Logout
+function logout() {
+  auth.signOut().then(() => window.location.href = "login.html");
 }
