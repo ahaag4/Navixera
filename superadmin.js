@@ -1,3 +1,4 @@
+// Firebase Initialization
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
@@ -12,6 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
+// Auth Check
 auth.onAuthStateChanged(user => {
   if (!user) return location.href = "login.html";
   db.ref(`users/${user.uid}`).once("value", snap => {
@@ -21,10 +23,7 @@ auth.onAuthStateChanged(user => {
   });
 });
 
-function logout() {
-  auth.signOut().then(() => location.href = "login.html");
-}
-
+// Dashboard Init
 function initializeDashboard() {
   loadStats();
   loadPendingApprovals();
@@ -32,6 +31,12 @@ function initializeDashboard() {
   setupMap();
 }
 
+// Logout
+function logout() {
+  auth.signOut().then(() => location.href = "login.html");
+}
+
+// Dashboard Stats
 function loadStats() {
   db.ref("users").once("value", snap => {
     let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
@@ -40,10 +45,10 @@ function loadStats() {
       const companies = u.vehicle?.companies || {};
       for (const cname in companies) {
         totalCompanies++;
-        const v = companies[cname].vehicle || {};
-        totalVehicles += Object.keys(v).length;
-        for (const vid in v) {
-          totalDeliveries += Object.keys(v[vid].deliveries || {}).length;
+        const vehicles = companies[cname].vehicle || {};
+        totalVehicles += Object.keys(vehicles).length;
+        for (const vid in vehicles) {
+          totalDeliveries += Object.keys(vehicles[vid].deliveries || {}).length;
         }
       }
       if (u.vehicle?.last_trigger?.status === "alert") alertsToday++;
@@ -55,6 +60,7 @@ function loadStats() {
   });
 }
 
+// Load Pending Approvals
 function loadPendingApprovals() {
   const list = document.getElementById("pendingUsersList");
   list.innerHTML = "";
@@ -63,10 +69,11 @@ function loadPendingApprovals() {
     for (const uid in users) {
       const u = users[uid];
       if ((u.role === "company" || u.role === "customer") && u.approved !== true) {
+        const displayName = u.companyName || u.email || uid;
         const li = document.createElement("li");
         li.className = "list-group-item d-flex justify-content-between align-items-center";
         li.innerHTML = `
-          ${u.companyName || u.email} (${u.role})
+          ${displayName} (${u.role})
           <div>
             <button class="btn btn-success btn-sm me-2" onclick="approveUser('${uid}')">Approve</button>
             <button class="btn btn-danger btn-sm" onclick="rejectUser('${uid}')">Reject</button>
@@ -77,6 +84,7 @@ function loadPendingApprovals() {
   });
 }
 
+// Approve/Reject
 function approveUser(uid) {
   db.ref(`users/${uid}`).update({ approved: true });
   alert("✅ Approved");
@@ -92,29 +100,32 @@ function rejectUser(uid) {
   }
 }
 
+// Load Approved Companies Table
 function loadApprovedCompanies() {
   const table = document.getElementById("companyTable");
   table.innerHTML = "";
   db.ref("users").once("value", snap => {
-    for (const uid in snap.val()) {
-      const u = snap.val()[uid];
+    const users = snap.val();
+    for (const uid in users) {
+      const u = users[uid];
       if (u.role === "company" && u.approved === true) {
         const companies = u.vehicle?.companies || {};
         for (const cname in companies) {
-          const veh = companies[cname].vehicle || {};
+          const vehicles = companies[cname].vehicle || {};
           let deliveries = 0;
-          for (const vid in veh) {
-            deliveries += Object.keys(veh[vid].deliveries || {}).length;
+          for (const vid in vehicles) {
+            deliveries += Object.keys(vehicles[vid].deliveries || {}).length;
           }
-          const row = `<tr>
-            <td>${cname}</td>
-            <td>${Object.keys(veh).length}</td>
-            <td>${deliveries}</td>
-            <td>
-              <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}', '${cname}')">Edit</button>
-              <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}', '${cname}')">Delete</button>
-            </td>
-          </tr>`;
+          const row = `
+            <tr>
+              <td>${cname}</td>
+              <td>${Object.keys(vehicles).length}</td>
+              <td>${deliveries}</td>
+              <td>
+                <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}', '${cname}')">Edit</button>
+                <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
+              </td>
+            </tr>`;
           table.innerHTML += row;
         }
       }
@@ -122,39 +133,44 @@ function loadApprovedCompanies() {
   });
 }
 
+// Edit Company
 function editCompany(uid, oldName) {
   const name = prompt("Enter new company name:", oldName);
   if (!name || name === oldName) return;
-  db.ref(`users/${uid}/vehicle/companies`).once("value", snap => {
-    const oldData = snap.val()[oldName];
+  db.ref(`users/${uid}/vehicle/companies/${oldName}`).once("value", snap => {
+    const data = snap.val();
     const updates = {};
-    updates[`users/${uid}/vehicle/companies/${name}`] = oldData;
+    updates[`users/${uid}/vehicle/companies/${name}`] = data;
     updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
     db.ref().update(updates);
-    alert("✅ Company updated");
+    alert("✅ Company name updated");
     loadApprovedCompanies();
   });
 }
 
-function deleteCompany(uid, name) {
+// Delete Company
+function deleteCompany(uid) {
   if (confirm("Are you sure to delete this company?")) {
-    db.ref(`users/${uid}/vehicle/companies/${name}`).remove();
+    db.ref(`users/${uid}/vehicle/companies`).remove();
     alert("❌ Company deleted");
     loadApprovedCompanies();
   }
 }
 
+// Setup Leaflet Map
 function setupMap() {
-  const map = L.map("map").setView([19.2183, 72.9781], 10);
+  const map = L.map("map").setView([19.2183, 72.9781], 11);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
   const markers = {};
+
   db.ref("users").on("value", snap => {
     for (const uid in snap.val()) {
       const companies = snap.val()[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         for (const vid in vehicles) {
-          const [lat, lng] = (vehicles[vid].gps || "0,0").split(",").map(Number);
+          const gps = vehicles[vid].gps || "0,0";
+          const [lat, lng] = gps.split(",").map(Number);
           if (!markers[vid]) {
             markers[vid] = L.marker([lat, lng]).addTo(map).bindPopup(`${vid}`);
           } else {
@@ -166,15 +182,17 @@ function setupMap() {
   });
 }
 
+// Vehicle Tracker
 document.getElementById("trackVehicleId").addEventListener("input", (e) => {
   const id = e.target.value.trim();
   const result = document.getElementById("vehicleTrackerResult");
-  if (!id) return;
+  if (!id) return result.innerHTML = "";
+
   db.ref("users").once("value", snap => {
     for (const uid in snap.val()) {
-      const comps = snap.val()[uid].vehicle?.companies || {};
-      for (const c in comps) {
-        const vehicles = comps[c].vehicle || {};
+      const companies = snap.val()[uid].vehicle?.companies || {};
+      for (const cname in companies) {
+        const vehicles = companies[cname].vehicle || {};
         if (vehicles[id]) {
           const v = vehicles[id];
           result.innerHTML = `<div class='alert alert-info'>🚚 ${id} at ${v.gps || "Unknown"}, Battery: ${v.battery || "N/A"}%</div>`;
@@ -186,21 +204,22 @@ document.getElementById("trackVehicleId").addEventListener("input", (e) => {
   });
 });
 
+// Manual Alarm Trigger
 function triggerManualAlarm() {
   const id = document.getElementById("alarmVehicleId").value.trim();
   const statusBox = document.getElementById("alarmStatus");
   if (!id) return;
   db.ref("users").once("value", snap => {
     for (const uid in snap.val()) {
-      const ref = snap.val()[uid].vehicle?.companies;
-      for (const c in ref) {
-        const veh = ref[c].vehicle;
-        if (veh && veh[id]) {
+      const companies = snap.val()[uid].vehicle?.companies || {};
+      for (const cname in companies) {
+        const vehicles = companies[cname].vehicle || {};
+        if (vehicles[id]) {
           db.ref(`users/${uid}/vehicle/last_trigger`).set({
             status: "alert",
             vehicleId: id,
             time: new Date().toISOString(),
-            location: veh[id].gps || "Unknown"
+            location: vehicles[id].gps || "Unknown"
           });
           statusBox.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for ${id}</div>`;
           return;
