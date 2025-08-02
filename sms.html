@@ -214,32 +214,15 @@
       });
     }
 
-    
-      // ✅ customer Dashboard Initialization
-auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    alert("Not signed in. Redirecting...");
-    window.location.href = "login.html";
-    return;
-  }
-
-    // ✅ Check if user is an customer
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (!userSnap.exists()) {
-    alert("User data not found. Redirecting...");
-    window.location.href = "login.html";
-    return;
-  }
-
-  const userData = userSnap.data();
-  if (userData.role !== "customer") {
-    alert("Unauthorized access! Redirecting to dashboard...");
-    window.location.href = "dashboard.html"; // Redirect non-admin users
-    return;
-  }
-    
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+      } else {
+        window.location.href = "login.html";
+      }
+    });
   </script>
 </body>
 </html>
