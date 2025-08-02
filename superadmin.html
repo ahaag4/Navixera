@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { background-color: #f9fafb; }
     .navbar { background-color: #0d6efd; }
@@ -33,79 +34,73 @@
       <div class="col-md-3 stat-card bg-light"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div>
       <div class="col-md-3 stat-card bg-light"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div>
       <div class="col-md-3 stat-card bg-light"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div>
-    </div><div class="card">
-  <div class="card-body">
-    <div class="section-title">Live Vehicle Locations</div>
-    <div id="map"></div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Live Vehicle Locations</div>
+        <div id="map"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Company Management</div>
+        <table class="table table-bordered">
+          <thead class="table-light">
+            <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="companyTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Track Delivery</div>
+        <input type="text" class="form-control mb-3" id="searchTrackId" placeholder="Enter Tracking ID...">
+        <div id="deliveryResult"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Analytics (Daily)</div>
+        <canvas id="analyticsChart" style="height: 300px;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Alert Monitoring</div>
+        <ul class="list-group" id="alertsList"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Vehicle Logs & History</div>
+        <input type="text" class="form-control mb-2" id="logVehicleId" placeholder="Vehicle ID">
+        <button class="btn btn-primary mb-2" onclick="fetchLogs()">Fetch Logs</button>
+        <button class="btn btn-secondary mb-2" onclick="exportLogsAsCSV()">Export CSV</button>
+        <div id="logsList" class="table-responsive"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Admin Settings</div>
+        <p><strong>Firebase Config, Alerts Toggle, GPS Defaults...</strong> (Custom settings can be added here)</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">Testing Tools</div>
+        <button class="btn btn-info me-2" onclick="simulateUpdate()">Simulate Vehicle Update</button>
+        <button class="btn btn-info me-2" onclick="testDelivery()">Test Delivery</button>
+        <button class="btn btn-danger" onclick="testAlarm()">Test Alarm Trigger</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="section-title">License / Subscription Management</div>
+        <p>Track hardware IDs, subscription plans, renewals. (Feature structure ready)</p>
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Company Management</div>
-    <table class="table table-bordered">
-      <thead class="table-light">
-        <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Actions</th></tr>
-      </thead>
-      <tbody id="companyTable"></tbody>
-    </table>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Track Delivery</div>
-    <input type="text" class="form-control mb-3" id="searchTrackId" placeholder="Enter Tracking ID...">
-    <div id="deliveryResult"></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Analytics (Daily)</div>
-    <canvas id="analyticsChart" style="height: 300px;"></canvas>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Alert Monitoring</div>
-    <ul class="list-group" id="alertList"></ul>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Vehicle Logs & History</div>
-    <input type="text" class="form-control mb-2" id="logVehicleId" placeholder="Vehicle ID">
-    <button class="btn btn-primary mb-2" onclick="fetchLogs()">Fetch Logs</button>
-    <button class="btn btn-secondary mb-2" onclick="exportCSV()">Export CSV</button>
-    <div id="logResult" class="table-responsive"></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Admin Settings</div>
-    <p><strong>Firebase Config, Alerts Toggle, GPS Defaults...</strong> (To be added based on preference)</p>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Testing Tools</div>
-    <button class="btn btn-info me-2" onclick="simulateUpdate()">Simulate Vehicle Update</button>
-    <button class="btn btn-info me-2" onclick="testDelivery()">Test Delivery</button>
-    <button class="btn btn-danger" onclick="testAlarm()">Test Alarm Trigger</button>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">License / Subscription Management</div>
-    <p>Track hardware IDs, subscription plans, renewals. (Structure available, data needed)</p>
-  </div>
-</div>
-
-  </div>  <!-- ChartJS -->  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  <script src="main-admin-logic.js"></script></body>
+  <script src="main-admin-logic.js"></script>
+</body>
 </html>
