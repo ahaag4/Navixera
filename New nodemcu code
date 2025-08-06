@@ -9,18 +9,18 @@
 #include <time.h>
 
 // ===== CONFIG =====
-#define WIFI_SSID     "Your_WiFi_SSID"
-#define WIFI_PASSWORD "Your_WiFi_Password"
+#define WIFI_SSID     "sarth"
+#define WIFI_PASSWORD "123456789"
 
 // Firebase Realtime DB host (no https://)
 #define FIREBASE_HOST "svms-c0232-default-rtdb.firebaseio.com"
 
 // FIREBASE_AUTH: if using Web API key -> config.api_key = FIREBASE_AUTH;
 // If using legacy DB secret (not recommended for long-term), assign to LEGACY_TOKEN
-#define FIREBASE_AUTH "YOUR_FIREBASE_API_OR_LEGACY_TOKEN"
+#define FIREBASE_AUTH "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M"
 
 // DB user node
-#define USER_ID "REPLACE_WITH_USER_NODE_ID"
+#define USER_ID "hFcielg1J6SLceVwYynrCZosfPp2"
 
 // ===== HW PINS =====
 #define GPS_RX D5
