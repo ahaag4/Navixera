@@ -8,7 +8,8 @@ const firebaseConfig = {
   messagingSenderId: "359201898609",
   appId: "1:359201898609:web:893ef076207abb06471bd0"
 };
-
+firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 // superadmin.js - Fully Fixed & Optimized
 
 // Firebase configuration (already initialized in HTML)
