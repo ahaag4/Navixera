@@ -21,7 +21,7 @@
 #define FIREBASE_HOST "svms-c0232-default-rtdb.firebaseio.com"
 
 // Use Web API key (safer than legacy DB secret for client use)
-#define FIREBASE_AUTH "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M"
+#define FIREBASE_AUTH "c5430c9db5f61407075f3406b937fe8df9e751c9"
 
 // DB user node (must match dashboard)
 #define USER_ID "hFcielg1J6SLceVwYynrCZosfPp2"
