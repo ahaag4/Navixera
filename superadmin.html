@@ -1,79 +1,496 @@
-<!DOCTYPE html><html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Super Admin Panel - SVMS</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    body { background-color: #f9fafb; }
-    .navbar { background-color: #0d6efd; }
-    .navbar-brand, .nav-link { color: white !important; }
-    #map { height: 400px; border-radius: 10px; }
-    .card { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
-    .stat-card { text-align: center; padding: 20px; }
-    .stat-card h3 { margin-bottom: 10px; font-weight: 600; }
-    .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 15px; }
-  </style>
-</head>
-<body>
-  <nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">Super Admin - SVMS</a>
-      <button class="btn btn-light ms-auto" onclick="logout()">Logout</button>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Admin Panel - SVMS</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Leaflet CSS -->
+    <link
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        background-color: #f9fafb;
+      }
+      .navbar {
+        background-color: #0d6efd;
+      }
+      .navbar-brand,
+      .nav-link {
+        color: white !important;
+      }
+      #map {
+        height: 400px;
+        border-radius: 10px;
+      }
+      .card {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .stat-card {
+        text-align: center;
+        padding: 20px;
+      }
+      .stat-card h3 {
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+      .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">Super Admin - SVMS</a>
+        <button
+          class="btn btn-light ms-auto"
+          id="logoutBtn"
+          type="button"
+        >
+          Logout
+        </button>
+      </div>
+    </nav>
+    <div class="container py-4">
+      <div class="row text-center">
+        <div class="col-md-3 stat-card bg-light">
+          <h3 id="totalCompanies">0</h3>
+          <p>Total Companies</p>
+        </div>
+        <div class="col-md-3 stat-card bg-light">
+          <h3 id="totalVehicles">0</h3>
+          <p>Total Vehicles</p>
+        </div>
+        <div class="col-md-3 stat-card bg-light">
+          <h3 id="totalDeliveries">0</h3>
+          <p>Total Deliveries</p>
+        </div>
+        <div class="col-md-3 stat-card bg-light">
+          <h3 id="alertsToday">0</h3>
+          <p>Alerts Today</p>
+        </div>
+      </div>
+
+      <!-- Live Vehicle Locations -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-title">Live Vehicle Locations</div>
+          <div id="map"></div>
+        </div>
+      </div>
+
+      <!-- Pending Approvals -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-title">Pending Approvals</div>
+          <ul class="list-group" id="pendingUsersList"></ul>
+        </div>
+      </div>
+
+      <!-- Approved Companies Table -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-title">Approved Companies</div>
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Company</th>
+                  <th>Vehicles</th>
+                  <th>Deliveries</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="companyTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle Tracker -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-title">Vehicle Tracker</div>
+          <input
+            type="text"
+            class="form-control mb-3"
+            id="trackVehicleId"
+            placeholder="Enter Vehicle ID..."
+            autocomplete="off"
+          />
+          <div id="vehicleTrackerResult"></div>
+        </div>
+      </div>
+
+      <!-- Manual Alarm Trigger -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-title">Manual Alarm Trigger</div>
+          <input
+            type="text"
+            class="form-control mb-3"
+            id="alarmVehicleId"
+            placeholder="Enter Vehicle ID to trigger alarm"
+            autocomplete="off"
+          />
+          <button class="btn btn-danger" id="triggerAlarmBtn" type="button">
+            Trigger Alarm
+          </button>
+          <div id="alarmStatus"></div>
+        </div>
+      </div>
     </div>
-  </nav>  <div class="container py-4">
-    <div class="row text-center">
-      <div class="col-md-3 stat-card bg-light"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div>
-      <div class="col-md-3 stat-card bg-light"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div>
-      <div class="col-md-3 stat-card bg-light"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div>
-      <div class="col-md-3 stat-card bg-light"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div>
-    </div><div class="card">
-  <div class="card-body">
-    <div class="section-title">Live Vehicle Locations</div>
-    <div id="map"></div>
-  </div>
-</div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Pending Approvals</div>
-    <ul class="list-group" id="pendingUsersList"></ul>
-  </div>
-</div>
+    <!-- Firebase & Leaflet JS -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Approved Companies</div>
-    <table class="table table-bordered">
-      <thead class="table-light">
-        <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Actions</th></tr>
-      </thead>
-      <tbody id="companyTable"></tbody>
-    </table>
-  </div>
-</div>
+    <!-- Super Admin Script -->
+    <script>
+      // --- Firebase Initialization ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+        authDomain: "svms-c0232.firebaseapp.com",
+        databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+        projectId: "svms-c0232",
+        storageBucket: "svms-c0232.appspot.com",
+        messagingSenderId: "359201898609",
+        appId: "1:359201898609:web:893ef076207abb06471bd0"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+      const auth = firebase.auth();
 
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Vehicle Tracker</div>
-    <input type="text" class="form-control mb-3" id="trackVehicleId" placeholder="Enter Vehicle ID...">
-    <div id="vehicleTrackerResult"></div>
-  </div>
-</div>
+      // --- Auth Check ---
+      auth.onAuthStateChanged((user) => {
+        if (!user) {
+          window.location.href = "login.html";
+          return;
+        }
+        db.ref(`users/${user.uid}`)
+          .once("value")
+          .then((snap) => {
+            const data = snap.val();
+            if (!data || data.role !== "super-admin") {
+              window.location.href = "dashboard.html";
+              return;
+            }
+            initializeDashboard();
+          });
+      });
 
-<div class="card">
-  <div class="card-body">
-    <div class="section-title">Manual Alarm Trigger</div>
-    <input type="text" class="form-control mb-3" id="alarmVehicleId" placeholder="Enter Vehicle ID to trigger alarm">
-    <button class="btn btn-danger" onclick="triggerManualAlarm()">Trigger Alarm</button>
-    <div id="alarmStatus"></div>
-  </div>
-</div>
+      // --- Dashboard Initialization ---
+      function initializeDashboard() {
+        loadStats();
+        loadPendingApprovals();
+        loadApprovedCompanies();
+        setupMap();
 
-  </div>  <script src="superadmin.js"></script></body>
+        // Event Listeners
+        document
+          .getElementById("logoutBtn")
+          .addEventListener("click", logout);
+        document
+          .getElementById("trackVehicleId")
+          .addEventListener("input", trackVehicleInputHandler);
+        document
+          .getElementById("triggerAlarmBtn")
+          .addEventListener("click", triggerManualAlarm);
+      }
+
+      // --- Logout ---
+      function logout() {
+        auth.signOut().then(() => {
+          window.location.href = "login.html";
+        });
+      }
+
+      // --- Dashboard Stats ---
+      function loadStats() {
+        db.ref("users").once("value").then((snap) => {
+          let totalCompanies = 0,
+            totalVehicles = 0,
+            totalDeliveries = 0,
+            alertsToday = 0;
+          const users = snap.val() || {};
+          for (const uid in users) {
+            const u = users[uid];
+            const companies = u.vehicle?.companies || {};
+            for (const cname in companies) {
+              totalCompanies++;
+              const vehicles = companies[cname].vehicle || {};
+              totalVehicles += Object.keys(vehicles).length;
+              for (const vid in vehicles) {
+                totalDeliveries += Object.keys(
+                  vehicles[vid].deliveries || {}
+                ).length;
+              }
+            }
+            if (u.vehicle?.last_trigger?.status === "alert") alertsToday++;
+          }
+          document.getElementById("totalCompanies").innerText = totalCompanies;
+          document.getElementById("totalVehicles").innerText = totalVehicles;
+          document.getElementById("totalDeliveries").innerText = totalDeliveries;
+          document.getElementById("alertsToday").innerText = alertsToday;
+        });
+      }
+
+      // --- Load Pending Approvals ---
+      function loadPendingApprovals() {
+        const list = document.getElementById("pendingUsersList");
+        list.innerHTML = "";
+        db.ref("users")
+          .once("value")
+          .then((snap) => {
+            const users = snap.val() || {};
+            for (const uid in users) {
+              const u = users[uid];
+              if (
+                (u.role === "company" || u.role === "customer") &&
+                !u.approved
+              ) {
+                const displayName = u.companyName || u.email || uid;
+                const li = document.createElement("li");
+                li.className =
+                  "list-group-item d-flex justify-content-between align-items-center";
+                li.innerHTML = `
+                  <span>${displayName} (${u.role})</span>
+                  <div>
+                    <button class="btn btn-success btn-sm me-2" onclick="approveUser('${uid}')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="rejectUser('${uid}')">Reject</button>
+                  </div>
+                `;
+                list.appendChild(li);
+              }
+            }
+          });
+      }
+
+      // --- Approve/Reject User ---
+      window.approveUser = function (uid) {
+        db.ref(`users/${uid}`)
+          .update({ approved: true })
+          .then(() => {
+            alert("✅ Approved");
+            loadPendingApprovals();
+            loadApprovedCompanies();
+          });
+      };
+
+      window.rejectUser = function (uid) {
+        if (confirm("Delete this user?")) {
+          db.ref(`users/${uid}`)
+            .remove()
+            .then(() => {
+              alert("❌ Rejected and removed");
+              loadPendingApprovals();
+            });
+        }
+      };
+
+      // --- Load Approved Companies Table ---
+      function loadApprovedCompanies() {
+        const table = document.getElementById("companyTable");
+        table.innerHTML = "";
+        db.ref("users")
+          .once("value")
+          .then((snap) => {
+            const users = snap.val() || {};
+            for (const uid in users) {
+              const u = users[uid];
+              if (u.role === "company" && u.approved === true) {
+                const companies = u.vehicle?.companies || {};
+                for (const cname in companies) {
+                  const vehicles = companies[cname].vehicle || {};
+                  let deliveries = 0;
+                  for (const vid in vehicles) {
+                    deliveries += Object.keys(
+                      vehicles[vid].deliveries || {}
+                    ).length;
+                  }
+                  const row = `
+                    <tr>
+                      <td>${cname}</td>
+                      <td>${Object.keys(vehicles).length}</td>
+                      <td>${deliveries}</td>
+                      <td>
+                        <button class="btn btn-primary btn-sm" onclick="editCompany('${uid}', '${cname}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCompany('${uid}', '${cname}')">Delete</button>
+                      </td>
+                    </tr>
+                  `;
+                  table.innerHTML += row;
+                }
+              }
+            }
+          });
+      }
+
+      // --- Edit Company ---
+      window.editCompany = function (uid, oldName) {
+        const name = prompt("Enter new company name:", oldName);
+        if (!name || name === oldName) return;
+        db.ref(`users/${uid}/vehicle/companies/${oldName}`)
+          .once("value")
+          .then((snap) => {
+            const data = snap.val();
+            if (!data) return;
+            const updates = {};
+            updates[`users/${uid}/vehicle/companies/${name}`] = data;
+            updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
+            db.ref()
+              .update(updates)
+              .then(() => {
+                alert("✅ Company name updated");
+                loadApprovedCompanies();
+              });
+          });
+      };
+
+      // --- Delete Company ---
+      window.deleteCompany = function (uid, companyName) {
+        if (confirm("Are you sure to delete this company?")) {
+          db.ref(`users/${uid}/vehicle/companies/${companyName}`)
+            .remove()
+            .then(() => {
+              alert("❌ Company deleted");
+              loadApprovedCompanies();
+            });
+        }
+      };
+
+      // --- Setup Leaflet Map ---
+      let mapInstance = null;
+      let markers = {};
+      function setupMap() {
+        if (!mapInstance) {
+          mapInstance = L.map("map").setView([19.2183, 72.9781], 11);
+          L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          ).addTo(mapInstance);
+        }
+
+        function updateMarkers(users) {
+          // Remove markers not needed anymore
+          const validVehicleIds = new Set();
+
+          for (const uid in users) {
+            const companies = users[uid]?.vehicle?.companies || {};
+            for (const cname in companies) {
+              const vehicles = companies[cname]?.vehicle || {};
+              for (const vid in vehicles) {
+                validVehicleIds.add(vid);
+                const gps = vehicles[vid]?.gps || "0,0";
+                const [lat, lng] = gps.split(",").map(Number);
+                if (!markers[vid]) {
+                  if (!isNaN(lat) && !isNaN(lng)) {
+                    markers[vid] = L.marker([lat, lng])
+                      .addTo(mapInstance)
+                      .bindPopup(vid);
+                  }
+                } else {
+                  markers[vid].setLatLng([lat, lng]);
+                }
+              }
+            }
+          }
+          // Cleanup markers for vehicles that no longer exist
+          for (const vid in markers) {
+            if (!validVehicleIds.has(vid)) {
+              mapInstance.removeLayer(markers[vid]);
+              delete markers[vid];
+            }
+          }
+        }
+
+        db.ref("users").on("value", (snap) => {
+          const users = snap.val() || {};
+          updateMarkers(users);
+        });
+      }
+
+      // --- Vehicle Tracker ---
+      function trackVehicleInputHandler(e) {
+        const id = e.target.value.trim();
+        const result = document.getElementById("vehicleTrackerResult");
+        if (!id) {
+          result.innerHTML = "";
+          return;
+        }
+        db.ref("users")
+          .once("value")
+          .then((snap) => {
+            let found = false;
+            const users = snap.val() || {};
+            for (const uid in users) {
+              const companies = users[uid]?.vehicle?.companies || {};
+              for (const cname in companies) {
+                const vehicles = companies[cname]?.vehicle || {};
+                if (vehicles[id]) {
+                  const v = vehicles[id];
+                  found = true;
+                  result.innerHTML = `<div class='alert alert-info'>🚚 <strong>${id}</strong> at <strong>${v.gps || "Unknown"}</strong>, Battery: <strong>${v.battery || "N/A"}</strong>%</div>`;
+                  return;
+                }
+              }
+            }
+            if (!found) {
+              result.innerHTML =
+                "<div class='alert alert-warning'>Vehicle not found</div>";
+            }
+          });
+      }
+
+      // --- Manual Alarm Trigger ---
+      function triggerManualAlarm() {
+        const id = document.getElementById("alarmVehicleId").value.trim();
+        const statusBox = document.getElementById("alarmStatus");
+        if (!id) {
+          statusBox.innerHTML =
+            "<div class='alert alert-warning'>Please enter a Vehicle ID.</div>";
+          return;
+        }
+        db.ref("users")
+          .once("value")
+          .then((snap) => {
+            const users = snap.val() || {};
+            for (const uid in users) {
+              const companies = users[uid]?.vehicle?.companies || {};
+              for (const cname in companies) {
+                const vehicles = companies[cname]?.vehicle || {};
+                if (vehicles[id]) {
+                  db.ref(`users/${uid}/vehicle/last_trigger`)
+                    .set({
+                      status: "alert",
+                      vehicleId: id,
+                      time: new Date().toISOString(),
+                      location: vehicles[id].gps || "Unknown"
+                    })
+                    .then(() => {
+                      statusBox.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for ${id}</div>`;
+                    });
+                  return;
+                }
+              }
+            }
+            statusBox.innerHTML =
+              "<div class='alert alert-warning'>Vehicle ID not found</div>";
+          });
+      }
+    </script>
+  </body>
 </html>
