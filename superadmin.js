@@ -1,4 +1,4 @@
-// Firebase Initialization
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
@@ -23,7 +23,10 @@ auth.onAuthStateChanged(user => {
   });
 });
 
-// Dashboard Init
+function logout() {
+  auth.signOut().then(() => location.href = "login.html");
+}
+
 function initializeDashboard() {
   loadStats();
   loadPendingApprovals();
@@ -31,17 +34,13 @@ function initializeDashboard() {
   setupMap();
 }
 
-// Logout
-function logout() {
-  auth.signOut().then(() => location.href = "login.html");
-}
-
-// Dashboard Stats
 function loadStats() {
   db.ref("users").once("value", snap => {
     let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
-    for (const uid in snap.val()) {
-      const u = snap.val()[uid];
+    const users = snap.val() || {};
+
+    for (const uid in users) {
+      const u = users[uid];
       const companies = u.vehicle?.companies || {};
       for (const cname in companies) {
         totalCompanies++;
@@ -53,6 +52,7 @@ function loadStats() {
       }
       if (u.vehicle?.last_trigger?.status === "alert") alertsToday++;
     }
+
     document.getElementById("totalCompanies").innerText = totalCompanies;
     document.getElementById("totalVehicles").innerText = totalVehicles;
     document.getElementById("totalDeliveries").innerText = totalDeliveries;
@@ -60,10 +60,10 @@ function loadStats() {
   });
 }
 
-// Load Pending Approvals
 function loadPendingApprovals() {
   const list = document.getElementById("pendingUsersList");
   list.innerHTML = "";
+
   db.ref("users").once("value", snap => {
     const users = snap.val() || {};
     for (const uid in users) {
@@ -77,35 +77,39 @@ function loadPendingApprovals() {
           <div>
             <button class="btn btn-success btn-sm me-2" onclick="approveUser('${uid}')">Approve</button>
             <button class="btn btn-danger btn-sm" onclick="rejectUser('${uid}')">Reject</button>
-          </div>`;
+          </div>
+        `;
         list.appendChild(li);
       }
     }
   });
 }
 
-// Approve/Reject
 function approveUser(uid) {
-  db.ref(`users/${uid}`).update({ approved: true });
-  alert("✅ Approved");
-  loadPendingApprovals();
-  loadApprovedCompanies();
+  db.ref(`users/${uid}`).update({ approved: true })
+    .then(() => {
+      alert("✅ Approved");
+      loadPendingApprovals();
+      loadApprovedCompanies();
+    });
 }
 
 function rejectUser(uid) {
   if (confirm("Delete this user?")) {
-    db.ref(`users/${uid}`).remove();
-    alert("❌ Rejected and removed");
-    loadPendingApprovals();
+    db.ref(`users/${uid}`).remove()
+      .then(() => {
+        alert("❌ Rejected and removed");
+        loadPendingApprovals();
+      });
   }
 }
 
-// Load Approved Companies Table
 function loadApprovedCompanies() {
   const table = document.getElementById("companyTable");
   table.innerHTML = "";
+
   db.ref("users").once("value", snap => {
-    const users = snap.val();
+    const users = snap.val() || {};
     for (const uid in users) {
       const u = users[uid];
       if (u.role === "company" && u.approved === true) {
@@ -125,7 +129,8 @@ function loadApprovedCompanies() {
                 <button class='btn btn-primary btn-sm' onclick="editCompany('${uid}', '${cname}')">Edit</button>
                 <button class='btn btn-danger btn-sm' onclick="deleteCompany('${uid}')">Delete</button>
               </td>
-            </tr>`;
+            </tr>
+          `;
           table.innerHTML += row;
         }
       }
@@ -133,46 +138,49 @@ function loadApprovedCompanies() {
   });
 }
 
-// Edit Company
 function editCompany(uid, oldName) {
   const name = prompt("Enter new company name:", oldName);
   if (!name || name === oldName) return;
+
   db.ref(`users/${uid}/vehicle/companies/${oldName}`).once("value", snap => {
     const data = snap.val();
+    if (!data) return alert("Company not found");
     const updates = {};
     updates[`users/${uid}/vehicle/companies/${name}`] = data;
     updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
-    db.ref().update(updates);
-    alert("✅ Company name updated");
-    loadApprovedCompanies();
+    db.ref().update(updates).then(() => {
+      alert("✅ Company name updated");
+      loadApprovedCompanies();
+    });
   });
 }
 
-// Delete Company
 function deleteCompany(uid) {
   if (confirm("Are you sure to delete this company?")) {
-    db.ref(`users/${uid}/vehicle/companies`).remove();
-    alert("❌ Company deleted");
-    loadApprovedCompanies();
+    db.ref(`users/${uid}/vehicle/companies`).remove()
+      .then(() => {
+        alert("❌ Company deleted");
+        loadApprovedCompanies();
+      });
   }
 }
 
-// Setup Leaflet Map
 function setupMap() {
   const map = L.map("map").setView([19.2183, 72.9781], 11);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
   const markers = {};
 
   db.ref("users").on("value", snap => {
-    for (const uid in snap.val()) {
-      const companies = snap.val()[uid].vehicle?.companies || {};
+    const users = snap.val() || {};
+    for (const uid in users) {
+      const companies = users[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         for (const vid in vehicles) {
           const gps = vehicles[vid].gps || "0,0";
           const [lat, lng] = gps.split(",").map(Number);
           if (!markers[vid]) {
-            markers[vid] = L.marker([lat, lng]).addTo(map).bindPopup(`${vid}`);
+            markers[vid] = L.marker([lat, lng]).addTo(map).bindPopup(vid);
           } else {
             markers[vid].setLatLng([lat, lng]);
           }
@@ -182,15 +190,15 @@ function setupMap() {
   });
 }
 
-// Vehicle Tracker
 document.getElementById("trackVehicleId").addEventListener("input", (e) => {
   const id = e.target.value.trim();
   const result = document.getElementById("vehicleTrackerResult");
   if (!id) return result.innerHTML = "";
 
   db.ref("users").once("value", snap => {
-    for (const uid in snap.val()) {
-      const companies = snap.val()[uid].vehicle?.companies || {};
+    const users = snap.val() || {};
+    for (const uid in users) {
+      const companies = users[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         if (vehicles[id]) {
@@ -204,14 +212,15 @@ document.getElementById("trackVehicleId").addEventListener("input", (e) => {
   });
 });
 
-// Manual Alarm Trigger
 function triggerManualAlarm() {
   const id = document.getElementById("alarmVehicleId").value.trim();
   const statusBox = document.getElementById("alarmStatus");
   if (!id) return;
+
   db.ref("users").once("value", snap => {
-    for (const uid in snap.val()) {
-      const companies = snap.val()[uid].vehicle?.companies || {};
+    const users = snap.val() || {};
+    for (const uid in users) {
+      const companies = users[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         if (vehicles[id]) {
