@@ -27,7 +27,6 @@
     .view-btn:hover { background-color: #0056b3; }
     .user-info { display: flex; align-items: center; gap: 10px; }
     #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -57,6 +56,7 @@
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
+
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
@@ -98,7 +98,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -113,7 +112,6 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // Elements
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -122,11 +120,12 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
+
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
-    let map, marker, lastSeenTime = 0;
+    let map, marker;
 
     function updateMap(lat, lng, popupText = null) {
       if (!map) {
@@ -150,7 +149,8 @@
         componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
         return;
       }
-      Object.entries(obj).forEach(([k, v]) => {
+      Object.keys(obj).forEach(k => {
+        const v = obj[k];
         let cls = "comp-unknown";
         if (v === "ok" || v === "activity") cls = "comp-ok";
         else if (v === "no_fix" || v === "idle") cls = "comp-warn";
@@ -159,20 +159,10 @@
       });
     }
 
-    function checkOnlineFromLastSeen() {
-      if (!lastSeenTime) return;
-      const diff = Date.now() - lastSeenTime;
-      if (diff <= 30000) {
-        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-      } else {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-      }
-    }
-
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      vehicleRef.child("current").on("value", snapshot => {
+      vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         locationEl.textContent = `${data.latitude}, ${data.longitude}`;
@@ -182,11 +172,11 @@
         updateMap(data.latitude, data.longitude);
       });
 
-      vehicleRef.child("history").on("value", snapshot => {
-        const entries = snapshot.val();
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
         historyEl.innerHTML = "";
-        if (entries) {
-          Object.values(entries).reverse().forEach(entry => {
+        if (history) {
+          Object.values(history).reverse().forEach(entry => {
             const [lat, lng] = entry.location.split(",");
             historyEl.innerHTML += `
               <tr>
@@ -200,29 +190,32 @@
         }
       });
 
-      vehicleRef.child("components").on("value", snapshot => {
+      vehicleRef.child("components").on("value", (snapshot) => {
         renderComponents(snapshot.val());
       });
 
-      vehicleRef.child("last_seen").on("value", snapshot => {
-        const val = snapshot.val();
-        if (!val) return;
-        lastSeenEl.textContent = typeof val === "number" ? new Date(val).toLocaleString() : val;
-        lastSeenTime = typeof val === "number" ? val : new Date(val).getTime();
-        checkOnlineFromLastSeen();
+      // online/offline logic from 2nd code
+      vehicleRef.child("online").on("value", (snapshot) => {
+        const on = snapshot.val();
+        if (on) {
+          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+        } else {
+          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+        }
+      });
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        lastSeenEl.textContent = snapshot.val() || "N/A";
       });
 
-      setInterval(checkOnlineFromLastSeen, 10000);
-
-      vehicleRef.child("alarm").on("value", snapshot => {
+      vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
 
-      vehicleRef.child("last_trigger").on("value", snapshot => {
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
         const trigger = snapshot.val();
-        if (trigger?.time && trigger.status === "alert") {
+        if (trigger && trigger.time && trigger.status === "alert") {
           alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
         } else {
           alarmTriggerEl.textContent = "No triggers";
@@ -234,7 +227,7 @@
       });
     }
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
         document.getElementById("userEmail").textContent = user.email;
