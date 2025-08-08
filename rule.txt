@@ -1,0 +1,30 @@
+//first rule
+
+{
+  "rules": {
+    ".read": true,
+    "users": {
+      "$uid": {
+        // Allow user to write to their own node, or if admin
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
+    // Admins can write outside /users too (like vehicles, history, etc)
+    ".write": "auth != null && auth.token.admin === true"
+  }
+}
+
+
+//second rule
+
+{
+
+  "rules": {
+
+    ".read": true,
+
+    ".write": true
+
+  }
+
+}
