@@ -68,8 +68,6 @@
       background: #dc3545; color: white; border: none;
       padding: 6px 12px; border-radius: 6px; cursor: pointer;
     }
-
-    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -95,20 +93,15 @@
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-
-      <!-- ADDED: Online badge + last seen (keeps existing fields) -->
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
-
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
-
-      <!-- ADDED: Components -->
       <div id="componentsBlock">
         <h4>Components</h4>
         <ul id="componentsList" class="components-list">
@@ -167,13 +160,12 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
-    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
     let map, marker;
+    let lastSeenTime = null;
 
     function updateMap(lat, lng, popupText = null) {
       if (!map) {
@@ -191,7 +183,6 @@
       updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
 
-    // NEW: render components object into the components list with simple color coding
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -213,20 +204,29 @@
       });
     }
 
+    function checkOnlineStatus(flag) {
+      let isOnline = flag;
+      if (lastSeenTime && Date.now() - lastSeenTime > 60000) {
+        isOnline = false;
+      }
+      if (isOnline) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
+    }
+
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-
         const { latitude, longitude, status, last_active, battery } = data;
-        // keep original behavior
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
-
         updateMap(latitude, longitude);
       });
 
@@ -248,24 +248,24 @@
         }
       });
 
-      // NEW: listen for components (wifi, gps, motion_sensor, buzzer, etc)
       vehicleRef.child("components").on("value", (snapshot) => {
-        const comps = snapshot.val();
-        renderComponents(comps);
+        renderComponents(snapshot.val());
       });
 
-      // NEW: online flag and last_seen
       vehicleRef.child("online").on("value", (snapshot) => {
-        const on = snapshot.val();
-        if (on) {
-          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-        } else {
-          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-        }
+        checkOnlineStatus(snapshot.val());
       });
+
       vehicleRef.child("last_seen").on("value", (snapshot) => {
-        lastSeenEl.textContent = snapshot.val() || "N/A";
+        const val = snapshot.val();
+        lastSeenEl.textContent = val || "N/A";
+        if (val) lastSeenTime = new Date(val).getTime();
+        checkOnlineStatus(true);
       });
+
+      setInterval(() => {
+        checkOnlineStatus(true);
+      }, 15000);
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
