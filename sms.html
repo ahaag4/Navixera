@@ -98,6 +98,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -125,7 +126,7 @@
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
-    let map, marker;
+    let map, marker, lastSeenTime = 0;
 
     function updateMap(lat, lng, popupText = null) {
       if (!map) {
@@ -157,6 +158,16 @@
         else if (v === "down") cls = "comp-bad";
         componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
       });
+    }
+
+    function checkOnlineFromLastSeen() {
+      if (!lastSeenTime) return;
+      const now = Date.now();
+      if (now - lastSeenTime <= 30000) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
     }
 
     function loadDashboard(uid) {
@@ -194,18 +205,15 @@
         renderComponents(snapshot.val());
       });
 
-      // online/offline logic from 2nd code
-      vehicleRef.child("online").on("value", (snapshot) => {
-        const on = snapshot.val();
-        if (on) {
-          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-        } else {
-          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-        }
-      });
       vehicleRef.child("last_seen").on("value", (snapshot) => {
-        lastSeenEl.textContent = snapshot.val() || "N/A";
+        const val = snapshot.val();
+        if (!val) return;
+        lastSeenEl.textContent = typeof val === "number" ? new Date(val).toLocaleString() : val;
+        lastSeenTime = typeof val === "number" ? val : new Date(val).getTime();
+        checkOnlineFromLastSeen();
       });
+
+      setInterval(checkOnlineFromLastSeen, 10000); // recheck every 10s
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
