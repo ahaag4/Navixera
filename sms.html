@@ -126,7 +126,7 @@
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
-    let map, marker, lastSeenTime = null;
+    let map, marker, lastSeenTime = 0;
 
     function updateMap(lat, lng, popupText = null) {
       if (!map) {
@@ -161,12 +161,9 @@
     }
 
     function checkOnlineFromLastSeen() {
-      if (!lastSeenTime) {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-        return;
-      }
-      const diff = Date.now() - lastSeenTime;
-      if (diff <= 60000) {
+      if (!lastSeenTime) return;
+      const now = Date.now();
+      if (now - lastSeenTime <= 30000) {
         onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
       } else {
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
@@ -179,12 +176,11 @@
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-        const { latitude, longitude, status, last_active, battery } = data;
-        locationEl.textContent = `${latitude}, ${longitude}`;
-        lastActiveEl.textContent = last_active || "Unknown";
-        statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
-        updateMap(latitude, longitude);
+        locationEl.textContent = `${data.latitude}, ${data.longitude}`;
+        lastActiveEl.textContent = data.last_active || "Unknown";
+        statusEl.textContent = data.status || "Unknown";
+        batteryHealthEl.textContent = data.battery ? `${data.battery}%` : "N/A";
+        updateMap(data.latitude, data.longitude);
       });
 
       vehicleRef.child("history").on("value", (snapshot) => {
@@ -211,12 +207,13 @@
 
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const val = snapshot.val();
-        lastSeenEl.textContent = val || "N/A";
-        if (val) lastSeenTime = new Date(val).getTime();
+        if (!val) return;
+        lastSeenEl.textContent = typeof val === "number" ? new Date(val).toLocaleString() : val;
+        lastSeenTime = typeof val === "number" ? val : new Date(val).getTime();
         checkOnlineFromLastSeen();
       });
 
-      setInterval(checkOnlineFromLastSeen, 10000);
+      setInterval(checkOnlineFromLastSeen, 10000); // recheck every 10s
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
