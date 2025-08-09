@@ -1,4 +1,4 @@
-// Firebase init
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
@@ -22,7 +22,7 @@ auth.onAuthStateChanged(user => {
   });
 });
 
-function logout(){ auth.signOut().then(()=>location.href="login.html"); }
+function logout(){ auth.signOut().then(() => location.href="login.html"); }
 
 function initDashboard(){
   loadStats();
@@ -34,43 +34,38 @@ function initDashboard(){
   document.getElementById("trackVehicleId").addEventListener("input",trackVehicle);
 }
 
-// --- Defensive deep fetch: handle both company/Vehicle layouts or flat lists
-function forEachUserVehicle(users, callback){
-  for(const uid in users){
-    const u = users[uid];
-    const companies = u.vehicle?.companies;
-    if(companies && typeof companies === "object"){
-      for(const cname in companies){
-        const vehSet = companies[cname].vehicle;
-        if(vehSet && typeof vehSet==="object"){
+// ---- Dashboard Stats
+function loadStats(){
+  db.ref("users").once("value", snap=>{
+    const users=snap.val()||{};
+    let tc=0,tv=0,td=0,alerts=0,companiesSet=new Set();
+    for(const uid in users){
+      const u = users[uid];
+      // Companies logic
+      if(u.vehicle?.companies) {
+        for(const cname in u.vehicle.companies){
+          companiesSet.add(cname);
+          const vehSet = u.vehicle.companies[cname].vehicle||{};
+          tv += Object.keys(vehSet).length;
           for(const vid in vehSet){
-            callback({uid,u, cname, vid, v:vehSet[vid]});
+            const deliveries = vehSet[vid].deliveries;
+            if(deliveries && typeof deliveries === "object") td += Object.keys(deliveries).length;
+            else if(Array.isArray(deliveries)) td += deliveries.length;
           }
         }
       }
-    } else if(u.vehicles && typeof u.vehicles==="object"){
-      for(const vid in u.vehicles){
-        callback({uid,u, cname:null, vid, v:u.vehicles[vid]});
+      // Flat vehicles fallback (e.g. users[uid].vehicles?.[vid])
+      else if(u.vehicles){
+        tv += Object.keys(u.vehicles).length;
+        for(const vid in u.vehicles){
+          const deliveries = u.vehicles[vid].deliveries;
+          if(deliveries && typeof deliveries === "object") td += Object.keys(deliveries).length;
+          else if(Array.isArray(deliveries)) td += deliveries.length;
+        }
       }
+      // Alerts
+      if(u.vehicle?.last_trigger?.status === "alert") alerts++;
     }
-  }
-}
-
-// -- Dashboard Stats
-function loadStats(){
-  db.ref("users").once("value", snap=>{
-    const users = snap.val()||{};
-    let tc=0,tv=0,td=0,alerts=0,companiesSet=new Set();
-    forEachUserVehicle(users, ({u, cname, v}) => {
-      if(cname) companiesSet.add(cname);
-      tv++;
-      if(Array.isArray(v.deliveries)){
-        td+=v.deliveries.length;
-      } else if(typeof v.deliveries==="object" && v.deliveries!==null){
-        td+=Object.keys(v.deliveries).length;
-      }
-    });
-    for(const uid in users){ if(users[uid].vehicle?.last_trigger?.status==="alert") alerts++; }
     tc=companiesSet.size;
     document.getElementById("totalCompanies").innerText=tc;
     document.getElementById("totalVehicles").innerText=tv;
@@ -79,7 +74,7 @@ function loadStats(){
   });
 }
 
-// Pending Approvals
+// ---- Pending Approvals
 function loadPendingApprovals(){
   const list=document.getElementById("pendingUsersList");
   list.innerHTML="";
@@ -106,17 +101,16 @@ function loadPendingApprovals(){
 function approve(uid){ db.ref(`users/${uid}`).update({approved:true}); loadPendingApprovals(); loadApprovedUsers(); }
 function reject(uid){ if(confirm("Delete user?")) db.ref(`users/${uid}`).remove().then(()=>{loadPendingApprovals();loadApprovedUsers();}); }
 
-// -- Approved users (company/customer)
+// ---- Approved Users
 function loadApprovedUsers(){
   const tbl=document.getElementById("approvedUsersTable");
   tbl.innerHTML="";
   db.ref("users").once("value",snap=>{
-    const users=snap.val()||{};
+    const users = snap.val()||{};
     let rows = "";
     for(const uid in users){
       const u=users[uid];
       if(u.approved===true && (u.role==="company"||u.role==="customer")){
-        // Defensive company/vehicle count code
         let compsCount=0, vehCount=0, delCount=0;
         if(u.vehicle?.companies){
           compsCount=Object.keys(u.vehicle.companies).length;
@@ -129,9 +123,7 @@ function loadApprovedUsers(){
               else if(Array.isArray(dels)) delCount+=dels.length;
             }
           }
-        }
-        // Flat vehicles fallback
-        else if(u.vehicles){
+        } else if(u.vehicles){
           vehCount = Object.keys(u.vehicles).length;
           for(const vid in u.vehicles){
             const dels=u.vehicles[vid].deliveries;
@@ -152,7 +144,7 @@ function loadApprovedUsers(){
   });
 }
 
-// Populate dropdowns (user id select)
+// ---- Populate dropdowns (user id select)
 function loadUserDropdowns(){
   db.ref("users").once("value",snap=>{
     const users=snap.val()||{};
@@ -168,32 +160,35 @@ function loadUserDropdowns(){
   });
 }
 
-// ----------- LIVE MAP ------------
+// ---- Live map (shows all vehicles)
 function setupLiveMap(){
   liveMap=L.map("map").setView([20,78],5);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(liveMap);
 
-  function updateMarkers(users){
-    liveMarkers = liveMarkers || {};
-    forEachUserVehicle(users, ({vid,cname,v}) => {
-      const gps = v.gps||"0,0";
-      const [lat,lng] = gps.split(",").map(Number);
-      if(!lat && !lng) return;
-      if(!liveMarkers[vid]){
-        liveMarkers[vid]=L.marker([lat,lng]).addTo(liveMap).bindPopup(`${vid}${cname?" ("+cname+")":""}`);
-      }else{
-        liveMarkers[vid].setLatLng([lat,lng]);
-      }
-    });
-  }
-
   db.ref("users").on("value", snap=>{
-    const users=snap.val()||{};
-    updateMarkers(users);
+    const users = snap.val()||{};
+    liveMarkers = liveMarkers || {};
+    for(const uid in users){
+      const u=users[uid];
+      if(u.vehicle?.companies){
+        for(const cname in u.vehicle.companies){
+          const vehs = u.vehicle.companies[cname].vehicle||{};
+          for(const vid in vehs){
+            const gps = vehs[vid].gps||"0,0";
+            const [lat,lng] = gps.split(",").map(Number);
+            if(!lat && !lng) continue;
+            if(!liveMarkers[vid])
+              liveMarkers[vid]=L.marker([lat,lng]).addTo(liveMap).bindPopup(`${vid} (${cname})`);
+            else
+              liveMarkers[vid].setLatLng([lat,lng]);
+          }
+        }
+      }
+    }
   });
 }
 
-// ----------- VEHICLE TRACKING (center+show marker) -----------
+// ---- Vehicle Tracker (center map on vehicle)
 function trackVehicle(e){
   const vid=e.target.value.trim();
   const res=document.getElementById("vehicleTrackerResult");
@@ -202,17 +197,23 @@ function trackVehicle(e){
     let found=false;
     let foundLatLng = null;
     let companies = "";
-    forEachUserVehicle(snap.val()||{}, ({vid:currVid,cname,v})=>{
-      if(currVid===vid){
-        const gps = v.gps||"0,0";
-        const [lat,lng]=gps.split(",").map(Number);
-        foundLatLng = [lat,lng];
-        companies = cname||"";
-        found = true;
-        res.innerHTML=
-          `<div class="alert alert-info">🚚 ${vid} at ${gps}${v.battery?", Battery: "+v.battery+"%":""}</div>`;
+    for(const uid in snap.val()||{}){
+      const u=snap.val()[uid];
+      if(u.vehicle?.companies){
+        for(const cname in u.vehicle.companies){
+          const vehs=u.vehicle.companies[cname].vehicle||{};
+          if(vehs[vid]){
+            const gps=vehs[vid].gps||"0,0";
+            const [lat,lng] = gps.split(",").map(Number);
+            foundLatLng = [lat,lng];
+            companies = cname||"";
+            found = true;
+            res.innerHTML=
+              `<div class="alert alert-info">🚚 ${vid} at ${gps}${vehs[vid].battery?", Battery: "+vehs[vid].battery+"%":""}</div>`;
+          }
+        }
       }
-    });
+    }
     if(found && foundLatLng){
       liveMap.setView(foundLatLng,14);
       if(!liveMarkers[vid])
@@ -224,7 +225,7 @@ function trackVehicle(e){
   });
 }
 
-// --- ALARM TRIGGER by USER ID (all vehicles)
+// ---- Manual Alarm (all vehicles for user)
 function triggerAlarmByUser(){
   const uid = document.getElementById("alarmUserSelect").value;
   const status = document.getElementById("alarmStatus");
@@ -248,7 +249,7 @@ function triggerAlarmByUser(){
   });
 }
 
-// --------------- MOVEMENT HISTORY (user, all vehicles) ---------------
+// ---- History Map (fix for your structure)
 function setupHistoryMap(){
   historyMap = L.map("historyMap").setView([20,78],5);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(historyMap);
@@ -259,27 +260,27 @@ function clearHistoryMap(){
   historyMarkers=[];
   historyMap.eachLayer(l=>{ if(l instanceof L.Polyline) historyMap.removeLayer(l); });
 }
+
 function loadHistoryByUser(){
   const uid=document.getElementById("historyUserSelect").value;
   const btn=document.getElementById("deleteHistoryBtn");
   clearHistoryMap();
   if(!uid){ alert("Select user"); btn.style.display="none"; return; }
-  db.ref(`users/${uid}/vehicle/companies`).once("value",snap=>{
-    const comps = snap.val()||{};
+  db.ref(`users/${uid}/vehicle/history`).once("value",snap=>{
+    const history=snap.val()||{};
     let points=[];
-    for(const cname in comps){
-      const vehs=comps[cname].vehicle||{};
-      for(const vid in vehs){
-        const dels=vehs[vid].deliveries||{};
-        for(const did in dels){
-          if(Array.isArray(dels[did].route)) points=points.concat(dels[did].route);
-          else if(dels[did].location) points.push(dels[did].location);
-        }
-      }
+
+    for(const hid in history){
+      // Value is a lat,lng string
+      if(typeof history[hid] === "string" && history[hid].includes(",")) points.push(history[hid]);
+      // Value has .location string
+      else if(history[hid].location) points.push(history[hid].location);
+      // Value is array (e.g. route)
+      else if(Array.isArray(history[hid])) points=points.concat(history[hid]);
     }
-    if(points.length===0){ alert("No history"); btn.style.display="none"; return; }
+    if(points.length===0){ alert("No movement history for this user."); btn.style.display="none"; return; }
     const coords=points.map(p=>p.split(",").map(Number)).filter(c=>!isNaN(c[0])&&!isNaN(c[1]));
-    if(coords.length===0){ alert("No valid coords"); btn.style.display="none"; return; }
+    if(coords.length===0){ alert("No valid coordinates."); btn.style.display="none"; return; }
     const poly=L.polyline(coords,{color:"blue"}).addTo(historyMap);
     coords.forEach(c=>historyMarkers.push(L.circleMarker(c,{radius:4,color:"red"}).addTo(historyMap)));
     historyMap.fitBounds(poly.getBounds());
@@ -287,16 +288,10 @@ function loadHistoryByUser(){
     btn.onclick=()=>deleteHistoryByUser(uid);
   });
 }
+
 function deleteHistoryByUser(uid){
   if(!confirm("Delete all movement history for this user?")) return;
-  db.ref(`users/${uid}/vehicle/companies`).once("value",snap=>{
-    const comps=snap.val()||{};
-    for(const cname in comps){
-      const vehs=comps[cname].vehicle||{};
-      for(const vid in vehs){
-        db.ref(`users/${uid}/vehicle/companies/${cname}/vehicle/${vid}/deliveries`).remove();
-      }
-    }
+  db.ref(`users/${uid}/vehicle/history`).remove().then(()=>{
     clearHistoryMap();
     document.getElementById("deleteHistoryBtn").style.display="none";
     alert("History deleted.");
