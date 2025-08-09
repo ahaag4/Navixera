@@ -203,9 +203,11 @@
       });
     }
 
-    function updateOnlineStatus(isOnline, isError = false) {
+    function updateOnlineStatus(isOnline, isStale = false, isError = false) {
       if (isError) {
         onlineStatusEl.innerHTML = '<span class="badge offline">ERROR</span>';
+      } else if (isStale) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
       } else if (isOnline === true) {
         onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
       } else {
@@ -249,31 +251,47 @@
         renderComponents(snapshot.val());
       });
 
+      // Enhanced online status listener with stale timeout
+      let lastOnlineUpdate = Date.now();
+      const STALE_TIMEOUT = 180000; // 3 minutes to match NodeMCU ONLINE_TTL_MS + buffer
+      const CHECK_INTERVAL = 15000; // Check every 15 seconds
+
       vehicleRef.child("online").on(
         "value",
         (snapshot) => {
           const on = snapshot.val();
-          updateOnlineStatus(on, false);
-          console.log(`Firebase online update: ${on}`);
+          lastOnlineUpdate = Date.now();
+          updateOnlineStatus(on, false, false);
+          console.log(`Firebase online update: ${on} at ${new Date().toISOString()}`);
         },
         (error) => {
           console.error("Error fetching online status:", error);
-          updateOnlineStatus(false, true);
+          updateOnlineStatus(false, false, true);
         }
       );
 
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const val = snapshot.val();
         lastActiveTimeEl.textContent = val || "N/A";
+        console.log(`Firebase last_seen update: ${val}`);
       });
 
       // Fallback for initial loading state
       setTimeout(() => {
         if (onlineStatusEl.innerHTML.includes("Checking")) {
-          updateOnlineStatus(false, false);
+          updateOnlineStatus(false, false, false);
           console.log("Initial online status timeout: set to OFFLINE");
         }
-      }, 5000);
+      }, 10000); // Increased to 10 seconds
+
+      // Check for stale online status
+      const staleCheckInterval = setInterval(() => {
+        const timeSinceUpdate = Date.now() - lastOnlineUpdate;
+        if (timeSinceUpdate > STALE_TIMEOUT) {
+          updateOnlineStatus(false, true, false);
+          console.log("Status marked as OFFLINE (Stale) after " + timeSinceUpdate + "ms");
+        }
+      }, CHECK_INTERVAL);
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
@@ -294,13 +312,18 @@
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState);
       });
+
+      // Clean up interval on logout
+      document.getElementById("logoutBtn").onclick = () => {
+        clearInterval(staleCheckInterval);
+        auth.signOut();
+      };
     }
 
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
         document.getElementById("userEmail").textContent = user.email;
-        document.getElementById("logoutBtn").onclick = () => auth.signOut();
       } else {
         window.location.href = "login.html";
       }
