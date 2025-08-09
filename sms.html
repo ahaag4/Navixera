@@ -213,10 +213,21 @@
       } else {
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
+      console.log(`Updated online status: ${isOnline}, stale: ${isStale}, error: ${isError}`);
     }
 
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      // Initial check for online status
+      vehicleRef.child("online").get().then((snapshot) => {
+        const on = snapshot.val();
+        updateOnlineStatus(on, false, false);
+        console.log(`Initial online status fetch: ${on}`);
+      }).catch((error) => {
+        console.error("Error fetching initial online status:", error);
+        updateOnlineStatus(false, false, true);
+      });
 
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
@@ -227,6 +238,7 @@
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
         updateMap(latitude, longitude);
+        console.log(`Current data updated: ${latitude}, ${longitude}`);
       });
 
       vehicleRef.child("history").on("value", (snapshot) => {
@@ -253,7 +265,7 @@
 
       // Enhanced online status listener with stale timeout
       let lastOnlineUpdate = Date.now();
-      const STALE_TIMEOUT = 180000; // 3 minutes to match NodeMCU ONLINE_TTL_MS + buffer
+      const STALE_TIMEOUT = 180000; // 3 minutes
       const CHECK_INTERVAL = 15000; // Check every 15 seconds
 
       vehicleRef.child("online").on(
@@ -265,7 +277,7 @@
           console.log(`Firebase online update: ${on} at ${new Date().toISOString()}`);
         },
         (error) => {
-          console.error("Error fetching online status:", error);
+          console.error("Error in online listener:", error);
           updateOnlineStatus(false, false, true);
         }
       );
@@ -280,16 +292,16 @@
       setTimeout(() => {
         if (onlineStatusEl.innerHTML.includes("Checking")) {
           updateOnlineStatus(false, false, false);
-          console.log("Initial online status timeout: set to OFFLINE");
+          console.log("Initial online status timeout: set to OFFLINE at " + new Date().toISOString());
         }
-      }, 10000); // Increased to 10 seconds
+      }, 15000); // Increased to 15 seconds
 
       // Check for stale online status
       const staleCheckInterval = setInterval(() => {
         const timeSinceUpdate = Date.now() - lastOnlineUpdate;
         if (timeSinceUpdate > STALE_TIMEOUT) {
           updateOnlineStatus(false, true, false);
-          console.log("Status marked as OFFLINE (Stale) after " + timeSinceUpdate + "ms");
+          console.log(`Status marked as OFFLINE (Stale) after ${timeSinceUpdate}ms at ${new Date().toISOString()}`);
         }
       }, CHECK_INTERVAL);
 
