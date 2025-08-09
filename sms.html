@@ -8,62 +8,24 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f9fc;
-    }
-    .dashboard {
-      max-width: 1000px;
-      margin: auto;
-      padding: 20px;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #343a40;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-    }
-    .logo { height: 40px; }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    h2 { margin-top: 0; color: #343a40; }
-    #map { height: 300px; width: 100%; border-radius: 10px; }
-    table {
-      width: 100%; border-collapse: collapse; margin-top: 10px;
-    }
-    th, td {
-      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
-    }
-    .switch {
-      position: relative; display: inline-block; width: 60px; height: 30px;
-    }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .4s; border-radius: 30px;
-    }
-    .slider:before {
-      position: absolute; content: "";
-      height: 22px; width: 22px; left: 4px; bottom: 4px;
-      background-color: white; transition: .4s; border-radius: 50%;
-    }
-    input:checked + .slider { background-color: #28a745; }
-    input:checked + .slider:before { transform: translateX(30px); }
-    .view-btn {
-      background-color: #007bff; color: white; padding: 5px 12px;
-      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
-    }
-    .view-btn:hover { background-color: #0056b3; }
-    .user-info { display: flex; align-items: center; gap: 10px; }
+    body { font-family: Arial,sans-serif; margin:0; background:#f7f9fc; }
+    .dashboard { max-width:1000px; margin:auto; padding:20px;}
+    header { display:flex; justify-content:space-between; align-items:center; background:#343a40; color:white; padding:10px 20px; border-radius:10px;}
+    .logo { height:40px;}
+    .card { background:white; padding:20px; margin:20px 0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+    h2 { margin-top:0; color:#343a40;}
+    #map { height:300px; width:100%; border-radius:10px;}
+    table { width:100%; border-collapse:collapse; margin-top:10px;}
+    th,td { padding:10px; text-align:left; border-bottom:1px solid #ccc;}
+    .switch { position:relative; display:inline-block; width:60px; height:30px;}
+    .switch input { opacity:0; width:0; height:0;}
+    .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:30px;}
+    .slider:before { position:absolute; content:""; height:22px; width:22px; left:4px; bottom:4px; background-color:white; transition:.4s; border-radius:50%;}
+    input:checked + .slider { background-color:#28a745;}
+    input:checked + .slider:before { transform:translateX(30px);}
+    .view-btn { background-color:#007bff; color:white; padding:5px 12px; border:none; border-radius:6px; cursor:pointer; font-size:14px;}
+    .view-btn:hover { background-color:#0056b3;}
+    .user-info { display:flex; align-items:center; gap:10px;}
     #logoutBtn {
       background: #dc3545; color: white; border: none;
       padding: 6px 12px; border-radius: 6px; cursor: pointer;
@@ -90,12 +52,11 @@
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
-
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
-        <div><strong>Last Active:</strong> <span id="lastActiveTime">N/A</span></div>
+        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
@@ -109,7 +70,6 @@
         </ul>
       </div>
     </section>
-
     <section class="card alarm-card">
       <h2>🔔 Alarm</h2>
       <label class="switch">
@@ -118,12 +78,10 @@
       </label>
       <p id="alarmStatusText">Loading alarm status...</p>
     </section>
-
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
       <div id="map">Loading map...</div>
     </section>
-
     <section class="card history-card">
       <h2>📈 Movement History</h2>
       <table>
@@ -132,12 +90,10 @@
       </table>
     </section>
   </div>
-
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -160,8 +116,10 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
+
+    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
-    const lastActiveTimeEl = document.getElementById("lastActiveTime");
+    const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
     let map, marker;
@@ -203,43 +161,31 @@
       });
     }
 
-    function getISTTime() {
-      return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-    }
+    // ---- PRESENCE PATCH START ----
+    // Used to throttle lastActive update (from web side) every 30 seconds
+    let lastActiveInterval;
 
-    function updateOnlineStatus(isOnline, isStale = false, isError = false) {
-      if (isError) {
-        onlineStatusEl.innerHTML = '<span class="badge offline">ERROR</span>';
-      } else if (isStale) {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
-      } else if (isOnline === true) {
-        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-      } else {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+    function startLastActiveInterval(lastActiveRef) {
+      if (lastActiveInterval) clearInterval(lastActiveInterval);
+      // Run immediately, then every 30 seconds
+      function update() {
+        const nowStr = new Date().toLocaleString().replace(",", "");
+        lastActiveRef.set(nowStr);
+        lastActiveEl.textContent = nowStr;
       }
-      console.log(`[Dashboard] Updated online status: isOnline=${isOnline}, isStale=${isStale}, isError=${isError} at ${getISTTime()}`);
+      update();
+      lastActiveInterval = setInterval(update, 30000);
     }
+    function stopLastActiveInterval() {
+      if (lastActiveInterval) clearInterval(lastActiveInterval);
+    }
+    // ---- PRESENCE PATCH END ----
 
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
-
-      // Retry initial online status fetch
-      function fetchInitialOnlineStatus(attempt = 1, maxAttempts = 3) {
-        vehicleRef.child("online").get().then((snapshot) => {
-          const on = snapshot.val();
-          updateOnlineStatus(on === true, false, false);
-          console.log(`[Dashboard] Initial online status fetch: ${on} (attempt ${attempt}) at ${getISTTime()}`);
-        }).catch((error) => {
-          console.error(`[Dashboard] Error fetching initial online status (attempt ${attempt}): ${error.message} at ${getISTTime()}`);
-          if (attempt < maxAttempts) {
-            setTimeout(() => fetchInitialOnlineStatus(attempt + 1, maxAttempts), 3000);
-          } else {
-            updateOnlineStatus(false, false, true);
-            console.log(`[Dashboard] Max attempts reached for initial online fetch at ${getISTTime()}`);
-          }
-        });
-      }
-      fetchInitialOnlineStatus();
+      const onlineRef = vehicleRef.child("online");
+      const lastSeenRef = vehicleRef.child("last_seen");
+      const lastActiveRef = vehicleRef.child("current/last_active");
 
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
@@ -248,9 +194,8 @@
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
+        batteryHealthEl.textContent = (battery != null) ? `${battery}%` : "N/A";
         updateMap(latitude, longitude);
-        console.log(`[Dashboard] Current data updated: lat=${latitude}, lng=${longitude} at ${getISTTime()}`);
       });
 
       vehicleRef.child("history").on("value", (snapshot) => {
@@ -272,92 +217,44 @@
       });
 
       vehicleRef.child("components").on("value", (snapshot) => {
-        renderComponents(snapshot.val());
+        const comps = snapshot.val();
+        renderComponents(comps);
       });
 
-      // Enhanced online status listener with polling fallback
-      let lastOnlineUpdate = Date.now();
-      const STALE_TIMEOUT = 90000; // 90 seconds
-      const CHECK_INTERVAL = 10000; // Check every 10 seconds
-      let isListenerActive = false;
-
-      function setupOnlineListener() {
-        vehicleRef.child("online").off(); // Clear any existing listener
-        vehicleRef.child("online").on(
-          "value",
-          (snapshot) => {
-            const on = snapshot.val();
-            isListenerActive = true;
-            if (on === true) {
-              lastOnlineUpdate = Date.now();
-            }
-            updateOnlineStatus(on === true, false, false);
-            console.log(`[Dashboard] Firebase online update: ${on} at ${getISTTime()}`);
-          },
-          (error) => {
-            isListenerActive = false;
-            console.error(`[Dashboard] Error in online listener: ${error.message} at ${getISTTime()}`);
-            updateOnlineStatus(false, false, true);
-            setTimeout(setupOnlineListener, 3000); // Retry after 3 seconds
-          }
-        );
-      }
-      setupOnlineListener();
-
-      // Fallback polling for online status
-      const pollingInterval = setInterval(() => {
-        if (!isListenerActive) {
-          vehicleRef.child("online").get().then((snapshot) => {
-            const on = snapshot.val();
-            updateOnlineStatus(on === true, false, false);
-            console.log(`[Dashboard] Polling online status: ${on} at ${getISTTime()}`);
-          }).catch((error) => {
-            console.error(`[Dashboard] Polling error: ${error.message} at ${getISTTime()}`);
-            updateOnlineStatus(false, false, true);
-          });
-        }
-      }, 15000);
-
-      // Monitor Firebase connection
-      const connectedRef = db.ref(".info/connected");
-      connectedRef.on("value", (snapshot) => {
-        const isConnected = snapshot.val();
-        console.log(`[Dashboard] Firebase connection state: ${isConnected ? "Connected" : "Disconnected"} at ${getISTTime()}`);
-        if (!isConnected && isListenerActive) {
-          isListenerActive = false;
-          setupOnlineListener();
+      // -- PRESENCE PATCH: Listen for online/last seen flags and status display --
+      let lastOnline = false;
+      let onlineTimeout;
+      vehicleRef.child("online").on("value", (snapshot) => {
+        const isOnline = !!snapshot.val();
+        lastOnline = isOnline;
+        if (isOnline) {
+          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+          startLastActiveInterval(lastActiveRef);
+          if (onlineTimeout) clearTimeout(onlineTimeout);
+        } else {
+          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+          stopLastActiveInterval();
         }
       });
-
       vehicleRef.child("last_seen").on("value", (snapshot) => {
-        const val = snapshot.val();
-        lastActiveTimeEl.textContent = val || "N/A";
-        console.log(`[Dashboard] Firebase last_seen update: ${val} at ${getISTTime()}`);
+        let val = snapshot.val();
+        if (!val) {
+          lastSeenEl.textContent = "N/A";
+        } else if (typeof val === "number") {
+          // Firebase timestamps are millis
+          const d = new Date(val);
+          lastSeenEl.textContent = d.toLocaleString();
+        } else {
+          lastSeenEl.textContent = val;
+        }
       });
 
-      // Fallback for initial loading state
-      setTimeout(() => {
-        if (onlineStatusEl.innerHTML.includes("Checking")) {
-          updateOnlineStatus(false, false, false);
-          console.log(`[Dashboard] Initial online status timeout: set to OFFLINE at ${getISTTime()}`);
-        }
-      }, 10000);
-
-      // Check for stale online status
-      const staleCheckInterval = setInterval(() => {
-        const timeSinceUpdate = Date.now() - lastOnlineUpdate;
-        if (timeSinceUpdate > STALE_TIMEOUT && isListenerActive) {
-          updateOnlineStatus(false, true, false);
-          console.log(`[Dashboard] Status marked as OFFLINE (Stale) after ${timeSinceUpdate}ms at ${getISTTime()}`);
-        }
-      }, CHECK_INTERVAL);
-
+      // -- Alarm controls --
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
-
       vehicleRef.child("last_trigger").on("value", (snapshot) => {
         const trigger = snapshot.val();
         if (trigger && trigger.time && trigger.status === "alert") {
@@ -366,26 +263,17 @@
           alarmTriggerEl.textContent = "No triggers";
         }
       });
-
       alarmToggle.addEventListener("change", () => {
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState);
       });
-
-      // Clean up listeners and intervals on logout
-      document.getElementById("logoutBtn").onclick = () => {
-        clearInterval(staleCheckInterval);
-        clearInterval(pollingInterval);
-        vehicleRef.child("online").off();
-        connectedRef.off();
-        auth.signOut();
-      };
     }
 
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
         document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
       } else {
         window.location.href = "login.html";
       }
