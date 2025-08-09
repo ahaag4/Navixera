@@ -68,8 +68,6 @@
       background: #dc3545; color: white; border: none;
       padding: 6px 12px; border-radius: 6px; cursor: pointer;
     }
-
-    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -95,20 +93,15 @@
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-
-      <!-- ADDED: Online badge + last seen (keeps existing fields) -->
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
-
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
-
-      <!-- ADDED: Components -->
       <div id="componentsBlock">
         <h4>Components</h4>
         <ul id="componentsList" class="components-list">
@@ -167,8 +160,6 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
-    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
@@ -191,7 +182,6 @@
       updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
 
-    // NEW: render components object into the components list with simple color coding
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -213,6 +203,18 @@
       });
     }
 
+    function updateOnlineStatus(isOnline, isStale = false, isError = false) {
+      if (isError) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">ERROR</span>';
+      } else if (isStale) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
+      } else if (isOnline === true) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
+    }
+
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
@@ -221,7 +223,6 @@
         if (!data) return;
 
         const { latitude, longitude, status, last_active, battery } = data;
-        // keep original behavior
         locationEl.textContent = `${latitude}, ${longitude}`;
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
@@ -248,7 +249,6 @@
         }
       });
 
-      // NEW: listen for components (wifi, gps, motion_sensor, buzzer, etc)
       vehicleRef.child("components").on("value", (snapshot) => {
         const comps = snapshot.val();
         renderComponents(comps);
@@ -256,27 +256,53 @@
 
       // Enhanced online status listener with timeout
       let lastOnlineUpdate = Date.now();
-      vehicleRef.child("online").on("value", (snapshot) => {
-        const on = snapshot.val();
-        lastOnlineUpdate = Date.now();
-        if (on) {
-          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-        } else {
-          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      const STALE_TIMEOUT = 180000; // 3 minutes
+      const CHECK_INTERVAL = 15000; // 15 seconds
+
+      // Fallback for initial loading state
+      setTimeout(() => {
+        if (onlineStatusEl.innerHTML.includes("Checking")) {
+          updateOnlineStatus(false, false, false);
+          console.log("Initial online status timeout: set to OFFLINE");
+        }
+      }, 5000);
+
+      vehicleRef.child("online").on(
+        "value",
+        (snapshot) => {
+          const on = snapshot.val();
+          lastOnlineUpdate = Date.now();
+          updateOnlineStatus(on, false, false);
+          console.log(`Firebase online update: ${on}`);
+        },
+        (error) => {
+          console.error("Error fetching online status:", error);
+          updateOnlineStatus(false, false, true);
+        }
+      );
+
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        const lastSeen = snapshot.val();
+        lastSeenEl.textContent = lastSeen || "N/A";
+        if (lastSeen) {
+          const lastSeenTime = new Date(lastSeen).getTime();
+          const timeSinceLastSeen = Date.now() - lastSeenTime;
+          if (timeSinceLastSeen < 90000 && !onlineStatusEl.innerHTML.includes("ONLINE")) {
+            updateOnlineStatus(true, false, false);
+            lastOnlineUpdate = Date.now();
+            console.log("Inferred ONLINE from recent last_seen");
+          }
         }
       });
 
       // Check for stale online status
-      setInterval(() => {
+      const staleCheckInterval = setInterval(() => {
         const timeSinceUpdate = Date.now() - lastOnlineUpdate;
-        if (timeSinceUpdate > 120000) { // 2 minutes timeout
-          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
+        if (timeSinceUpdate > STALE_TIMEOUT) {
+          updateOnlineStatus(false, true, false);
+          console.log("Status marked as stale");
         }
-      }, 60000); // Check every minute
-
-      vehicleRef.child("last_seen").on("value", (snapshot) => {
-        lastSeenEl.textContent = snapshot.val() || "N/A";
-      });
+      }, CHECK_INTERVAL);
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
@@ -297,13 +323,18 @@
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState);
       });
+
+      // Clean up interval on logout
+      document.getElementById("logoutBtn").onclick = () => {
+        clearInterval(staleCheckInterval);
+        auth.signOut();
+      };
     }
 
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
         document.getElementById("userEmail").textContent = user.email;
-        document.getElementById("logoutBtn").onclick = () => auth.signOut();
       } else {
         window.location.href = "login.html";
       }
