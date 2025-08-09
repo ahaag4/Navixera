@@ -1,111 +1,78 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Super Admin - SVMS</title>
-
-  <!-- Bootstrap (for layout) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="UTF-8">
+  <title>Super Admin Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map { height: 420px; width: 100%; border-radius: 8px; }
-    .stat-card { min-width: 160px; }
-    .small-input { max-width: 320px; }
-    /* small responsive fixes */
-    @media (max-width: 576px) {
-      #map { height: 300px; }
-    }
+    #map { height: 400px; }
+    body { background: #f8f9fa; }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-light bg-light mb-3">
-    <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1">Super Admin - SVMS</span>
-      <div>
-        <button id="logoutBtn" class="btn btn-outline-secondary btn-sm">Logout</button>
-      </div>
+
+<div class="container mt-4">
+  <h1>🚀 Super Admin Dashboard</h1>
+  <button id="logoutBtn" class="btn btn-secondary float-end mb-3">Logout</button>
+
+  <!-- Stats -->
+  <div class="row text-center mb-4">
+    <div class="col">
+      <h4>Total Companies</h4>
+      <div id="totalCompanies" class="fs-3">0</div>
     </div>
-  </nav>
-
-  <div class="container">
-    <!-- Stats row -->
-    <div class="d-flex gap-3 flex-wrap mb-3">
-      <div class="card p-3 stat-card">
-        <div class="text-muted">Total Companies</div>
-        <div id="totalCompanies" class="h4">0</div>
-      </div>
-      <div class="card p-3 stat-card">
-        <div class="text-muted">Total Vehicles</div>
-        <div id="totalVehicles" class="h4">0</div>
-      </div>
-      <div class="card p-3 stat-card">
-        <div class="text-muted">Total Deliveries</div>
-        <div id="totalDeliveries" class="h4">0</div>
-      </div>
-      <div class="card p-3 stat-card">
-        <div class="text-muted">Alerts Today</div>
-        <div id="alertsToday" class="h4">0</div>
-      </div>
+    <div class="col">
+      <h4>Total Vehicles</h4>
+      <div id="totalVehicles" class="fs-3">0</div>
     </div>
-
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <div class="card p-3 mb-3">
-          <h5 class="card-title">Live Vehicle Locations</h5>
-          <div id="map"></div>
-        </div>
-
-        <div class="card p-3 mb-3">
-          <h5 class="card-title">Manual Alarm Trigger</h5>
-          <div class="row g-2 align-items-center">
-            <div class="col-auto">
-              <input id="alarmVehicleId" class="form-control small-input" placeholder="Enter vehicle ID to trigger alarm" />
-            </div>
-            <div class="col-auto">
-              <button id="triggerAlarmBtn" class="btn btn-danger">Trigger Alarm</button>
-            </div>
-            <div class="col-12 mt-2" id="alarmStatus"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4">
-        <div class="card p-3 mb-3">
-          <h6>Pending Approvals</h6>
-          <ul id="pendingUsersList" class="list-group list-group-flush" style="max-height:260px; overflow:auto;"></ul>
-        </div>
-
-        <div class="card p-3 mb-3">
-          <h6>Approved Companies</h6>
-          <table class="table table-sm">
-            <thead>
-              <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Actions</th></tr>
-            </thead>
-            <tbody id="companyTable"></tbody>
-          </table>
-        </div>
-
-        <div class="card p-3">
-          <h6>Vehicle Tracker</h6>
-          <input id="trackVehicleId" class="form-control mb-2 small-input" placeholder="Enter vehicle ID" />
-          <div id="vehicleTrackerResult"></div>
-        </div>
-      </div>
+    <div class="col">
+      <h4>Total Deliveries</h4>
+      <div id="totalDeliveries" class="fs-3">0</div>
+    </div>
+    <div class="col">
+      <h4>Alerts Today</h4>
+      <div id="alertsToday" class="fs-3">0</div>
     </div>
   </div>
 
-  <!-- Firebase (compat v8 style) -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <!-- Pending Approvals -->
+  <h3>Pending Approvals</h3>
+  <ul id="pendingUsersList" class="list-group mb-4"></ul>
 
-  <!-- Leaflet -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Approved Companies -->
+  <h3>Approved Companies</h3>
+  <table class="table table-bordered">
+    <thead class="table-light">
+      <tr>
+        <th>Company Name</th>
+        <th>Vehicles</th>
+        <th>Deliveries</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="companyTable"></tbody>
+  </table>
 
-  <!-- Your app JS -->
-  <script src="superadmin.js"></script>
+  <!-- Vehicle Tracker -->
+  <h3>Vehicle Tracker</h3>
+  <input type="text" id="trackVehicleId" class="form-control mb-3" placeholder="Enter Vehicle ID to track">
+  <div id="vehicleTrackerResult" class="mb-3"></div>
+  <div id="map" class="mb-4"></div>
+
+  <!-- Manual Alarm Trigger -->
+  <h3>Manual Alarm Trigger</h3>
+  <input type="text" id="alarmVehicleId" class="form-control mb-3" placeholder="Enter Vehicle ID">
+  <button id="triggerAlarmBtn" class="btn btn-danger mb-3">Trigger Alarm</button>
+  <div id="alarmStatus"></div>
+</div>
+
+<!-- Scripts -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="superadmin.js"></script>
+
 </body>
 </html>
