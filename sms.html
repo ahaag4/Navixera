@@ -223,15 +223,23 @@
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      // Initial check for online status
-      vehicleRef.child("online").get().then((snapshot) => {
-        const on = snapshot.val();
-        updateOnlineStatus(on === true, false, false);
-        console.log(`[Dashboard] Initial online status fetch: ${on} at ${getISTTime()}`);
-      }).catch((error) => {
-        console.error(`[Dashboard] Error fetching initial online status: ${error.message} at ${getISTTime()}`);
-        updateOnlineStatus(false, false, true);
-      });
+      // Retry initial online status fetch
+      function fetchInitialOnlineStatus(attempt = 1, maxAttempts = 3) {
+        vehicleRef.child("online").get().then((snapshot) => {
+          const on = snapshot.val();
+          updateOnlineStatus(on === true, false, false);
+          console.log(`[Dashboard] Initial online status fetch: ${on} (attempt ${attempt}) at ${getISTTime()}`);
+        }).catch((error) => {
+          console.error(`[Dashboard] Error fetching initial online status (attempt ${attempt}): ${error.message} at ${getISTTime()}`);
+          if (attempt < maxAttempts) {
+            setTimeout(() => fetchInitialOnlineStatus(attempt + 1, maxAttempts), 3000);
+          } else {
+            updateOnlineStatus(false, false, true);
+            console.log(`[Dashboard] Max attempts reached for initial online fetch at ${getISTTime()}`);
+          }
+        });
+      }
+      fetchInitialOnlineStatus();
 
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
@@ -267,50 +275,57 @@
         renderComponents(snapshot.val());
       });
 
-      // Enhanced online status listener with retry and connection monitoring
-      let retryCount = 0;
-      const maxRetries = 5;
-      const baseRetryDelay = 5000; // 5 seconds
+      // Enhanced online status listener with polling fallback
       let lastOnlineUpdate = Date.now();
-      const STALE_TIMEOUT = 120000; // 2 minutes
+      const STALE_TIMEOUT = 90000; // 90 seconds
       const CHECK_INTERVAL = 10000; // Check every 10 seconds
+      let isListenerActive = false;
 
       function setupOnlineListener() {
+        vehicleRef.child("online").off(); // Clear any existing listener
         vehicleRef.child("online").on(
           "value",
           (snapshot) => {
             const on = snapshot.val();
-            retryCount = 0; // Reset retries on successful update
+            isListenerActive = true;
             if (on === true) {
-              lastOnlineUpdate = Date.now(); // Only update for online: true
+              lastOnlineUpdate = Date.now();
             }
             updateOnlineStatus(on === true, false, false);
             console.log(`[Dashboard] Firebase online update: ${on} at ${getISTTime()}`);
           },
           (error) => {
+            isListenerActive = false;
             console.error(`[Dashboard] Error in online listener: ${error.message} at ${getISTTime()}`);
             updateOnlineStatus(false, false, true);
-            if (retryCount < maxRetries) {
-              const delay = baseRetryDelay * Math.pow(2, retryCount); // Exponential backoff
-              console.log(`[Dashboard] Retrying online listener in ${delay}ms at ${getISTTime()}`);
-              retryCount++;
-              setTimeout(setupOnlineListener, delay);
-            } else {
-              console.error(`[Dashboard] Max retries reached for online listener at ${getISTTime()}`);
-            }
+            setTimeout(setupOnlineListener, 3000); // Retry after 3 seconds
           }
         );
       }
       setupOnlineListener();
 
-      // Monitor Firebase connection state
+      // Fallback polling for online status
+      const pollingInterval = setInterval(() => {
+        if (!isListenerActive) {
+          vehicleRef.child("online").get().then((snapshot) => {
+            const on = snapshot.val();
+            updateOnlineStatus(on === true, false, false);
+            console.log(`[Dashboard] Polling online status: ${on} at ${getISTTime()}`);
+          }).catch((error) => {
+            console.error(`[Dashboard] Polling error: ${error.message} at ${getISTTime()}`);
+            updateOnlineStatus(false, false, true);
+          });
+        }
+      }, 15000);
+
+      // Monitor Firebase connection
       const connectedRef = db.ref(".info/connected");
       connectedRef.on("value", (snapshot) => {
         const isConnected = snapshot.val();
         console.log(`[Dashboard] Firebase connection state: ${isConnected ? "Connected" : "Disconnected"} at ${getISTTime()}`);
-        if (!isConnected && retryCount < maxRetries) {
-          vehicleRef.child("online").off();
-          setTimeout(setupOnlineListener, baseRetryDelay);
+        if (!isConnected && isListenerActive) {
+          isListenerActive = false;
+          setupOnlineListener();
         }
       });
 
@@ -331,7 +346,7 @@
       // Check for stale online status
       const staleCheckInterval = setInterval(() => {
         const timeSinceUpdate = Date.now() - lastOnlineUpdate;
-        if (timeSinceUpdate > STALE_TIMEOUT) {
+        if (timeSinceUpdate > STALE_TIMEOUT && isListenerActive) {
           updateOnlineStatus(false, true, false);
           console.log(`[Dashboard] Status marked as OFFLINE (Stale) after ${timeSinceUpdate}ms at ${getISTTime()}`);
         }
@@ -357,9 +372,10 @@
         vehicleRef.child("alarm").set(newState);
       });
 
-      // Clean up listeners and interval on logout
+      // Clean up listeners and intervals on logout
       document.getElementById("logoutBtn").onclick = () => {
         clearInterval(staleCheckInterval);
+        clearInterval(pollingInterval);
         vehicleRef.child("online").off();
         connectedRef.off();
         auth.signOut();
