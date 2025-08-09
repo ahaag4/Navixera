@@ -14,6 +14,7 @@ const auth = firebase.auth();
 
 let liveMap, historyMap, liveMarkers = {}, historyMarkers = [];
 
+// -------- Authentication --------
 auth.onAuthStateChanged(user => {
   if (!user) return location.href = "login.html";
   db.ref(`users/${user.uid}`).once("value", snap => {
@@ -22,8 +23,11 @@ auth.onAuthStateChanged(user => {
   });
 });
 
-function logout(){ auth.signOut().then(() => location.href="login.html"); }
+function logout(){
+  auth.signOut().then(() => location.href="login.html");
+}
 
+// -------- Dashboard Init and Core Loaders --------
 function initDashboard(){
   loadStats();
   loadPendingApprovals();
@@ -34,14 +38,13 @@ function initDashboard(){
   document.getElementById("trackVehicleId").addEventListener("input",trackVehicle);
 }
 
-// ---- Dashboard Stats
+// -------- Stats --------
 function loadStats(){
   db.ref("users").once("value", snap=>{
     const users=snap.val()||{};
     let tc=0,tv=0,td=0,alerts=0,companiesSet=new Set();
     for(const uid in users){
       const u = users[uid];
-      // Companies logic
       if(u.vehicle?.companies) {
         for(const cname in u.vehicle.companies){
           companiesSet.add(cname);
@@ -54,7 +57,6 @@ function loadStats(){
           }
         }
       }
-      // Flat vehicles fallback (e.g. users[uid].vehicles?.[vid])
       else if(u.vehicles){
         tv += Object.keys(u.vehicles).length;
         for(const vid in u.vehicles){
@@ -63,10 +65,9 @@ function loadStats(){
           else if(Array.isArray(deliveries)) td += deliveries.length;
         }
       }
-      // Alerts
       if(u.vehicle?.last_trigger?.status === "alert") alerts++;
     }
-    tc=companiesSet.size;
+    tc = companiesSet.size;
     document.getElementById("totalCompanies").innerText=tc;
     document.getElementById("totalVehicles").innerText=tv;
     document.getElementById("totalDeliveries").innerText=td;
@@ -74,7 +75,7 @@ function loadStats(){
   });
 }
 
-// ---- Pending Approvals
+// -------- Pending Approvals --------
 function loadPendingApprovals(){
   const list=document.getElementById("pendingUsersList");
   list.innerHTML="";
@@ -85,7 +86,7 @@ function loadPendingApprovals(){
       const u=users[uid];
       if((u.role==="company"||u.role==="customer") && u.approved!==true){
         found = true;
-        const name=u.companyName||u.email||uid;
+        const name = u.companyName||u.email||uid;
         list.innerHTML += `<li class="list-group-item d-flex justify-content-between">
           ${name} (${u.role})
           <span>
@@ -98,15 +99,41 @@ function loadPendingApprovals(){
     if(!found) list.innerHTML = '<li class="list-group-item text-muted">No pending approvals.</li>';
   });
 }
-function approve(uid){ db.ref(`users/${uid}`).update({approved:true}); loadPendingApprovals(); loadApprovedUsers(); }
-function reject(uid){ if(confirm("Delete user?")) db.ref(`users/${uid}`).remove().then(()=>{loadPendingApprovals();loadApprovedUsers();}); }
 
-// ---- Approved Users
+function approve(uid){
+  db.ref(`users/${uid}`).update({ approved: true })
+    .then(() => {
+      alert("✅ Approved");
+      loadPendingApprovals();
+      loadApprovedUsers();
+    })
+    .catch((err) => {
+      alert("Error approving: " + err.message);
+      console.error("Approve error:", err);
+    });
+}
+
+function reject(uid){
+  if(confirm("Delete user?")) {
+    db.ref(`users/${uid}`).remove()
+      .then(() => {
+        alert("❌ Rejected and removed");
+        loadPendingApprovals();
+        loadApprovedUsers();
+      })
+      .catch((err) => {
+        alert("Error rejecting: " + err.message);
+        console.error("Reject error:", err);
+      });
+  }
+}
+
+// -------- Approved Users Table --------
 function loadApprovedUsers(){
   const tbl=document.getElementById("approvedUsersTable");
   tbl.innerHTML="";
   db.ref("users").once("value",snap=>{
-    const users = snap.val()||{};
+    const users=snap.val()||{};
     let rows = "";
     for(const uid in users){
       const u=users[uid];
@@ -123,7 +150,8 @@ function loadApprovedUsers(){
               else if(Array.isArray(dels)) delCount+=dels.length;
             }
           }
-        } else if(u.vehicles){
+        }
+        else if(u.vehicles){
           vehCount = Object.keys(u.vehicles).length;
           for(const vid in u.vehicles){
             const dels=u.vehicles[vid].deliveries;
@@ -144,7 +172,7 @@ function loadApprovedUsers(){
   });
 }
 
-// ---- Populate dropdowns (user id select)
+// -------- Dropdowns --------
 function loadUserDropdowns(){
   db.ref("users").once("value",snap=>{
     const users=snap.val()||{};
@@ -160,7 +188,7 @@ function loadUserDropdowns(){
   });
 }
 
-// ---- Live map (shows all vehicles)
+// -------- Live Map --------
 function setupLiveMap(){
   liveMap=L.map("map").setView([20,78],5);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(liveMap);
@@ -175,7 +203,7 @@ function setupLiveMap(){
           const vehs = u.vehicle.companies[cname].vehicle||{};
           for(const vid in vehs){
             const gps = vehs[vid].gps||"0,0";
-            const [lat,lng] = gps.split(",").map(Number);
+            const [lat,lng]=gps.split(",").map(Number);
             if(!lat && !lng) continue;
             if(!liveMarkers[vid])
               liveMarkers[vid]=L.marker([lat,lng]).addTo(liveMap).bindPopup(`${vid} (${cname})`);
@@ -188,7 +216,7 @@ function setupLiveMap(){
   });
 }
 
-// ---- Vehicle Tracker (center map on vehicle)
+// -------- Vehicle Tracker --------
 function trackVehicle(e){
   const vid=e.target.value.trim();
   const res=document.getElementById("vehicleTrackerResult");
@@ -204,7 +232,7 @@ function trackVehicle(e){
           const vehs=u.vehicle.companies[cname].vehicle||{};
           if(vehs[vid]){
             const gps=vehs[vid].gps||"0,0";
-            const [lat,lng] = gps.split(",").map(Number);
+            const [lat,lng]=gps.split(",").map(Number);
             foundLatLng = [lat,lng];
             companies = cname||"";
             found = true;
@@ -225,31 +253,51 @@ function trackVehicle(e){
   });
 }
 
-// ---- Manual Alarm (all vehicles for user)
+// -------- Manual Alarm Trigger --------
 function triggerAlarmByUser(){
   const uid = document.getElementById("alarmUserSelect").value;
   const status = document.getElementById("alarmStatus");
   if(!uid){ status.innerHTML=`<div class='alert alert-warning'>Select user</div>`; return; }
   db.ref(`users/${uid}/vehicle/companies`).once("value",snap=>{
     const comps=snap.val()||{};
-    let triggered = 0;
+    let triggered = 0, errorCount = 0;
+    let hasVehicle = false;
+    const promises = [];
     for(const cname in comps){
-      const vehs=comps[cname].vehicle||{};
+      const vehs = comps[cname].vehicle||{};
       for(const vid in vehs){
-        db.ref(`users/${uid}/vehicle/last_trigger`).set({
-          status:"alert", vehicleId:vid,
-          time:new Date().toISOString(), location:vehs[vid].gps||"Unknown"
-        });
-        triggered++;
+        hasVehicle = true;
+        const triggerRef = db.ref(`users/${uid}/vehicle/last_trigger`);
+        promises.push(
+          triggerRef.set({
+            status: "alert",
+            vehicleId: vid,
+            time: new Date().toISOString(),
+            location: vehs[vid].gps || "Unknown"
+          })
+          .then(() => { triggered++; })
+          .catch(err => {
+            errorCount++;
+            status.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+            console.error("Alarm error:", err);
+          })
+        );
       }
     }
-    status.innerHTML = triggered>0 ?
-      `<div class='alert alert-danger'>🚨 Alarm triggered for all vehicles of this user.</div>`
-      : `<div class='alert alert-warning'>No vehicles found for user.</div>`;
+    if(!hasVehicle) {
+      status.innerHTML = `<div class='alert alert-warning'>No vehicles found for user.</div>`;
+      return;
+    }
+    Promise.all(promises).then(() => {
+      if(errorCount === 0)
+        status.innerHTML = `<div class='alert alert-danger'>🚨 Alarm triggered for all vehicles of this user.</div>`;
+      else
+        status.innerHTML = `<div class='alert alert-warning'>Some alarms failed: ${errorCount} errors.</div>`;
+    });
   });
 }
 
-// ---- History Map (fix for your structure)
+// -------- Movement History --------
 function setupHistoryMap(){
   historyMap = L.map("historyMap").setView([20,78],5);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(historyMap);
@@ -260,7 +308,6 @@ function clearHistoryMap(){
   historyMarkers=[];
   historyMap.eachLayer(l=>{ if(l instanceof L.Polyline) historyMap.removeLayer(l); });
 }
-
 function loadHistoryByUser(){
   const uid=document.getElementById("historyUserSelect").value;
   const btn=document.getElementById("deleteHistoryBtn");
@@ -269,13 +316,9 @@ function loadHistoryByUser(){
   db.ref(`users/${uid}/vehicle/history`).once("value",snap=>{
     const history=snap.val()||{};
     let points=[];
-
     for(const hid in history){
-      // Value is a lat,lng string
       if(typeof history[hid] === "string" && history[hid].includes(",")) points.push(history[hid]);
-      // Value has .location string
       else if(history[hid].location) points.push(history[hid].location);
-      // Value is array (e.g. route)
       else if(Array.isArray(history[hid])) points=points.concat(history[hid]);
     }
     if(points.length===0){ alert("No movement history for this user."); btn.style.display="none"; return; }
@@ -288,12 +331,16 @@ function loadHistoryByUser(){
     btn.onclick=()=>deleteHistoryByUser(uid);
   });
 }
-
 function deleteHistoryByUser(uid){
   if(!confirm("Delete all movement history for this user?")) return;
-  db.ref(`users/${uid}/vehicle/history`).remove().then(()=>{
-    clearHistoryMap();
-    document.getElementById("deleteHistoryBtn").style.display="none";
-    alert("History deleted.");
-  });
+  db.ref(`users/${uid}/vehicle/history`).set(null)
+    .then(() => {
+      clearHistoryMap();
+      document.getElementById("deleteHistoryBtn").style.display="none";
+      alert("History deleted.");
+    })
+    .catch((err) => {
+      alert("Error deleting: " + err.message);
+      console.error("History delete error:", err);
+    });
 }
