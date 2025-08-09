@@ -25,22 +25,67 @@ auth.onAuthStateChanged(user => {
   });
 });
 
-// Initialize Dashboard
+// Dashboard Init
 function initializeDashboard() {
   loadStats();
   loadPendingApprovals();
   loadApprovedCompanies();
   setupMap();
   setupHistoryMap();
-  setupEventListeners();
+
+  // User/vehicle dropdown population for movement & alarm sections
+  loadAllUsersForSelect();
+
+  // Vehicle Tracker input
+  document.getElementById("trackVehicleId").addEventListener("input", vehicleTracker);
+
+  // Optional: "Enter" key for history search
+  if (document.getElementById("historyVehicleSelect")) {
+    document.getElementById("historyVehicleSelect").addEventListener("keyup", function(e) {
+      if (e.key === "Enter") loadMovementHistory();
+    });
+  }
 }
 
-// Logout
-function logout() {
-  auth.signOut().then(() => location.href = "login.html");
+// Populate all user dropdowns for history/alarm
+function loadAllUsersForSelect() {
+  db.ref("users").once("value").then(snap => {
+    const users = snap.val() || {};
+    const historySelect = document.getElementById("historyUserSelect");
+    const alarmSelect = document.getElementById("alarmUserSelect");
+
+    historySelect.innerHTML = "<option value=''>Select User</option>";
+    alarmSelect.innerHTML = "<option value=''>Select User</option>";
+
+    for (const uid in users) {
+      if (users[uid].role === "company" || users[uid].role === "customer") {
+        const name = users[uid].companyName || users[uid].email || uid;
+        historySelect.innerHTML += `<option value="${uid}">${name}</option>`;
+        alarmSelect.innerHTML += `<option value="${uid}">${name}</option>`;
+      }
+    }
+  });
 }
 
-// Load Dashboard Stats
+// Load vehicles for the selected user into provided dropdown
+function loadUserVehicles(type) {
+  const userId = document.getElementById(type + "UserSelect").value;
+  const vehicleSelect = document.getElementById(type + "VehicleSelect");
+  vehicleSelect.innerHTML = "<option value=''>Select Vehicle</option>";
+  if (!userId) return;
+
+  db.ref(`users/${userId}/vehicle/companies`).once("value").then(snap => {
+    const companies = snap.val() || {};
+    for (const cname in companies) {
+      const vehicles = companies[cname].vehicle || {};
+      for (const vid in vehicles) {
+        vehicleSelect.innerHTML += `<option value="${vid}">${vid} (${cname})</option>`;
+      }
+    }
+  });
+}
+
+// Dashboard Stats
 function loadStats() {
   db.ref("users").once("value", snap => {
     let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
@@ -65,7 +110,7 @@ function loadStats() {
   });
 }
 
-// Load Pending Approvals List
+// Load Pending Approvals
 function loadPendingApprovals() {
   const list = document.getElementById("pendingUsersList");
   list.innerHTML = "";
@@ -89,7 +134,6 @@ function loadPendingApprovals() {
   });
 }
 
-// Approve User
 function approveUser(uid) {
   db.ref(`users/${uid}`).update({ approved: true }).then(() => {
     alert("✅ Approved");
@@ -98,7 +142,6 @@ function approveUser(uid) {
   });
 }
 
-// Reject User
 function rejectUser(uid) {
   if (confirm("Delete this user?")) {
     db.ref(`users/${uid}`).remove().then(() => {
@@ -109,7 +152,7 @@ function rejectUser(uid) {
   }
 }
 
-// Load Approved Companies Table
+// Companies Table
 function loadApprovedCompanies() {
   const table = document.getElementById("companyTable");
   table.innerHTML = "";
@@ -142,11 +185,9 @@ function loadApprovedCompanies() {
   });
 }
 
-// Edit Company Name
 function editCompany(uid, oldName) {
   const name = prompt("Enter new company name:", oldName);
   if (!name || name.trim() === "" || name === oldName) return;
-
   db.ref(`users/${uid}/vehicle/companies/${oldName}`).once("value").then(snap => {
     const data = snap.val();
     if (!data) {
@@ -163,7 +204,6 @@ function editCompany(uid, oldName) {
   });
 }
 
-// Delete Company
 function deleteCompany(uid, companyName) {
   if (confirm(`Are you sure you want to delete the company "${companyName}"?`)) {
     db.ref(`users/${uid}/vehicle/companies/${companyName}`).remove().then(() => {
@@ -173,8 +213,7 @@ function deleteCompany(uid, companyName) {
   }
 }
 
-
-// Setup Leaflet Map for Live Locations
+// Live Map
 function setupMap() {
   map = L.map("map").setView([19.2183, 72.9781], 11);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
@@ -201,43 +240,41 @@ function setupMap() {
   });
 }
 
-// Setup Leaflet Map for Movement History
+// For movement history map, one user/vehicle at a time
 function setupHistoryMap() {
   historyMap = L.map("historyMap").setView([19.2183, 72.9781], 11);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(historyMap);
 }
 
-// Load Movement History for Vehicle and show on map
+// Load movement history for a selected user/vehicle
 function loadMovementHistory() {
-  const vehicleId = document.getElementById("historyVehicleId").value.trim();
+  const userId = document.getElementById("historyUserSelect").value;
+  const vehicleId = document.getElementById("historyVehicleSelect").value;
   const deleteBtn = document.getElementById("deleteHistoryBtn");
+
   clearHistoryMap();
 
-  if (!vehicleId) {
-    alert("Please enter a Vehicle ID.");
+  if (!userId || !vehicleId) {
+    alert("Please select both User and Vehicle.");
+    deleteBtn.style.display = "none";
     return;
   }
 
-  // Find movement history in DB (assuming it's stored under deliveries inside each vehicle)
-  db.ref("users").once("value").then(snap => {
-    const users = snap.val() || {};
+  db.ref(`users/${userId}/vehicle/companies`).once("value").then(snap => {
     let movementData = [];
+    const companies = snap.val() || {};
 
-    outer: for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
-      for (const cname in companies) {
-        const vehicles = companies[cname].vehicle || {};
-        if (vehicles[vehicleId]) {
-          const deliveries = vehicles[vehicleId].deliveries || {};
-          for (const delId in deliveries) {
-            const delivery = deliveries[delId];
-            if (delivery.route && Array.isArray(delivery.route)) {
-              movementData = movementData.concat(delivery.route);
-            } else if (delivery.location) {
-              movementData.push(delivery.location);
-            }
+    for (const cname in companies) {
+      const vehicle = companies[cname].vehicle?.[vehicleId];
+      if (vehicle) {
+        const deliveries = vehicle.deliveries || {};
+        for (const delId in deliveries) {
+          const delivery = deliveries[delId];
+          if (delivery.route && Array.isArray(delivery.route)) {
+            movementData = movementData.concat(delivery.route);
+          } else if (delivery.location) {
+            movementData.push(delivery.location);
           }
-          break outer;
         }
       }
     }
@@ -248,132 +285,126 @@ function loadMovementHistory() {
       return;
     }
 
-    // Show history markers and polyline
-    const latLngs = movementData.map(locStr => {
-      const [lat, lng] = locStr.split(",").map(Number);
-      return [lat, lng];
-    }).filter(coords => !isNaN(coords[0]) && !isNaN(coords[1]));
+    const latLngs = movementData.map(locStr => locStr.split(",").map(Number))
+      .filter(coords => !isNaN(coords[0]) && !isNaN(coords[1]));
 
-    if (latLngs.length === 0) {
-      alert("Invalid movement history data.");
-      deleteBtn.style.display = "none";
-      return;
-    }
-
-    historyMarkers = latLngs.map(coords => L.circleMarker(coords, {
-      radius: 5,
-      color: "#0d6efd",
-      fillColor: "#0d6efd",
-      fillOpacity: 0.6
-    }).addTo(historyMap));
+    historyMarkers = latLngs.map(coords =>
+      L.circleMarker(coords, {
+        radius: 5,
+        color: "#0d6efd",
+        fillColor: "#0d6efd",
+        fillOpacity: 0.6
+      }).addTo(historyMap)
+    );
 
     const polyline = L.polyline(latLngs, { color: "blue" }).addTo(historyMap);
+    historyMap.fitBounds(polyline.getBounds(), {padding:[30, 30]});
 
-    historyMap.fitBounds(polyline.getBounds());
-
-    // Show delete button and bind event
     deleteBtn.style.display = "inline-block";
-    deleteBtn.onclick = () => deleteMovementHistory(vehicleId);
+    deleteBtn.onclick = function() { deleteMovementHistory(userId, vehicleId); };
   });
 }
 
-// Clear movement history map markers and layers
 function clearHistoryMap() {
+  if (!historyMap) return;
   historyMarkers.forEach(m => historyMap.removeLayer(m));
   historyMarkers = [];
-  // Remove polylines (all except tile layer)
   historyMap.eachLayer(layer => {
-    if (layer instanceof L.Polyline) {
-      historyMap.removeLayer(layer);
-    }
+    if (layer instanceof L.Polyline) historyMap.removeLayer(layer);
   });
 }
 
-// Delete Movement History for Vehicle
-function deleteMovementHistory(vehicleId) {
-  if (!confirm(`Are you sure you want to delete movement history for vehicle "${vehicleId}"? This action is irreversible.`)) {
-    return;
-  }
-  db.ref("users").once("value").then(snap => {
-    const users = snap.val() || {};
+// Remove a vehicle's movement data for a user
+function deleteMovementHistory(userId, vehicleId) {
+  if (!confirm("Are you sure you want to delete this vehicle's movement history?")) return;
+
+  db.ref(`users/${userId}/vehicle/companies`).once("value").then(snap => {
+    const companies = snap.val() || {};
     let found = false;
-
-    const updates = {};
-
-    for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
-      for (const cname in companies) {
-        const vehicles = companies[cname].vehicle || {};
-        if (vehicles[vehicleId]) {
-          updates[`users/${uid}/vehicle/companies/${cname}/vehicle/${vehicleId}/deliveries`] = null;
-          found = true;
-          break;
-        }
+    for (const cname in companies) {
+      if (companies[cname].vehicle?.[vehicleId]) {
+        db.ref(`users/${userId}/vehicle/companies/${cname}/vehicle/${vehicleId}/deliveries`)
+          .remove()
+          .then(() => {
+            alert("✅ Movement history deleted.");
+            clearHistoryMap();
+            document.getElementById("deleteHistoryBtn").style.display = "none";
+          });
+        found = true;
+        break;
       }
-      if (found) break;
     }
-
     if (!found) {
-      alert("Vehicle not found.");
-      return;
+      alert("Vehicle not found for this user.");
     }
-
-    db.ref().update(updates).then(() => {
-      alert("✅ Movement history deleted successfully.");
-      clearHistoryMap();
-      document.getElementById("historyVehicleId").value = "";
-      document.getElementById("deleteHistoryBtn").style.display = "none";
-    });
   });
 }
 
-// Setup event listeners
-function setupEventListeners() {
-  // Optional: handle enter press for History Vehicle ID input
-  document.getElementById("historyVehicleId").addEventListener("keyup", e => {
-    if (e.key === "Enter") loadMovementHistory();
-  });
-}
+// ---- Vehicle Tracker by ID (standalone, unchanged) ----
+function vehicleTracker(e) {
+  const id = e.target.value.trim();
+  const result = document.getElementById("vehicleTrackerResult");
+  if (!id) return result.innerHTML = "";
 
-// Vehicle Tracker - Optional: keep from your original and integrate if needed
-
-// Manual Alarm Trigger - Fixed
-function triggerManualAlarm() {
-  const id = document.getElementById("alarmVehicleId").value.trim();
-  const statusBox = document.getElementById("alarmStatus");
-  statusBox.innerHTML = "";
-  if (!id) {
-    statusBox.innerHTML = `<div class='alert alert-warning'>Please enter a Vehicle ID.</div>`;
-    return;
-  }
-
-  db.ref("users").once("value").then(snap => {
+  db.ref("users").once("value", snap => {
     let found = false;
-    const users = snap.val() || {};
-
-    for (const uid in users) {
-      const companies = users[uid].vehicle?.companies || {};
+    for (const uid in snap.val()) {
+      const companies = snap.val()[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         if (vehicles[id]) {
+          const v = vehicles[id];
+          result.innerHTML = `<div class='alert alert-info'>🚚 ${id} at ${v.gps || "Unknown"}, Battery: ${v.battery || "N/A"}%</div>`;
           found = true;
-          db.ref(`users/${uid}/vehicle/last_trigger`).set({
-            status: "alert",
-            vehicleId: id,
-            time: new Date().toISOString(),
-            location: vehicles[id].gps || "Unknown"
-          }).then(() => {
-            statusBox.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for vehicle ID: ${id}</div>`;
-          }).catch(() => {
-            statusBox.innerHTML = `<div class='alert alert-danger'>Failed to trigger alarm. Try again.</div>`;
-          });
           break;
         }
       }
       if (found) break;
     }
+    if (!found) result.innerHTML = `<div class='alert alert-warning'>Vehicle not found</div>`;
+  });
+}
+
+// Manual Alarm Trigger, scoped per user/vehicle
+function triggerManualAlarm() {
+  const userId = document.getElementById("alarmUserSelect").value;
+  const vehicleId = document.getElementById("alarmVehicleSelect").value;
+  const statusBox = document.getElementById("alarmStatus");
+
+  statusBox.innerHTML = "";
+
+  if (!userId || !vehicleId) {
+    statusBox.innerHTML = `<div class='alert alert-warning'>Please select both User and Vehicle.</div>`;
+    return;
+  }
+
+  db.ref(`users/${userId}/vehicle/companies`).once("value").then(snap => {
+    let found = false;
+    const companies = snap.val() || {};
+
+    for (const cname in companies) {
+      const v = companies[cname].vehicle?.[vehicleId];
+      if (v) {
+        found = true;
+        db.ref(`users/${userId}/vehicle/last_trigger`).set({
+          status: "alert",
+          vehicleId: vehicleId,
+          time: new Date().toISOString(),
+          location: v.gps || "Unknown"
+        }).then(() => {
+          statusBox.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for ${vehicleId}</div>`;
+        });
+        break;
+      }
+    }
+
     if (!found) {
-      statusBox.innerHTML = `<div class='alert alert-warning'>Vehicle ID not found.</div>`;
+      statusBox.innerHTML = `<div class='alert alert-warning'>Vehicle not found for this user.</div>`;
     }
   });
+}
+
+// Logout
+function logout() {
+  auth.signOut().then(() => location.href = "login.html");
 }
