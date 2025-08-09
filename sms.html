@@ -95,7 +95,7 @@
       <h2>🔍 Live Status</h2>
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
-        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
+        <div><strong>Last Active:</strong> <span id="lastActiveTime">N/A</span></div>
       </div>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
@@ -160,14 +160,11 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
     const onlineStatusEl = document.getElementById("onlineStatus");
-    const lastSeenEl = document.getElementById("lastSeen");
+    const lastActiveTimeEl = document.getElementById("lastActiveTime");
     const componentsListEl = document.getElementById("componentsList");
 
     let map, marker;
-    let lastSeenTime = null;
-    const ONLINE_TTL_MS = 90000; // match NodeMCU
 
     function updateMap(lat, lng, popupText = null) {
       if (!map) {
@@ -206,15 +203,15 @@
       });
     }
 
-    function checkOnlineStatus() {
-      if (!lastSeenTime) return;
-      const diff = Date.now() - lastSeenTime;
-      if (diff > ONLINE_TTL_MS) {
+    function updateOnlineStatus(isOnline, isError = false) {
+      if (isError) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">ERROR</span>';
+      } else if (isOnline === true) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
     }
-
-    setInterval(checkOnlineStatus, 5000);
 
     function loadDashboard(uid) {
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
@@ -252,26 +249,31 @@
         renderComponents(snapshot.val());
       });
 
-      vehicleRef.child("online").on("value", (snapshot) => {
-        const on = snapshot.val();
-        if (on) {
-          onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-        } else {
-          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      vehicleRef.child("online").on(
+        "value",
+        (snapshot) => {
+          const on = snapshot.val();
+          updateOnlineStatus(on, false);
+          console.log(`Firebase online update: ${on}`);
+        },
+        (error) => {
+          console.error("Error fetching online status:", error);
+          updateOnlineStatus(false, true);
         }
-      });
+      );
 
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const val = snapshot.val();
-        lastSeenEl.textContent = val || "N/A";
-        if (val) {
-          const t = new Date(val.replace(" ", "T")); // parse "YYYY-MM-DD HH:mm:ss"
-          if (!isNaN(t.getTime())) {
-            lastSeenTime = t.getTime();
-            checkOnlineStatus();
-          }
-        }
+        lastActiveTimeEl.textContent = val || "N/A";
       });
+
+      // Fallback for initial loading state
+      setTimeout(() => {
+        if (onlineStatusEl.innerHTML.includes("Checking")) {
+          updateOnlineStatus(false, false);
+          console.log("Initial online status timeout: set to OFFLINE");
+        }
+      }, 5000);
 
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
