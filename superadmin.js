@@ -3,9 +3,9 @@
    - Firebase compat v8 usage
    - Live vehicle markers on Leaflet map
    - Vehicle search that centers map on found vehicle
-   - Manual alarm: select company/customer OR enter vehicle ID (searches across all companies)
+   - Manual alarm: select company/customer OR enter vehicle ID (searches across all users -> companies -> vehicles)
    - Approved companies table + pending approvals
-   - Notes: secure your Realtime DB rules for production
+   - Uses multi-path updates for alarm writes
 */
 
 const firebaseConfig = {
@@ -44,60 +44,29 @@ const currentUserEl = document.getElementById("currentUser");
 let map;
 let markerGroup;
 const markers = {};            // keyed by vehicle id => L.Marker
-let liveUsersSnapshotUnsub = null; // for cleanup if needed
+let liveUsersSnapshotUnsub = null;
 
-/* ========= Utility helpers ========= */
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
-function safeText(str) {
-  if (str === undefined || str === null) return "";
-  return String(str);
-}
-
-/* Debounce helper */
-function debounce(fn, wait) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
-  };
-}
-
-/* Convert "lat,lng" string to [lat, lng] or null */
+/* ========= Helpers ========= */
+function safeText(v) { return (v === undefined || v === null) ? "" : String(v); }
+function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 function parseGps(gps) {
   if (!gps) return null;
-  const parts = String(gps).split(",").map(s => s.trim());
-  if (parts.length < 2) return null;
-  const lat = Number(parts[0]), lng = Number(parts[1]);
+  const p = String(gps).split(",").map(s => s.trim());
+  if (p.length < 2) return null;
+  const lat = Number(p[0]), lng = Number(p[1]);
   if (!isFinite(lat) || !isFinite(lng)) return null;
-  // reject obvious invalid points
   if (lat === 0 && lng === 0) return null;
   return [lat, lng];
 }
 
-/* Format ISO-time for UI */
-function formatTime(iso) {
-  try { return new Date(iso).toLocaleString(); } catch { return safeText(iso); }
-}
-
-/* ========= Auth & initialization ========= */
+/* ========= Auth & init ========= */
 auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    location.href = "login.html";
-    return;
-  }
-
+  if (!user) { location.href = "login.html"; return; }
   try {
     const snap = await db.ref(`users/${user.uid}`).once('value');
     const me = snap.val() || {};
     currentUserEl.innerText = `${me.email || user.email || ""} (${me.role || "user"})`;
-    if (me.role !== "super-admin") {
-      // non-admins redirected
-      location.href = "dashboard.html";
-      return;
-    }
-
-    // Initialize all UI and listeners
+    if (me.role !== "super-admin") { location.href = "dashboard.html"; return; }
     initializeDashboard();
   } catch (err) {
     console.error("Auth/init error:", err);
@@ -105,21 +74,17 @@ auth.onAuthStateChanged(async (user) => {
     location.href = "login.html";
   }
 });
-
-/* Logout */
 logoutBtn.addEventListener("click", () => auth.signOut().then(() => location.href = "login.html"));
 
-/* ========= Initialize dashboard ========= */
 function initializeDashboard() {
-  loadStats();                // one-time + periodic
+  loadStats();
   loadPendingApprovals();
   loadApprovedCompanies();
-  setupMap();                 // creates map + starts real-time user listener
-  setupTrackerInput();        // setup debounced search
-  populateCompanyCustomerDropdowns(); // populate selects
+  setupMap();
+  setupTrackerInput();
+  populateCompanyCustomerDropdowns();
   setupAlarmHandler();
-  // periodic refresh for counts/stats
-  setInterval(() => { loadStats(); loadApprovedCompanies(); loadPendingApprovals(); }, 60_000);
+  setInterval(() => { loadStats(); loadApprovedCompanies(); loadPendingApprovals(); populateCompanyCustomerDropdowns(); }, 60_000);
 }
 
 /* ========= Stats ========= */
@@ -165,17 +130,12 @@ async function loadPendingApprovals() {
     const snap = await db.ref('users').once('value');
     const users = snap.val() || {};
     const pending = [];
-
     Object.entries(users).forEach(([uid, u]) => {
       if ((u.role === 'company' || u.role === 'customer') && u.approved !== true) {
         pending.push({ uid, ...u });
       }
     });
-
-    if (!pending.length) {
-      pendingUsersList.innerHTML = `<li class="list-group-item text-muted">No pending approvals</li>`;
-      return;
-    }
+    if (!pending.length) { pendingUsersList.innerHTML = `<li class="list-group-item text-muted">No pending approvals</li>`; return; }
 
     pending.forEach(u => {
       const li = document.createElement('li');
@@ -191,13 +151,8 @@ async function loadPendingApprovals() {
         approveBtn.disabled = true;
         try {
           await db.ref(`users/${u.uid}`).update({ approved: true });
-          await loadPendingApprovals();
-          await loadApprovedCompanies();
-          await loadStats();
-        } catch (e) {
-          console.error("approve error", e);
-          alert("Approval failed");
-        } finally { approveBtn.disabled = false; }
+          await loadPendingApprovals(); await loadApprovedCompanies(); await loadStats();
+        } catch (e) { console.error("approve error", e); alert("Approval failed"); } finally { approveBtn.disabled = false; }
       };
 
       const rejectBtn = document.createElement('button');
@@ -205,30 +160,20 @@ async function loadPendingApprovals() {
       rejectBtn.innerText = 'Reject';
       rejectBtn.onclick = async () => {
         if (!confirm("Delete this user?")) return;
-        try {
-          await db.ref(`users/${u.uid}`).remove();
-          await loadPendingApprovals();
-          await loadStats();
-        } catch (e) {
-          console.error("reject error", e);
-          alert("Reject failed");
-        }
+        try { await db.ref(`users/${u.uid}`).remove(); await loadPendingApprovals(); await loadStats(); } catch (e) { console.error("reject error", e); alert("Reject failed"); }
       };
 
-      actions.appendChild(approveBtn);
-      actions.appendChild(rejectBtn);
-      li.appendChild(left);
-      li.appendChild(actions);
+      actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
+      li.appendChild(left); li.appendChild(actions);
       pendingUsersList.appendChild(li);
     });
-
   } catch (err) {
     console.error("loadPendingApprovals error:", err);
     pendingUsersList.innerHTML = `<li class="list-group-item text-danger">Failed to load pending approvals</li>`;
   }
 }
 
-/* ========= Approved companies table ========= */
+/* ========= Approved companies ========= */
 async function loadApprovedCompanies() {
   companyTable.innerHTML = '';
   try {
@@ -243,7 +188,6 @@ async function loadApprovedCompanies() {
           found = true;
           const vehicles = cdata.vehicle || {};
           const deliveries = Object.values(vehicles).reduce((acc, v) => acc + (v.deliveries ? Object.keys(v.deliveries).length : 0), 0);
-
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${safeText(cname)}</td>
@@ -254,7 +198,6 @@ async function loadApprovedCompanies() {
               <button class="btn btn-sm btn-danger">Delete</button>
             </td>
           `;
-
           tr.querySelector('.btn-primary').onclick = () => editCompany(uid, cname);
           tr.querySelector('.btn-danger').onclick = () => deleteCompany(uid, cname);
           companyTable.appendChild(tr);
@@ -262,9 +205,7 @@ async function loadApprovedCompanies() {
       }
     });
 
-    if (!found) {
-      companyTable.innerHTML = `<tr><td colspan="4" class="text-muted">No approved companies</td></tr>`;
-    }
+    if (!found) companyTable.innerHTML = `<tr><td colspan="4" class="text-muted">No approved companies</td></tr>`;
   } catch (err) {
     console.error("loadApprovedCompanies error:", err);
     companyTable.innerHTML = `<tr><td colspan="4" class="text-danger">Failed to load companies</td></tr>`;
@@ -276,11 +217,9 @@ async function editCompany(uid, oldName) {
     const newName = prompt("Enter new company name:", oldName);
     if (!newName || newName === oldName) return;
     if (newName.includes('/')) return alert("Company name cannot contain '/'");
-
     const srcSnap = await db.ref(`users/${uid}/vehicle/companies/${oldName}`).once('value');
     const data = srcSnap.val();
     if (!data) return alert("Source company data missing");
-
     const updates = {};
     updates[`users/${uid}/vehicle/companies/${newName}`] = data;
     updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
@@ -296,8 +235,7 @@ async function deleteCompany(uid, cname) {
   if (!confirm(`Are you sure you want to delete "${cname}"?`)) return;
   try {
     await db.ref(`users/${uid}/vehicle/companies/${cname}`).remove();
-    await loadApprovedCompanies();
-    await loadStats();
+    await loadApprovedCompanies(); await loadStats();
   } catch (err) {
     console.error("deleteCompany error", err);
     alert("Failed to delete company");
@@ -306,17 +244,11 @@ async function deleteCompany(uid, cname) {
 
 /* ========= Map + live markers ========= */
 function setupMap() {
-  // Initialize map
   map = L.map('map', { preferCanvas: true }).setView([19.2183, 72.9781], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
   markerGroup = L.featureGroup().addTo(map);
 
-  // Real-time users listener: update markers whenever users node changes
-  if (liveUsersSnapshotUnsub) liveUsersSnapshotUnsub(); // cleanup if existing
+  if (liveUsersSnapshotUnsub) liveUsersSnapshotUnsub();
 
   const usersRef = db.ref('users');
   usersRef.on('value', snap => {
@@ -324,7 +256,6 @@ function setupMap() {
     const bounds = [];
     const presentIds = new Set();
 
-    // iterate users -> companies -> vehicles
     Object.entries(data).forEach(([uid, u]) => {
       const companies = u.vehicle?.companies || {};
       Object.entries(companies).forEach(([cname, cdata]) => {
@@ -332,8 +263,7 @@ function setupMap() {
         Object.entries(vehicles).forEach(([vid, v]) => {
           presentIds.add(vid);
           const pos = parseGps(v.gps);
-          if (!pos) return; // skip invalid coordinates
-          // create or update marker
+          if (!pos) return;
           if (!markers[vid]) {
             const m = L.marker(pos).addTo(markerGroup);
             m.bindPopup(`<strong>${vid}</strong><div class="small text-muted">${safeText(cname)}</div>`);
@@ -347,7 +277,6 @@ function setupMap() {
       });
     });
 
-    // remove markers for vehicles no longer present
     Object.keys(markers).forEach(id => {
       if (!presentIds.has(id)) {
         markerGroup.removeLayer(markers[id]);
@@ -356,26 +285,18 @@ function setupMap() {
     });
 
     if (bounds.length) {
-      try {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-      } catch (err) {
-        console.warn("fitBounds failed:", err);
-      }
+      try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 }); } catch (e) { console.warn("fitBounds failed", e); }
     }
   });
 
-  // store unsub function (not native but for symmetry; we can call off('value') if needed)
   liveUsersSnapshotUnsub = () => db.ref('users').off('value');
 }
 
-/* ========= Vehicle Tracker input (debounced search) ========= */
+/* ========= Vehicle Tracker (debounced) ========= */
 function setupTrackerInput() {
   const doSearch = async () => {
     const raw = trackVehicleIdInput.value.trim();
-    if (!raw) {
-      vehicleTrackerResult.innerHTML = "";
-      return null;
-    }
+    if (!raw) { vehicleTrackerResult.innerHTML = ""; return null; }
     const idLower = raw.toLowerCase();
     vehicleTrackerResult.innerHTML = "<div class='text-muted'>Searching...</div>";
 
@@ -398,7 +319,6 @@ function setupTrackerInput() {
                   Battery: ${safeText(battery)}%
                 </div>
               `;
-              // return coordinates to optionally center the map
               return parseGps(v.gps);
             }
           }
@@ -416,95 +336,59 @@ function setupTrackerInput() {
   const debounced = debounce(doSearch, 400);
   trackVehicleIdInput.addEventListener('input', debounced);
 
-  // center on vehicle button: runs a fresh search and centers map if coords returned
   centerOnVehicleBtn.addEventListener('click', async () => {
     const coords = await doSearch();
     if (coords && coords.length === 2) {
       map.setView(coords, 15);
-      // open popup if marker exists
       const rawId = trackVehicleIdInput.value.trim();
       if (markers[rawId]) markers[rawId].openPopup();
-      // also open a solver if case mismatch
       const exactMarker = Object.keys(markers).find(k => k.toLowerCase() === rawId.toLowerCase());
       if (exactMarker && markers[exactMarker]) markers[exactMarker].openPopup();
     } else {
-      // try case-insensitive find in markers
       const search = trackVehicleIdInput.value.trim().toLowerCase();
       const foundKey = Object.keys(markers).find(k => k.toLowerCase() === search);
-      if (foundKey) {
-        const m = markers[foundKey];
-        map.setView(m.getLatLng(), 15);
-        m.openPopup();
-      } else {
-        alert('Vehicle coordinates not available to center on.');
-      }
+      if (foundKey) { const m = markers[foundKey]; map.setView(m.getLatLng(), 15); m.openPopup(); }
+      else alert('Vehicle coordinates not available to center on.');
     }
   });
 }
 
-/* ========= Manual Alarm UI (company/customer selects) ========= */
+/* ========= Dropdown population ========= */
 async function populateCompanyCustomerDropdowns() {
-  // companySelect: show all companies across users
   companySelect.innerHTML = '<option value="">— Select company (optional) —</option>';
   customerSelect.innerHTML = '<option value="">— Select customer (optional) —</option>';
-
   try {
     const usersSnap = await db.ref('users').once('value');
     const users = usersSnap.val() || {};
-
-    // collect companies (unique)
-    const companyEntries = []; // { uid, companyName, label }
     const companySet = new Set();
+    const companyList = [];
     const customers = [];
 
     Object.entries(users).forEach(([uid, u]) => {
-      // companies as stored in user's vehicle.companies
       const companies = u.vehicle?.companies || {};
       Object.keys(companies).forEach(cname => {
-        if (!companySet.has(cname)) {
-          companySet.add(cname);
-          companyEntries.push({ uid, companyName: cname });
-        }
+        if (!companySet.has(cname)) { companySet.add(cname); companyList.push(cname); }
       });
-
-      // customers are users with role 'customer' and approved
-      if (u.role === 'customer' && u.approved === true) {
-        customers.push({ uid, name: u.name || u.email || uid });
-      }
+      if (u.role === 'customer' && u.approved === true) customers.push({ uid, name: u.name || u.email || uid });
     });
 
-    // populate companies
-    companyEntries.sort((a,b) => a.companyName.localeCompare(b.companyName));
-    companyEntries.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.companyName;
-      opt.textContent = c.companyName;
-      companySelect.appendChild(opt);
+    companyList.sort((a,b) => a.localeCompare(b)).forEach(name => {
+      const opt = document.createElement('option'); opt.value = name; opt.textContent = name; companySelect.appendChild(opt);
     });
-
-    // populate customers
-    customers.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-    customers.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.uid;
-      opt.textContent = c.name;
-      customerSelect.appendChild(opt);
+    customers.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(c => {
+      const opt = document.createElement('option'); opt.value = c.uid; opt.textContent = c.name; customerSelect.appendChild(opt);
     });
-
-  } catch (err) {
-    console.error("populateCompanyCustomerDropdowns error:", err);
-  }
+  } catch (err) { console.error("populateCompanyCustomerDropdowns error:", err); }
 }
 
-/* ========= Manual Alarm trigger logic ========= */
+/* ========= Manual Alarm (fixed multi-path updates) ========= */
 function setupAlarmHandler() {
   triggerAlarmBtn.addEventListener('click', async () => {
-    alarmStatusEl.innerHTML = ''; // reset status
+    alarmStatusEl.innerHTML = '';
     const selectedCompany = companySelect.value || null;
     const selectedCustomerUid = customerSelect.value || null;
     const vehicleIdRaw = alarmVehicleIdInput.value.trim() || null;
 
-    // validate: at least one of company/customer/vehicle must be provided
     if (!selectedCompany && !selectedCustomerUid && !vehicleIdRaw) {
       alarmStatusEl.innerHTML = `<div class="alert alert-warning">Select a company/customer or enter a vehicle ID</div>`;
       return;
@@ -515,9 +399,10 @@ function setupAlarmHandler() {
     try {
       const usersSnap = await db.ref('users').once('value');
       const users = usersSnap.val() || {};
+      const updates = {}; // multi-path updates
       let triggeredCount = 0;
 
-      // If vehicle ID provided -> search across all users -> trigger wherever found
+      // 1) If vehicle ID provided -> search across users -> update each matching vehicle's last_trigger under that user's path
       if (vehicleIdRaw) {
         const vid = vehicleIdRaw;
         for (const [uid, u] of Object.entries(users)) {
@@ -525,27 +410,24 @@ function setupAlarmHandler() {
           for (const [cname, cdata] of Object.entries(companies)) {
             const vehicles = cdata.vehicle || {};
             if (vehicles && vehicles[vid]) {
-              // trigger for this user
               const triggerData = {
-                status: "alert",
+                status: "manual",
                 vehicleId: vid,
                 time: new Date().toISOString(),
                 location: vehicles[vid].gps || "Unknown",
                 by: "super-admin"
               };
-
+              // write under user's vehicle last_trigger and push to triggersHistory
               const newKey = db.ref().child(`users/${uid}/vehicle/triggersHistory`).push().key;
-              const updates = {};
               updates[`users/${uid}/vehicle/last_trigger`] = triggerData;
               updates[`users/${uid}/vehicle/triggersHistory/${newKey}`] = triggerData;
-              await db.ref().update(updates);
               triggeredCount++;
             }
           }
         }
       }
 
-      // If company selected -> trigger for all vehicles under that company (across users)
+      // 2) If company selected -> trigger all vehicles under that company across users
       if (selectedCompany) {
         const cname = selectedCompany;
         for (const [uid, u] of Object.entries(users)) {
@@ -554,55 +436,51 @@ function setupAlarmHandler() {
             const vehicles = companyNode.vehicle || {};
             for (const vid of Object.keys(vehicles)) {
               const triggerData = {
-                status: "alert",
+                status: "manual",
                 vehicleId: vid,
                 time: new Date().toISOString(),
                 location: vehicles[vid].gps || "Unknown",
                 by: "super-admin"
               };
               const newKey = db.ref().child(`users/${uid}/vehicle/triggersHistory`).push().key;
-              const updates = {};
               updates[`users/${uid}/vehicle/last_trigger`] = triggerData;
               updates[`users/${uid}/vehicle/triggersHistory/${newKey}`] = triggerData;
-              await db.ref().update(updates);
               triggeredCount++;
             }
           }
         }
       }
 
-      // If customer selected -> trigger on that customer's user object (if they have vehicle node)
+      // 3) If a specific customer user selected -> set last_trigger on that user's vehicle node (if any)
       if (selectedCustomerUid) {
         const uid = selectedCustomerUid;
         const userNode = users[uid];
         if (userNode) {
-          // if they have vehicles under their account - trigger last_trigger
-          const anyVehicle = Object.values(userNode.vehicle?.companies || {})?.[0];
+          // trigger a generic entry for the user (vehicleId may be provided or not)
           const triggerData = {
-            status: "alert",
+            status: "manual",
             vehicleId: vehicleIdRaw || "N/A",
             time: new Date().toISOString(),
-            location: "N/A",
+            location: "Unknown",
             by: "super-admin"
           };
-          // write last_trigger + triggersHistory
           const newKey = db.ref().child(`users/${uid}/vehicle/triggersHistory`).push().key;
-          const updates = {};
           updates[`users/${uid}/vehicle/last_trigger`] = triggerData;
           updates[`users/${uid}/vehicle/triggersHistory/${newKey}`] = triggerData;
-          await db.ref().update(updates);
           triggeredCount++;
         }
       }
 
-      if (triggeredCount > 0) {
-        alarmStatusEl.innerHTML = `<div class="alert alert-danger">🚨 Alarm triggered for ${triggeredCount} target(s)</div>`;
-        // update stats
-        await loadStats();
-      } else {
+      if (Object.keys(updates).length === 0) {
         alarmStatusEl.innerHTML = `<div class="alert alert-warning">No matching targets found to trigger</div>`;
+        return;
       }
 
+      // commit multi-path update once
+      await db.ref().update(updates);
+
+      alarmStatusEl.innerHTML = `<div class="alert alert-danger">🚨 Alarm triggered for ${triggeredCount} target(s)</div>`;
+      await loadStats(); // refresh counts
     } catch (err) {
       console.error("triggerAlarm error", err);
       alarmStatusEl.innerHTML = `<div class="alert alert-danger">Failed to trigger alarm</div>`;
@@ -610,8 +488,5 @@ function setupAlarmHandler() {
   });
 }
 
-/* ========= Misc: populate dropdowns periodically ========= */
-setInterval(() => populateCompanyCustomerDropdowns(), 2 * 60_000); // refresh every 2 minutes
-// initial populate call already happens from initializeDashboard()
-
-/* ========= End of file ========= */
+/* ========= Periodic refresh ========= */
+setInterval(() => { loadStats(); loadApprovedCompanies(); loadPendingApprovals(); populateCompanyCustomerDropdowns(); }, 120000);
