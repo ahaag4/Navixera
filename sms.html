@@ -254,15 +254,26 @@
         renderComponents(comps);
       });
 
-      // NEW: online flag and last_seen
+      // Enhanced online status listener with timeout
+      let lastOnlineUpdate = Date.now();
       vehicleRef.child("online").on("value", (snapshot) => {
         const on = snapshot.val();
+        lastOnlineUpdate = Date.now();
         if (on) {
           onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
         } else {
           onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
         }
       });
+
+      // Check for stale online status
+      setInterval(() => {
+        const timeSinceUpdate = Date.now() - lastOnlineUpdate;
+        if (timeSinceUpdate > 120000) { // 2 minutes timeout
+          onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
+        }
+      }, 60000); // Check every minute
+
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         lastSeenEl.textContent = snapshot.val() || "N/A";
       });
