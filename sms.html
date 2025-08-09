@@ -213,7 +213,7 @@
       } else {
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
-      console.log(`Updated online status: ${isOnline}, stale: ${isStale}, error: ${isError}`);
+      console.log(`Updated online status: isOnline=${isOnline}, isStale=${isStale}, isError=${isError} at ${new Date().toISOString()}`);
     }
 
     function loadDashboard(uid) {
@@ -222,8 +222,8 @@
       // Initial check for online status
       vehicleRef.child("online").get().then((snapshot) => {
         const on = snapshot.val();
-        updateOnlineStatus(on, false, false);
-        console.log(`Initial online status fetch: ${on}`);
+        updateOnlineStatus(on === true, false, false);
+        console.log(`Initial online status fetch: ${on} at ${new Date().toISOString()}`);
       }).catch((error) => {
         console.error("Error fetching initial online status:", error);
         updateOnlineStatus(false, false, true);
@@ -238,7 +238,7 @@
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
         updateMap(latitude, longitude);
-        console.log(`Current data updated: ${latitude}, ${longitude}`);
+        console.log(`Current data updated: ${latitude}, ${longitude} at ${new Date().toISOString()}`);
       });
 
       vehicleRef.child("history").on("value", (snapshot) => {
@@ -263,43 +263,49 @@
         renderComponents(snapshot.val());
       });
 
-      // Enhanced online status listener with stale timeout
-      let lastOnlineUpdate = Date.now();
-      const STALE_TIMEOUT = 180000; // 3 minutes
-      const CHECK_INTERVAL = 15000; // Check every 15 seconds
-
-      vehicleRef.child("online").on(
-        "value",
-        (snapshot) => {
-          const on = snapshot.val();
-          lastOnlineUpdate = Date.now();
-          updateOnlineStatus(on, false, false);
-          console.log(`Firebase online update: ${on} at ${new Date().toISOString()}`);
-        },
-        (error) => {
-          console.error("Error in online listener:", error);
-          updateOnlineStatus(false, false, true);
-        }
-      );
+      // Enhanced online status listener with reinitialization on failure
+      let onlineListenerActive = false;
+      function setupOnlineListener() {
+        vehicleRef.child("online").on(
+          "value",
+          (snapshot) => {
+            const on = snapshot.val();
+            onlineListenerActive = true;
+            updateOnlineStatus(on === true, false, false);
+            console.log(`Firebase online update: ${on} at ${new Date().toISOString()}`);
+          },
+          (error) => {
+            console.error("Error in online listener:", error);
+            onlineListenerActive = false;
+            updateOnlineStatus(false, false, true);
+            // Retry listener after 5 seconds
+            setTimeout(setupOnlineListener, 5000);
+          }
+        );
+      }
+      setupOnlineListener();
 
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const val = snapshot.val();
         lastActiveTimeEl.textContent = val || "N/A";
-        console.log(`Firebase last_seen update: ${val}`);
+        console.log(`Firebase last_seen update: ${val} at ${new Date().toISOString()}`);
       });
 
       // Fallback for initial loading state
       setTimeout(() => {
-        if (onlineStatusEl.innerHTML.includes("Checking")) {
+        if (onlineStatusEl.innerHTML.includes("Checking") && !onlineListenerActive) {
           updateOnlineStatus(false, false, false);
           console.log("Initial online status timeout: set to OFFLINE at " + new Date().toISOString());
         }
-      }, 15000); // Increased to 15 seconds
+      }, 10000); // Reduced to 10 seconds
 
       // Check for stale online status
+      let lastOnlineUpdate = Date.now();
+      const STALE_TIMEOUT = 180000; // 3 minutes
+      const CHECK_INTERVAL = 15000; // Check every 15 seconds
       const staleCheckInterval = setInterval(() => {
         const timeSinceUpdate = Date.now() - lastOnlineUpdate;
-        if (timeSinceUpdate > STALE_TIMEOUT) {
+        if (timeSinceUpdate > STALE_TIMEOUT && onlineListenerActive) {
           updateOnlineStatus(false, true, false);
           console.log(`Status marked as OFFLINE (Stale) after ${timeSinceUpdate}ms at ${new Date().toISOString()}`);
         }
@@ -325,9 +331,10 @@
         vehicleRef.child("alarm").set(newState);
       });
 
-      // Clean up interval on logout
+      // Clean up interval and listener on logout
       document.getElementById("logoutBtn").onclick = () => {
         clearInterval(staleCheckInterval);
+        vehicleRef.child("online").off();
         auth.signOut();
       };
     }
