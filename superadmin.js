@@ -1,4 +1,4 @@
-// ---- Firebase configuration (fixed databaseURL string) ----
+// ---- Firebase configuration ----
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
@@ -27,33 +27,19 @@ const alarmStatusEl = document.getElementById("alarmStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 const triggerAlarmBtn = document.getElementById("triggerAlarmBtn");
 
-// Auth check and role enforcement
+let map, markers = {}, markerGroup;
+
+// Auth check
 auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    return location.href = "login.html";
-  }
-
-  try {
-    const userSnap = await db.ref(`users/${user.uid}`).once("value");
-    const data = userSnap.val() || {};
-    if (data.role !== "super-admin") {
-      // safe redirect for non-admins
-      return location.href = "dashboard.html";
-    }
-    initializeDashboard();
-  } catch (err) {
-    console.error("Auth check failed:", err);
-    // fallback: sign out to be safe
-    await auth.signOut();
-    location.href = "login.html";
-  }
+  if (!user) return location.href = "login.html";
+  const snap = await db.ref(`users/${user.uid}`).once("value");
+  const data = snap.val() || {};
+  if (data.role !== "super-admin") return location.href = "dashboard.html";
+  initializeDashboard();
 });
 
-logoutBtn.addEventListener("click", () => {
-  auth.signOut().then(() => location.href = "login.html");
-});
+logoutBtn.addEventListener("click", () => auth.signOut().then(() => location.href = "login.html"));
 
-// Initialize everything
 function initializeDashboard() {
   loadStats();
   loadPendingApprovals();
@@ -64,408 +50,213 @@ function initializeDashboard() {
 
 // ---------- Stats ----------
 async function loadStats() {
-  try {
-    const snap = await db.ref("users").once("value");
-    const users = snap.val() || {};
+  const snap = await db.ref("users").once("value");
+  const users = snap.val() || {};
+  let totalCompanies = 0, totalVehicles = 0, totalDeliveries = 0, alertsToday = 0;
+  const today = new Date().toDateString();
 
-    let totalCompanies = 0;
-    let totalVehicles = 0;
-    let totalDeliveries = 0;
-    let alertsToday = 0;
-
-    // iterate users
-    for (const uid in users) {
-      const u = users[uid];
-      const companies = u.vehicle?.companies || {};
-      // count companies & vehicles & deliveries per company
-      for (const cname in companies) {
-        totalCompanies++;
-        const vehicles = companies[cname].vehicle || {};
-        const vehicleIds = Object.keys(vehicles);
-        totalVehicles += vehicleIds.length;
-
-        for (const vid of vehicleIds) {
-          const v = vehicles[vid] || {};
-          const deliveries = v.deliveries || {};
-          totalDeliveries += Object.keys(deliveries).length;
-        }
-      }
-
-      // alertsToday: check last_trigger timestamp and status
-      const lastTrigger = u.vehicle?.last_trigger;
-      if (lastTrigger?.status === "alert" && lastTrigger?.time) {
-        // ensure alert happened today (compare dates)
-        const t = new Date(lastTrigger.time);
-        const now = new Date();
-        if (t.toDateString() === now.toDateString()) alertsToday++;
+  for (const uid in users) {
+    const u = users[uid];
+    const companies = u.vehicle?.companies || {};
+    for (const cname in companies) {
+      totalCompanies++;
+      const vehicles = companies[cname].vehicle || {};
+      totalVehicles += Object.keys(vehicles).length;
+      for (const vid in vehicles) {
+        totalDeliveries += Object.keys(vehicles[vid].deliveries || {}).length;
       }
     }
-
-    totalCompaniesEl.innerText = totalCompanies;
-    totalVehiclesEl.innerText = totalVehicles;
-    totalDeliveriesEl.innerText = totalDeliveries;
-    alertsTodayEl.innerText = alertsToday;
-  } catch (err) {
-    console.error("loadStats error:", err);
+    const lastTrigger = u.vehicle?.last_trigger;
+    if (lastTrigger?.status === "alert" && new Date(lastTrigger.time).toDateString() === today) {
+      alertsToday++;
+    }
   }
+  totalCompaniesEl.innerText = totalCompanies;
+  totalVehiclesEl.innerText = totalVehicles;
+  totalDeliveriesEl.innerText = totalDeliveries;
+  alertsTodayEl.innerText = alertsToday;
 }
 
 // ---------- Pending Approvals ----------
 async function loadPendingApprovals() {
   pendingUsersList.innerHTML = "";
-  try {
-    const snap = await db.ref("users").once("value");
-    const users = snap.val() || {};
+  const snap = await db.ref("users").once("value");
+  const users = snap.val() || {};
+  let hasPending = false;
 
-    for (const uid in users) {
-      const u = users[uid];
-      if ((u.role === "company" || u.role === "customer") && u.approved !== true) {
-        const displayName = u.companyName || u.email || uid;
-        const li = document.createElement("li");
-        li.className = "list-group-item d-flex justify-content-between align-items-center";
-
-        const left = document.createElement("div");
-        left.innerText = `${displayName} (${u.role})`;
-        li.appendChild(left);
-
-        const actions = document.createElement("div");
-
-        const approveBtn = document.createElement("button");
-        approveBtn.className = "btn btn-success btn-sm me-2";
-        approveBtn.innerText = "Approve";
-        approveBtn.addEventListener("click", async () => {
-          try {
-            await db.ref(`users/${uid}`).update({ approved: true });
-            // small UX: immediate feedback then reload lists/stats
-            alert("✅ Approved");
-            await Promise.all([loadPendingApprovals(), loadApprovedCompanies(), loadStats()]);
-          } catch (e) {
-            console.error("approve error:", e);
-            alert("Approval failed");
-          }
-        });
-
-        const rejectBtn = document.createElement("button");
-        rejectBtn.className = "btn btn-danger btn-sm";
-        rejectBtn.innerText = "Reject";
-        rejectBtn.addEventListener("click", async () => {
-          if (!confirm("Delete this user?")) return;
-          try {
-            await db.ref(`users/${uid}`).remove();
-            alert("❌ Rejected and removed");
-            await loadPendingApprovals();
-            await loadStats();
-            await loadApprovedCompanies();
-          } catch (e) {
-            console.error("reject error:", e);
-            alert("Reject failed");
-          }
-        });
-
-        actions.appendChild(approveBtn);
-        actions.appendChild(rejectBtn);
-        li.appendChild(actions);
-        pendingUsersList.appendChild(li);
-      }
-    }
-
-    if (!pendingUsersList.firstChild) {
+  for (const uid in users) {
+    const u = users[uid];
+    if ((u.role === "company" || u.role === "customer") && !u.approved) {
+      hasPending = true;
       const li = document.createElement("li");
-      li.className = "list-group-item text-muted";
-      li.innerText = "No pending approvals";
+      li.className = "list-group-item d-flex justify-content-between";
+      li.innerHTML = `<span>${u.companyName || u.email} (${u.role})</span>
+        <div>
+          <button class="btn btn-success btn-sm me-2">Approve</button>
+          <button class="btn btn-danger btn-sm">Reject</button>
+        </div>`;
+      li.querySelector(".btn-success").onclick = async () => {
+        await db.ref(`users/${uid}`).update({ approved: true });
+        loadPendingApprovals(); loadApprovedCompanies(); loadStats();
+      };
+      li.querySelector(".btn-danger").onclick = async () => {
+        if (confirm("Delete this user?")) {
+          await db.ref(`users/${uid}`).remove();
+          loadPendingApprovals(); loadStats(); loadApprovedCompanies();
+        }
+      };
       pendingUsersList.appendChild(li);
     }
-  } catch (err) {
-    console.error("loadPendingApprovals error:", err);
   }
+  if (!hasPending) pendingUsersList.innerHTML = "<li class='list-group-item text-muted'>No pending approvals</li>";
 }
 
-// ---------- Approved Companies Table ----------
+// ---------- Approved Companies ----------
 async function loadApprovedCompanies() {
   companyTable.innerHTML = "";
-  try {
-    const snap = await db.ref("users").once("value");
-    const users = snap.val() || {};
+  const snap = await db.ref("users").once("value");
+  const users = snap.val() || {};
+  let hasCompanies = false;
 
-    for (const uid in users) {
-      const u = users[uid];
-      if (u.role === "company" && u.approved === true) {
-        const companies = u.vehicle?.companies || {};
-        for (const cname in companies) {
-          const vehicles = companies[cname].vehicle || {};
-          let deliveries = 0;
-          for (const vid in vehicles) {
-            deliveries += Object.keys(vehicles[vid].deliveries || {}).length;
-          }
-
-          const tr = document.createElement("tr");
-
-          const tdName = document.createElement("td");
-          tdName.innerText = cname;
-          tr.appendChild(tdName);
-
-          const tdVehicles = document.createElement("td");
-          tdVehicles.innerText = Object.keys(vehicles).length;
-          tr.appendChild(tdVehicles);
-
-          const tdDeliveries = document.createElement("td");
-          tdDeliveries.innerText = deliveries;
-          tr.appendChild(tdDeliveries);
-
-          const tdActions = document.createElement("td");
-
-          const editBtn = document.createElement("button");
-          editBtn.className = "btn btn-primary btn-sm me-2";
-          editBtn.innerText = "Edit";
-          editBtn.addEventListener("click", () => editCompany(uid, cname));
-
-          const deleteBtn = document.createElement("button");
-          deleteBtn.className = "btn btn-danger btn-sm";
-          deleteBtn.innerText = "Delete";
-          deleteBtn.addEventListener("click", () => deleteCompany(uid, cname));
-
-          tdActions.appendChild(editBtn);
-          tdActions.appendChild(deleteBtn);
-          tr.appendChild(tdActions);
-
-          companyTable.appendChild(tr);
-        }
+  for (const uid in users) {
+    const u = users[uid];
+    if (u.role === "company" && u.approved) {
+      const companies = u.vehicle?.companies || {};
+      for (const cname in companies) {
+        hasCompanies = true;
+        const vehicles = companies[cname].vehicle || {};
+        const deliveries = Object.values(vehicles).reduce((sum, v) => sum + Object.keys(v.deliveries || {}).length, 0);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${cname}</td>
+                        <td>${Object.keys(vehicles).length}</td>
+                        <td>${deliveries}</td>
+                        <td>
+                          <button class="btn btn-primary btn-sm me-2">Edit</button>
+                          <button class="btn btn-danger btn-sm">Delete</button>
+                        </td>`;
+        tr.querySelector(".btn-primary").onclick = () => editCompany(uid, cname);
+        tr.querySelector(".btn-danger").onclick = () => deleteCompany(uid, cname);
+        companyTable.appendChild(tr);
       }
     }
-
-    // show placeholder if empty
-    if (!companyTable.firstChild) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 4;
-      td.className = "text-muted";
-      td.innerText = "No approved companies";
-      tr.appendChild(td);
-      companyTable.appendChild(tr);
-    }
-  } catch (err) {
-    console.error("loadApprovedCompanies error:", err);
   }
+  if (!hasCompanies) companyTable.innerHTML = "<tr><td colspan='4' class='text-muted'>No approved companies</td></tr>";
 }
 
-// ---------- Edit Company (rename single company) ----------
+// ---------- Edit/Delete Company ----------
 async function editCompany(uid, oldName) {
   const newName = prompt("Enter new company name:", oldName);
-  if (!newName || newName.trim() === "" || newName === oldName) return;
-  if (newName.includes("/")) return alert("Company name cannot contain '/' character.");
-
-  try {
-    // check duplicate
-    const companiesSnap = await db.ref(`users/${uid}/vehicle/companies`).once("value");
-    const companiesObj = companiesSnap.val() || {};
-    if (companiesObj[newName]) {
-      return alert("A company with that name already exists for this user.");
-    }
-
-    const sourceSnap = await db.ref(`users/${uid}/vehicle/companies/${oldName}`).once("value");
-    const data = sourceSnap.val();
-    if (!data) return alert("Source company data not found.");
-
-    const updates = {};
-    updates[`users/${uid}/vehicle/companies/${newName}`] = data;
-    updates[`users/${uid}/vehicle/companies/${oldName}`] = null;
-
-    await db.ref().update(updates);
-    alert("✅ Company name updated");
-    await loadApprovedCompanies();
-  } catch (err) {
-    console.error("editCompany error:", err);
-    alert("Failed to update company name");
+  if (!newName || newName === oldName) return;
+  const data = (await db.ref(`users/${uid}/vehicle/companies/${oldName}`).once("value")).val();
+  if (!data) return alert("Company not found");
+  await db.ref(`users/${uid}/vehicle/companies/${newName}`).set(data);
+  await db.ref(`users/${uid}/vehicle/companies/${oldName}`).remove();
+  loadApprovedCompanies();
+}
+async function deleteCompany(uid, cname) {
+  if (confirm(`Delete ${cname}?`)) {
+    await db.ref(`users/${uid}/vehicle/companies/${cname}`).remove();
+    loadApprovedCompanies(); loadStats();
   }
 }
 
-// ---------- Delete Company (single company) ----------
-async function deleteCompany(uid, companyName) {
-  if (!confirm(`Are you sure you want to delete company "${companyName}" for this user?`)) return;
-  try {
-    await db.ref(`users/${uid}/vehicle/companies/${companyName}`).remove();
-    alert("❌ Company deleted");
-    await loadApprovedCompanies();
-    await loadStats();
-  } catch (err) {
-    console.error("deleteCompany error:", err);
-    alert("Failed to delete company");
-  }
-}
-
-// ---------- Map & live vehicle markers ----------
+// ---------- Map ----------
 function setupMap() {
-  // fixed tile URL (no markdown artifacts)
-  const tileURL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-  const map = L.map("map").setView([19.2183, 72.9781], 11);
-  L.tileLayer(tileURL, { maxZoom: 19 }).addTo(map);
-
-  const markers = {};
-  const markerGroup = L.featureGroup().addTo(map);
-
-  // listen to user changes in real-time
-  db.ref("users").on("value", (snap) => {
+  map = L.map("map").setView([19.2183, 72.9781], 11);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+  markerGroup = L.featureGroup().addTo(map);
+  db.ref("users").on("value", snap => {
     const data = snap.val() || {};
     const bounds = [];
+    const currentIds = new Set();
 
-    // update markers set
     for (const uid in data) {
       const companies = data[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
         for (const vid in vehicles) {
-          const v = vehicles[vid] || {};
-          const gpsRaw = (v.gps || "0,0").toString();
-          const parts = gpsRaw.split(",").map(s => s.trim());
-          let lat = Number(parts[0] || 0);
-          let lng = Number(parts[1] || 0);
-
-          // validate lat/lng
-          if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
-            // skip invalid/0,0 coordinates
-            continue;
-          }
-
-          if (!markers[vid]) {
-            const m = L.marker([lat, lng]).addTo(markerGroup).bindPopup(`<b>${vid}</b><br/>${cname}`);
-            markers[vid] = m;
-          } else {
-            markers[vid].setLatLng([lat, lng]);
-            // update popup content if needed
-            markers[vid].bindPopup(`<b>${vid}</b><br/>${cname}`);
-          }
-          bounds.push([lat, lng]);
-        }
-      }
-    }
-
-    // remove markers that no longer exist
-    const currentIds = new Set();
-    for (const uid in data) {
-      const companies = data[uid].vehicle?.companies || {};
-      for (const cname in companies) {
-        const vehicles = companies[cname].vehicle || {};
-        for (const vid in vehicles) currentIds.add(vid);
-      }
-    }
-    for (const mid in markers) {
-      if (!currentIds.has(mid)) {
-        markerGroup.removeLayer(markers[mid]);
-        delete markers[mid];
-      }
-    }
-
-    if (bounds.length) {
-      try {
-        map.fitBounds(bounds, { padding: [50, 50] });
-      } catch (e) {
-        // fallback to center
-        // console.warn("fitBounds failed", e);
-      }
-    }
-  });
-}
-
-// ---------- Vehicle Tracker (search input) ----------
-function setupTrackerInput() {
-  trackVehicleIdInput.addEventListener("input", async (e) => {
-    const idRaw = e.target.value.trim();
-    if (!idRaw) {
-      vehicleTrackerResult.innerHTML = "";
-      return;
-    }
-    const id = idRaw.toLowerCase();
-    vehicleTrackerResult.innerHTML = "<div class='text-muted'>Searching...</div>";
-
-    try {
-      const snap = await db.ref("users").once("value");
-      const users = snap.val() || {};
-      let found = false;
-
-      for (const uid in users) {
-        const companies = users[uid].vehicle?.companies || {};
-        for (const cname in companies) {
-          const vehicles = companies[cname].vehicle || {};
-          for (const vid in vehicles) {
-            if (vid.toLowerCase() === id) {
-              const v = vehicles[vid] || {};
-              const gps = v.gps || "Unknown";
-              const battery = v.battery ?? "N/A";
-              vehicleTrackerResult.innerHTML = `<div class='alert alert-info'>🚚 <strong>${vid}</strong><br/>Location: ${gps}<br/>Battery: ${battery}%</div>`;
-              found = true;
-              break;
+          currentIds.add(vid);
+          const gps = (vehicles[vid].gps || "0,0").split(",").map(Number);
+          if (gps[0] && gps[1]) {
+            if (!markers[vid]) {
+              markers[vid] = L.marker(gps).addTo(markerGroup).bindPopup(`<b>${vid}</b><br>${cname}`);
+            } else {
+              markers[vid].setLatLng(gps);
             }
+            bounds.push(gps);
           }
-          if (found) break;
         }
-        if (found) break;
       }
-
-      if (!found) {
-        vehicleTrackerResult.innerHTML = `<div class='alert alert-warning'>Vehicle not found</div>`;
-      }
-    } catch (err) {
-      console.error("Vehicle tracker error:", err);
-      vehicleTrackerResult.innerHTML = `<div class='alert alert-danger'>Error searching vehicle</div>`;
     }
+    for (const id in markers) {
+      if (!currentIds.has(id)) {
+        markerGroup.removeLayer(markers[id]);
+        delete markers[id];
+      }
+    }
+    if (bounds.length) map.fitBounds(bounds, { padding: [50, 50] });
   });
 }
 
-// ---------- Manual Alarm Trigger ----------
-triggerAlarmBtn.addEventListener("click", async () => {
-  const idRaw = alarmVehicleIdInput.value.trim();
-  if (!idRaw) return alarmStatusEl.innerHTML = `<div class='alert alert-warning'>Enter a vehicle ID</div>`;
-  const id = idRaw;
-
-  alarmStatusEl.innerHTML = `<div class='text-muted'>Searching vehicle...</div>`;
-
-  try {
+// ---------- Vehicle Tracker Search ----------
+function setupTrackerInput() {
+  trackVehicleIdInput.addEventListener("input", async () => {
+    const id = trackVehicleIdInput.value.trim().toLowerCase();
+    if (!id) return vehicleTrackerResult.innerHTML = "";
+    vehicleTrackerResult.innerHTML = "Searching...";
     const snap = await db.ref("users").once("value");
     const users = snap.val() || {};
-    let found = false;
-
     for (const uid in users) {
       const companies = users[uid].vehicle?.companies || {};
       for (const cname in companies) {
         const vehicles = companies[cname].vehicle || {};
-        if (vehicles[id]) {
-          // update both last_trigger and push to trigger history
-          const triggerData = {
-            status: "alert",
-            vehicleId: id,
-            time: new Date().toISOString(),
-            location: vehicles[id].gps || "Unknown"
-          };
-
-          const updates = {};
-          updates[`users/${uid}/vehicle/last_trigger`] = triggerData;
-          // also push to triggersHistory (array-like under user)
-          const newKey = db.ref().child(`users/${uid}/vehicle/triggersHistory`).push().key;
-          updates[`users/${uid}/vehicle/triggersHistory/${newKey}`] = triggerData;
-
-          await db.ref().update(updates);
-
-          alarmStatusEl.innerHTML = `<div class='alert alert-danger'>🚨 Alarm Triggered for <strong>${id}</strong></div>`;
-          found = true;
-          // refresh stats so Alerts Today updates
-          await loadStats();
-          break;
+        for (const vid in vehicles) {
+          if (vid.toLowerCase() === id) {
+            const v = vehicles[vid];
+            vehicleTrackerResult.innerHTML = `<div class="alert alert-info">
+              🚚 <b>${vid}</b><br>Location: ${v.gps || "Unknown"}<br>Battery: ${v.battery ?? "N/A"}%</div>`;
+            return;
+          }
         }
       }
-      if (found) break;
     }
-    if (!found) {
-      alarmStatusEl.innerHTML = `<div class='alert alert-warning'>Vehicle ID not found</div>`;
-    }
-  } catch (err) {
-    console.error("triggerManualAlarm error:", err);
-    alarmStatusEl.innerHTML = `<div class='alert alert-danger'>Failed to trigger alarm</div>`;
-  }
-});
+    vehicleTrackerResult.innerHTML = `<div class="alert alert-warning">Vehicle not found</div>`;
+  });
+}
 
-// Optional: refresh some data periodically (every 60s)
-setInterval(() => {
-  loadStats();
-  loadApprovedCompanies();
-  loadPendingApprovals();
-}, 60000);
+// ---------- Manual Alarm Trigger ----------
+triggerAlarmBtn.onclick = async () => {
+  const id = alarmVehicleIdInput.value.trim();
+  if (!id) return alarmStatusEl.innerHTML = `<div class="alert alert-warning">Enter a vehicle ID</div>`;
+  const snap = await db.ref("users").once("value");
+  const users = snap.val() || {};
+  let triggered = false;
+
+  for (const uid in users) {
+    const companies = users[uid].vehicle?.companies || {};
+    for (const cname in companies) {
+      const vehicles = companies[cname].vehicle || {};
+      if (vehicles[id]) {
+        const triggerData = {
+          status: "alert",
+          vehicleId: id,
+          time: new Date().toISOString(),
+          location: vehicles[id].gps || "Unknown"
+        };
+        const updates = {};
+        updates[`users/${uid}/vehicle/last_trigger`] = triggerData;
+        const newKey = db.ref().child(`users/${uid}/vehicle/triggersHistory`).push().key;
+        updates[`users/${uid}/vehicle/triggersHistory/${newKey}`] = triggerData;
+        await db.ref().update(updates);
+        triggered = true;
+      }
+    }
+  }
+  alarmStatusEl.innerHTML = triggered
+    ? `<div class="alert alert-danger">🚨 Alarm Triggered for <b>${id}</b></div>`
+    : `<div class="alert alert-warning">Vehicle not found</div>`;
+  if (triggered) loadStats();
+};
+
+// Refresh data every minute
+setInterval(() => { loadStats(); loadApprovedCompanies(); loadPendingApprovals(); }, 60000);
