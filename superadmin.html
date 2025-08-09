@@ -1,78 +1,128 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Super Admin Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SVMS — Super Admin Dashboard</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
-    #map { height: 400px; }
-    body { background: #f8f9fa; }
+    body { background:#f6f7fb; }
+    #map { height: 420px; border-radius: 8px; }
+    .stat-card { min-width: 160px; }
+    .small-input { max-width: 320px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; }
   </style>
 </head>
 <body>
-
-<div class="container mt-4">
-  <h1>🚀 Super Admin Dashboard</h1>
-  <button id="logoutBtn" class="btn btn-secondary float-end mb-3">Logout</button>
-
-  <!-- Stats -->
-  <div class="row text-center mb-4">
-    <div class="col">
-      <h4>Total Companies</h4>
-      <div id="totalCompanies" class="fs-3">0</div>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">SVMS — Super Admin</a>
+      <div class="d-flex align-items-center">
+        <button id="logoutBtn" class="btn btn-outline-secondary btn-sm me-2">Logout</button>
+        <small id="currentUser" class="text-muted"></small>
+      </div>
     </div>
-    <div class="col">
-      <h4>Total Vehicles</h4>
-      <div id="totalVehicles" class="fs-3">0</div>
+  </nav>
+
+  <main class="container mb-5">
+    <!-- Stats -->
+    <div class="d-flex gap-3 flex-wrap mb-4">
+      <div class="card p-3 stat-card">
+        <div class="text-muted">Total Companies</div>
+        <div id="totalCompanies" class="h4 mono">0</div>
+      </div>
+      <div class="card p-3 stat-card">
+        <div class="text-muted">Total Vehicles</div>
+        <div id="totalVehicles" class="h4 mono">0</div>
+      </div>
+      <div class="card p-3 stat-card">
+        <div class="text-muted">Total Deliveries</div>
+        <div id="totalDeliveries" class="h4 mono">0</div>
+      </div>
+      <div class="card p-3 stat-card">
+        <div class="text-muted">Alerts Today</div>
+        <div id="alertsToday" class="h4 mono">0</div>
+      </div>
     </div>
-    <div class="col">
-      <h4>Total Deliveries</h4>
-      <div id="totalDeliveries" class="fs-3">0</div>
+
+    <div class="row gx-4 gy-4">
+      <!-- Left (map + tracker + manual alarm) -->
+      <div class="col-lg-8">
+        <div class="card p-3 mb-3">
+          <h5 class="mb-2">Live Vehicle Locations</h5>
+          <div id="map" aria-label="Live vehicle location map"></div>
+        </div>
+
+        <div class="card p-3 mb-3">
+          <h5 class="mb-2">Vehicle Tracker</h5>
+          <div class="d-flex gap-2 align-items-start flex-wrap">
+            <input id="trackVehicleId" class="form-control small-input" placeholder="Enter vehicle ID to search (case-insensitive)">
+            <button id="centerOnVehicleBtn" class="btn btn-outline-primary btn-sm">Center on map</button>
+            <div class="w-100 mt-2" id="vehicleTrackerResult"></div>
+          </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+          <h5 class="mb-2">Manual Alarm Trigger</h5>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small">Select Company</label>
+              <select id="companySelect" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Select Customer (optional)</label>
+              <select id="customerSelect" class="form-select"></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Or enter Vehicle ID</label>
+              <input id="alarmVehicleId" class="form-control" placeholder="Vehicle ID to trigger alarm (optional if selecting vehicle)">
+            </div>
+            <div class="col-12 mt-2">
+              <button id="triggerAlarmBtn" class="btn btn-danger">Trigger Alarm</button>
+              <div id="alarmStatus" class="mt-2" role="status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right (pending approvals + companies table) -->
+      <div class="col-lg-4">
+        <div class="card p-3 mb-3">
+          <h6>Pending Approvals</h6>
+          <ul id="pendingUsersList" class="list-group list-group-flush" style="max-height:260px; overflow:auto;"></ul>
+        </div>
+
+        <div class="card p-3">
+          <h6>Approved Companies</h6>
+          <div class="table-responsive" style="max-height:430px; overflow:auto;">
+            <table class="table table-sm mb-0">
+              <thead class="table-light sticky-top">
+                <tr><th>Company</th><th>Vehicles</th><th>Deliveries</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="companyTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="col">
-      <h4>Alerts Today</h4>
-      <div id="alertsToday" class="fs-3">0</div>
-    </div>
-  </div>
+  </main>
 
-  <!-- Pending Approvals -->
-  <h3>Pending Approvals</h3>
-  <ul id="pendingUsersList" class="list-group mb-4"></ul>
+  <!-- Firebase (compat v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  <!-- Approved Companies -->
-  <h3>Approved Companies</h3>
-  <table class="table table-bordered">
-    <thead class="table-light">
-      <tr>
-        <th>Company Name</th>
-        <th>Vehicles</th>
-        <th>Deliveries</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="companyTable"></tbody>
-  </table>
+  <!-- Leaflet / Bootstrap JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- Vehicle Tracker -->
-  <h3>Vehicle Tracker</h3>
-  <input type="text" id="trackVehicleId" class="form-control mb-3" placeholder="Enter Vehicle ID to track">
-  <div id="vehicleTrackerResult" class="mb-3"></div>
-  <div id="map" class="mb-4"></div>
-
-  <!-- Manual Alarm Trigger -->
-  <h3>Manual Alarm Trigger</h3>
-  <input type="text" id="alarmVehicleId" class="form-control mb-3" placeholder="Enter Vehicle ID">
-  <button id="triggerAlarmBtn" class="btn btn-danger mb-3">Trigger Alarm</button>
-  <div id="alarmStatus"></div>
-</div>
-
-<!-- Scripts -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="superadmin.js"></script>
-
+  <!-- App script -->
+  <script src="superadmin.js" type="module"></script>
 </body>
 </html>
