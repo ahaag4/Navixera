@@ -8,6 +8,9 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<style>
+    .expiring-soon { color: red; font-weight: bold; }
+</style>
 </head>
 <body class="p-4">
 
@@ -15,7 +18,9 @@
 <ul id="pendingUsersList" class="list-group mb-4"></ul>
 
 <script>
-// Your Firebase config
+// ==========================
+//  Firebase Configuration
+// ==========================
 const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -28,84 +33,149 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// ==========================
+//  Helpers
+// ==========================
+function formatDate(dateVal) {
+  if (!dateVal) return 'N/A';
+
+  // If it's a number (timestamp)
+  if (typeof dateVal === 'number') {
+    return new Date(dateVal).toLocaleString();
+  }
+
+  // If it's Firebase Timestamp object
+  if (typeof dateVal === 'object' && dateVal.seconds) {
+    return new Date(dateVal.seconds * 1000).toLocaleString();
+  }
+
+  // String date
+  let date = new Date(dateVal);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleString();
+  }
+
+  return dateVal; // fallback raw
+}
+
+function getDateValue(dateVal) {
+  if (!dateVal) return 0;
+  if (typeof dateVal === 'number') return dateVal;
+  if (typeof dateVal === 'object' && dateVal.seconds) return dateVal.seconds * 1000;
+  let d = new Date(dateVal).getTime();
+  return isNaN(d) ? 0 : d;
+}
+
+function isExpiringSoon(dateVal) {
+  let expiryMs = getDateValue(dateVal);
+  if (!expiryMs) return false;
+  let now = Date.now();
+  let diffDays = (expiryMs - now) / (1000 * 60 * 60 * 24);
+  return diffDays <= 7 && diffDays >= 0;
+}
+
+// ==========================
+//  Main Loader
+// ==========================
 function loadPendingApprovals() {
+  const pendingUsersList = document.getElementById('pendingUsersList');
   pendingUsersList.innerHTML = '';
+
   db.ref('users').once('value').then(snapshot => {
     const users = snapshot.val() || {};
-    let any = false;
+    let pendingArr = [];
 
     Object.entries(users).forEach(([uid, u]) => {
-      if (!u.role || u.role === 'super-admin') return; // Skip super admin
+      if (!u.role || u.role === 'super-admin') return;
 
-      let pendingType = null;
-      let planRequested = null;
-
-      // Case 1: Account not approved yet
+      // Case 1: Account approval pending
       if (u.approved !== true) {
-        pendingType = 'Account Approval';
-        planRequested = u.plan || 'N/A';
+        pendingArr.push({
+          uid,
+          role: u.role,
+          name: u.companyName || u.email || uid,
+          pendingType: 'Account Approval',
+          planRequested: u.plan || 'N/A',
+          requestTime: u.createdAt || null,
+          expiryDate: u.plan_expiry || null
+        });
       }
 
-      // Case 2: Subscription upgrade request pending
+      // Case 2: Subscription upgrade pending
       if (u.upgrade_request && u.upgrade_request.status === 'Pending') {
-        pendingType = 'Subscription Upgrade';
-        planRequested = u.upgrade_request.new_plan || u.plan || 'N/A';
-      }
-
-      if (pendingType) {
-        any = true;
-        const name = u.companyName || u.email || uid;
-
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `
-          <div>
-            <strong>${name}</strong> <small class="text-muted">(${u.role})</small>
-            <div class="text-muted small">
-              Request Type: ${pendingType} <br>
-              Requested Plan: ${planRequested}
-            </div>
-          </div>
-        `;
-
-        const actions = document.createElement('div');
-
-        const approveBtn = document.createElement('button');
-        approveBtn.className = 'btn btn-success btn-sm me-1';
-        approveBtn.textContent = 'Approve';
-        approveBtn.onclick = () => {
-          if (pendingType === 'Account Approval') {
-            approveUser(uid);
-          } else if (pendingType === 'Subscription Upgrade') {
-            approveSubscription(uid, planRequested);
-          }
-        };
-
-        const rejectBtn = document.createElement('button');
-        rejectBtn.className = 'btn btn-danger btn-sm';
-        rejectBtn.textContent = 'Reject';
-        rejectBtn.onclick = () => {
-          if (pendingType === 'Account Approval') {
-            rejectUser(uid);
-          } else if (pendingType === 'Subscription Upgrade') {
-            rejectSubscription(uid);
-          }
-        };
-
-        actions.appendChild(approveBtn);
-        actions.appendChild(rejectBtn);
-        li.appendChild(actions);
-        pendingUsersList.appendChild(li);
+        pendingArr.push({
+          uid,
+          role: u.role,
+          name: u.companyName || u.email || uid,
+          pendingType: 'Subscription Upgrade',
+          planRequested: u.upgrade_request.new_plan || u.upgrade_request.plan || u.plan || 'N/A',
+          requestTime: u.upgrade_request.request_time || null,
+          expiryDate: u.plan_expiry || null
+        });
       }
     });
 
-    if (!any) {
+    // Sort oldest first
+    pendingArr.sort((a, b) => getDateValue(a.requestTime) - getDateValue(b.requestTime));
+
+    if (pendingArr.length === 0) {
       pendingUsersList.innerHTML = `<li class="list-group-item text-muted">No pending approvals.</li>`;
+      return;
     }
+
+    // Render
+    pendingArr.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `
+        <div>
+          <strong>${item.name}</strong> <small class="text-muted">(${item.role})</small>
+          <div class="text-muted small">
+            Request Type: ${item.pendingType} <br>
+            Requested Plan: ${item.planRequested} <br>
+            Request Time: ${formatDate(item.requestTime)} <br>
+            Plan Expiry: <span class="${isExpiringSoon(item.expiryDate) ? 'expiring-soon' : ''}">
+              ${formatDate(item.expiryDate)}
+            </span>
+          </div>
+        </div>
+      `;
+
+      const actions = document.createElement('div');
+
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'btn btn-success btn-sm me-1';
+      approveBtn.textContent = 'Approve';
+      approveBtn.onclick = () => {
+        if (item.pendingType === 'Account Approval') {
+          approveUser(item.uid);
+        } else {
+          approveSubscription(item.uid, item.planRequested);
+        }
+      };
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.className = 'btn btn-danger btn-sm';
+      rejectBtn.textContent = 'Reject';
+      rejectBtn.onclick = () => {
+        if (item.pendingType === 'Account Approval') {
+          rejectUser(item.uid);
+        } else {
+          rejectSubscription(item.uid);
+        }
+      };
+
+      actions.appendChild(approveBtn);
+      actions.appendChild(rejectBtn);
+      li.appendChild(actions);
+      pendingUsersList.appendChild(li);
+    });
   });
 }
 
-// Approve account
+// ==========================
+//  Actions
+// ==========================
 function approveUser(uid) {
   db.ref(`users/${uid}`).update({ approved: true })
     .then(() => {
@@ -114,7 +184,6 @@ function approveUser(uid) {
     });
 }
 
-// Reject account
 function rejectUser(uid) {
   db.ref(`users/${uid}`).remove()
     .then(() => {
@@ -123,7 +192,6 @@ function rejectUser(uid) {
     });
 }
 
-// Approve subscription upgrade
 function approveSubscription(uid, newPlan) {
   db.ref(`users/${uid}`).update({
     plan: newPlan,
@@ -134,7 +202,6 @@ function approveSubscription(uid, newPlan) {
   });
 }
 
-// Reject subscription upgrade
 function rejectSubscription(uid) {
   db.ref(`users/${uid}/upgrade_request/status`).set('Rejected')
     .then(() => {
@@ -143,6 +210,9 @@ function rejectSubscription(uid) {
     });
 }
 
+// ==========================
+//  Init
+// ==========================
 loadPendingApprovals();
 </script>
 </body>
