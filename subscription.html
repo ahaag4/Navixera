@@ -38,24 +38,10 @@ const db = firebase.database();
 // ==========================
 function formatDate(dateVal) {
   if (!dateVal) return 'N/A';
-
-  // If it's a number (timestamp)
-  if (typeof dateVal === 'number') {
-    return new Date(dateVal).toLocaleString();
-  }
-
-  // If it's Firebase Timestamp object
-  if (typeof dateVal === 'object' && dateVal.seconds) {
-    return new Date(dateVal.seconds * 1000).toLocaleString();
-  }
-
-  // String date
+  if (typeof dateVal === 'number') return new Date(dateVal).toLocaleString();
+  if (typeof dateVal === 'object' && dateVal.seconds) return new Date(dateVal.seconds * 1000).toLocaleString();
   let date = new Date(dateVal);
-  if (!isNaN(date.getTime())) {
-    return date.toLocaleString();
-  }
-
-  return dateVal; // fallback raw
+  return isNaN(date.getTime()) ? dateVal : date.toLocaleString();
 }
 
 function getDateValue(dateVal) {
@@ -69,8 +55,7 @@ function getDateValue(dateVal) {
 function isExpiringSoon(dateVal) {
   let expiryMs = getDateValue(dateVal);
   if (!expiryMs) return false;
-  let now = Date.now();
-  let diffDays = (expiryMs - now) / (1000 * 60 * 60 * 24);
+  let diffDays = (expiryMs - Date.now()) / (1000 * 60 * 60 * 24);
   return diffDays <= 7 && diffDays >= 0;
 }
 
@@ -88,7 +73,7 @@ function loadPendingApprovals() {
     Object.entries(users).forEach(([uid, u]) => {
       if (!u.role || u.role === 'super-admin') return;
 
-      // Case 1: Account approval pending
+      // Account approval needed
       if (u.approved !== true) {
         pendingArr.push({
           uid,
@@ -101,17 +86,20 @@ function loadPendingApprovals() {
         });
       }
 
-      // Case 2: Subscription upgrade pending
-      if (u.upgrade_request && u.upgrade_request.status === 'Pending') {
-        pendingArr.push({
-          uid,
-          role: u.role,
-          name: u.companyName || u.email || uid,
-          pendingType: 'Subscription Upgrade',
-          planRequested: u.upgrade_request.new_plan || u.upgrade_request.plan || u.plan || 'N/A',
-          requestTime: u.upgrade_request.request_time || null,
-          expiryDate: u.plan_expiry || null
-        });
+      // Subscription upgrade request
+      if (u.upgrade_request) {
+        let status = String(u.upgrade_request.status || '').toLowerCase();
+        if (status.includes('pending')) {
+          pendingArr.push({
+            uid,
+            role: u.role,
+            name: u.companyName || u.email || uid,
+            pendingType: 'Subscription Upgrade',
+            planRequested: u.upgrade_request.new_plan || u.upgrade_request.plan || u.plan || 'N/A',
+            requestTime: u.upgrade_request.request_time || u.createdAt || null,
+            expiryDate: u.plan_expiry || null
+          });
+        }
       }
     });
 
@@ -178,36 +166,24 @@ function loadPendingApprovals() {
 // ==========================
 function approveUser(uid) {
   db.ref(`users/${uid}`).update({ approved: true })
-    .then(() => {
-      alert('User account approved');
-      loadPendingApprovals();
-    });
+    .then(() => { alert('User account approved'); loadPendingApprovals(); });
 }
 
 function rejectUser(uid) {
   db.ref(`users/${uid}`).remove()
-    .then(() => {
-      alert('User account rejected');
-      loadPendingApprovals();
-    });
+    .then(() => { alert('User account rejected'); loadPendingApprovals(); });
 }
 
 function approveSubscription(uid, newPlan) {
   db.ref(`users/${uid}`).update({
     plan: newPlan,
     'upgrade_request/status': 'Approved'
-  }).then(() => {
-    alert('Subscription upgraded');
-    loadPendingApprovals();
-  });
+  }).then(() => { alert('Subscription upgraded'); loadPendingApprovals(); });
 }
 
 function rejectSubscription(uid) {
   db.ref(`users/${uid}/upgrade_request/status`).set('Rejected')
-    .then(() => {
-      alert('Subscription upgrade rejected');
-      loadPendingApprovals();
-    });
+    .then(() => { alert('Subscription upgrade rejected'); loadPendingApprovals(); });
 }
 
 // ==========================
