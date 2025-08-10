@@ -1,146 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Smart Tracker — Subscription + Admin</title>
-  <!-- Bootstrap 5 for responsiveness -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Tracker Dashboard</title>
+  <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { background: #f6f7fa; }
-    .navbar-brand { font-weight: 700; }
-    .ad-banner {
-      width: 100%;
-      background: #e9ecef;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-      margin-bottom: 18px;
-      min-height: 54px;
-      overflow: hidden;
-      padding: 7px 0;
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #343a40; color: white; padding: 10px 20px; border-radius: 10px;
     }
-    .ad-banner img, .ad-banner video {
-      max-width: 100%;
-      max-height: 120px;
-      border-radius: 10px;
-      height: auto;
-      width: auto;
-      object-fit: contain;
-      display: block;
+    .logo { height: 40px; }
+    .card {
+      background: white; padding: 20px; margin: 20px 0; border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    @media (max-width: 575px) {
-      .ad-banner img, .ad-banner video {
-        max-height: 68px;
-      }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
     }
-    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 18px;}
-    h2, h3 { font-weight: 700; color: #343a40; }
-    .plan-pill { padding: 7px 14px; border-radius: 20px; background: #e2e3e5; font-weight:700; margin-right: 8px;}
-    .pending-pill, .approved-pill, .rejected-pill {
-      padding:5px 12px; border-radius:20px; font-weight:600; font-size:1em;
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
     }
-    .pending-pill { background: #fff3cd; color:#856404; }
-    .approved-pill { background: #d4edda; color:#155724; }
-    .rejected-pill { background: #f8d7da; color:#721c24; }
-    .small-muted { color:#6c757d; font-size:.94em;}
-    .table { font-size: .98em;}
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+    /* Ad banner style */
+    #adArea {
+      width: 100%; background: #e9ecef; display: flex; justify-content: center; align-items: center;
+      border-radius: 12px; min-height: 60px; margin: 15px 0; padding: 8px;
+    }
+    #adArea img, #adArea video {
+      border-radius: 8px; object-fit: contain; display: block;
+      max-width: 100%; height: auto;
+    }
   </style>
 </head>
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-sm navbar-dark bg-primary mb-3">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">
-        <img src="assets/logo.png" alt="Logo" style="height:32px; margin-right:10px;">
-        Smart Tracker
-      </a>
-      <div class="d-flex align-items-center ms-auto">
-        <span id="userEmail" class="small-muted me-3">Loading...</span>
-        <span id="planPill" class="plan-pill">—</span>
-        <button id="logoutBtn" class="btn btn-light btn-sm ms-2">Logout</button>
+  <div class="dashboard">
+    <header>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Smart Tracker</h1>
+      <div class="user-info">
+        <span id="userEmail">Loading...</span>
+        <button id="logoutBtn">Logout</button>
       </div>
-    </div>
-  </nav>
+    </header>
 
-  <div class="container" style="max-width:1000px;">
-    <!-- Ad area: auto fits actual ad size -->
-    <div id="adArea" class="ad-banner">Ad loading…</div>
+    <!-- Auto ads area -->
+    <div id="adArea">Loading ad...</div>
 
-    <!-- Status & Plan -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h3>Live Status</h3>
-            <div class="row">
-              <div class="col-6"><strong>Online:</strong> <span id="onlineStatus">Checking...</span></div>
-              <div class="col-6"><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
-            </div>
-            <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-            <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
-            <p><strong>Status:</strong> <span id="status">Loading...</span></p>
-            <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
-          </div>
-        </div>
+    <section class="card status-card">
+      <h2>🔍 Live Status</h2>
+      <div class="status-row">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
+        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h3>Subscription & Upgrades</h3>
-            <div>Plan: <strong id="currentPlan">Loading</strong></div>
-            <div class="small-muted mt-1">Expiry: <span id="planExpiry">-</span></div>
-            <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-            <div class="mt-2">
-              <button id="upgradeToSilver" class="btn btn-warning btn-sm">Request Silver (₹149/mo)</button>
-              <button id="upgradeToGold" class="btn btn-primary btn-sm">Request Gold (₹249/mo)</button>
-            </div>
-            <div style="margin-top:10px;">
-              <span id="requestStatusArea"></span>
-            </div>
-            <div class="small-muted mt-2">
-              Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV) • Gold (90d, no ads, advanced export)
-            </div>
-          </div>
-        </div>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+      <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
+      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
+      <div id="componentsBlock">
+        <h4>Components</h4>
+        <ul id="componentsList" class="components-list">
+          <li class="comp-unknown">No data</li>
+        </ul>
       </div>
-    </div>
+    </section>
 
-    <!-- Map -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h3>Live Map</h3>
-        <div id="map" style="height:290px;border-radius:8px;">Loading map...</div>
-      </div>
-    </div>
+    <section class="card alarm-card">
+      <h2>🔔 Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <p id="alarmStatusText">Loading alarm status...</p>
+    </section>
 
-    <!-- History -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h3>Movement History</h3>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="small-muted">Recent movements</div>
-          <button id="exportCSVBtn" class="btn btn-primary btn-sm" style="display:none;">Export CSV</button>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-sm table-bordered">
-            <thead class="table-light"><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
-            <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <section class="card map-card">
+      <h2>🗼 Live Map</h2>
+      <div id="map">Loading map...</div>
+    </section>
+
+    <section class="card history-card">
+      <h2>📈 Movement History</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+        <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </section>
   </div>
 
-  <!-- JS/libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -154,95 +137,184 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // DOM refs
-    const userEmailEl     = document.getElementById('userEmail');
-    const planPill        = document.getElementById('planPill');
-    const adArea          = document.getElementById('adArea');
-    const currentPlanEl   = document.getElementById('currentPlan');
-    const planExpiryEl    = document.getElementById('planExpiry');
-    const vehicleLimitEl  = document.getElementById('vehicleLimit');
-    const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
-    const upgradeToGoldBtn   = document.getElementById('upgradeToGold');
-    const requestStatusArea  = document.getElementById('requestStatusArea');
-    // ... (rest, as needed for other dashboard features) ...
+    // ==== AUTO-ROTATING, AUTO-SIZE AD CODE ====
+    const adArea = document.getElementById('adArea');
+    let currentAdIndex = 0;
+    let adsList = [];
 
-    // Plan policies
-    const PLAN_POLICIES = {
-      basic: { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false },
-      silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true },
-      gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
-    };
-
-    function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
-
-    // ------- Main responsive ad loader ---------
-    function loadBannerAdForUser(plan) {
-      const showAd = plan !== 'gold';
-      if (!showAd) {
-        adArea.style.display = 'none';
-        return;
+    function showAd(ad) {
+      adArea.innerHTML = 'Loading...';
+      if (ad.type === 'banner') {
+        const img = new Image();
+        img.src = ad.url;
+        img.onload = () => {
+          adArea.innerHTML = '';
+          adArea.appendChild(img);
+        };
+      } else if (ad.type === 'video') {
+        const video = document.createElement('video');
+        video.src = ad.url;
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        video.onloadedmetadata = () => {};
+        adArea.innerHTML = '';
+        adArea.appendChild(video);
       }
-      db.ref('admin/ads').once('value').then(snap => {
-        const ads = snap.val() || {};
-        // Find the first active dashboard banner or video ad
-        const found = Object.values(ads).find(ad =>
-          ad && ad.active &&
-          (ad.type === 'banner' || ad.type === 'video') &&
-          (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer') &&
-          ad.url
+    }
+
+    function loadAds() {
+      db.ref('admin/ads').once('value').then(snapshot => {
+        const adsObj = snapshot.val() || {};
+        adsList = Object.values(adsObj).filter(ad =>
+          ad && ad.active && ad.url &&
+          (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
         );
-        if (found) {
-          if (found.type === 'banner') {
-            adArea.innerHTML = `<img src="${found.url}" alt="Ad Banner">`;
-          } else if (found.type === 'video') {
-            adArea.innerHTML = `<video controls><source src="${found.url}"></video>`;
-          }
-          adArea.style.display = 'flex';
+        if (adsList.length) {
+          showAd(adsList[currentAdIndex]);
+          setInterval(() => {
+            currentAdIndex = (currentAdIndex + 1) % adsList.length;
+            showAd(adsList[currentAdIndex]);
+          }, 15000);
         } else {
           adArea.innerHTML = 'No active ad';
-          adArea.style.display = 'flex';
         }
       }).catch(err => {
-        adArea.innerHTML = '<span class="small-muted">Ad load error</span>';
-        adArea.style.display = 'flex';
+        console.error('Ad load error:', err);
+        adArea.innerHTML = 'Ad load error';
       });
     }
 
-    // ---------- Plan UI logic ----------
-    function applyPlanToUI(udata) {
-      const plan = udata.plan || 'basic';
-      const plan_expiry = udata.plan_expiry || null;
-      const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
-      const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
+    // ==== EXISTING DASHBOARD CODE ====
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const batteryHealthEl = document.getElementById("batteryHealth");
+    const historyEl = document.getElementById("history");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
+    const alarmTriggerEl = document.getElementById("alarmTrigger");
+    const onlineStatusEl = document.getElementById("onlineStatus");
+    const lastSeenEl = document.getElementById("lastSeen");
+    const componentsListEl = document.getElementById("componentsList");
+    let map, marker;
+    const ONLINE_TTL_MS = 90000;
+    const LAST_ACTIVE_POLL_MS = 30000;
 
-      planPill.textContent = plan.toUpperCase();
-      currentPlanEl.textContent = plan.toUpperCase();
-      planExpiryEl.textContent = prettyTS(plan_expiry);
-      vehicleLimitEl.textContent = vehicle_limit;
-      // other plan-dependent actions...
-
-      loadBannerAdForUser(plan); // key!
-
-      // ... update subscription request UI as needed ...
+    function updateMap(lat, lng, popupText = null) {
+      if (!lat || !lng) return;
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
+      if (popupText) marker.bindPopup(popupText).openPopup();
     }
 
-    // ---------- Authentication + user loader ----------
-    auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        location.href = 'login.html';
+    window.focusOnMap = (lat, lng) => updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj || !Object.keys(obj).length) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
         return;
       }
-      userEmailEl.textContent = user.email || 'No email';
-      db.ref(`users/${user.uid}`).once('value').then(snap => {
-        const udata = snap.val() || {};
-        applyPlanToUI(udata);
-        // ... rest of dashboard...
+      for (let k in obj) {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
+      }
+    }
+    function parseTimestampToMs(ts) {
+      if (!ts) return null;
+      const parts = ts.split(' ');
+      if (parts.length < 2) return null;
+      const [y, m, d] = parts[0].split('-').map(n => parseInt(n));
+      const [hh, mm, ss] = parts[1].split(':').map(n => parseInt(n));
+      return new Date(y, m-1, d, hh, mm, ss).getTime();
+    }
+    function computeOnlineDisplay(flag, lastActiveStr) {
+      const lastActiveMs = parseTimestampToMs(lastActiveStr);
+      if (!lastActiveMs) return !!flag;
+      return (Date.now() - lastActiveMs <= ONLINE_TTL_MS) && !!flag;
+    }
+    function renderOnlineAndLastActive(flag, lastActiveStr) {
+      onlineStatusEl.innerHTML = computeOnlineDisplay(flag, lastActiveStr) ?
+        '<span class="badge online">ONLINE</span>' :
+        '<span class="badge offline">OFFLINE</span>';
+      lastActiveEl.textContent = lastActiveStr || "Unknown";
+    }
+    function startLastActivePoll(uid) {
+      setInterval(() => {
+        db.ref(`users/${uid}/vehicle/current/last_active`).once('value').then(lastSnap => {
+          const lastActive = lastSnap.val();
+          db.ref(`users/${uid}/vehicle/online`).once('value').then(flagSnap => {
+            renderOnlineAndLastActive(flagSnap.val(), lastActive);
+          });
+        });
+      }, LAST_ACTIVE_POLL_MS);
+    }
+    function loadDashboard(uid) {
+      const ref = db.ref(`users/${uid}/vehicle`);
+      ref.child("current").on("value", snap => {
+        const d = snap.val(); if (!d) return;
+        locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
+        if (d.latitude && d.longitude) updateMap(d.latitude, d.longitude);
+        lastActiveEl.textContent = d.last_active || "Unknown";
+        statusEl.textContent = d.status || "Unknown";
+        batteryHealthEl.textContent = typeof d.battery !== 'undefined' ? `${d.battery}%` : "N/A";
+        ref.child("online").once('value').then(s => renderOnlineAndLastActive(s.val(), d.last_active));
       });
+      ref.child("history").on("value", snap => {
+        const hist = snap.val();
+        historyEl.innerHTML = "";
+        if (hist) {
+          Object.values(hist).reverse().forEach(e => {
+            const [lat, lng] = (e.location || "").split(",");
+            historyEl.innerHTML += `<tr><td>${e.time||""}</td><td>${e.location||""}</td>
+              <td><button class="view-btn" onclick="focusOnMap(${parseFloat(lat)||0},${parseFloat(lng)||0})">View</button></td></tr>`;
+          });
+        } else historyEl.innerHTML = `<tr><td colspan="3">No history</td></tr>`;
+      });
+      ref.child("components").on("value", snap => renderComponents(snap.val()));
+      ref.child("online").on("value", snap => {
+        ref.child("current/last_active").once("value").then(s2 => {
+          renderOnlineAndLastActive(snap.val(), s2.val());
+        });
+      });
+      ref.child("last_seen").on("value", s => lastSeenEl.textContent = s.val() || "N/A");
+      ref.child("alarm").on("value", s => {
+        const st = s.val() || "off";
+        alarmToggle.checked = st === "on";
+        alarmStatusText.textContent = `Alarm is ${st.toUpperCase()}`;
+      });
+      ref.child("last_trigger").on("value", s => {
+        const t = s.val();
+        if (t && t.time && t.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>`;
+        } else alarmTriggerEl.textContent = "No triggers";
+      });
+      alarmToggle.addEventListener("change", () => {
+        ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
+      });
+      startLastActivePoll(uid);
+    }
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+        loadAds();
+      } else {
+        location.href = "login.html";
+      }
     });
-
-    logoutBtn.onclick = () => auth.signOut().then(()=>location.href='login.html');
-
-    // You can add your map, history, and extra logic below!
   </script>
 </body>
 </html>
