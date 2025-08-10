@@ -20,31 +20,14 @@
       margin-bottom: 24px;
       box-shadow: 0 2px 16px rgba(0,0,0,.075);
     }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
+    .header-left { display: flex; align-items: center; gap: 20px; }
     .logo { height:48px; }
-    .app-title {
-      font-size: 25px;
-      font-weight: 800;
-      letter-spacing: 0.015em;
-    }
-    .app-desc {
-      font-size: 15px; color:#b3b8c7; margin-top: 2px;
-      font-weight: 500;
-    }
-    .header-right {
-      display: flex; align-items: center; gap: 18px;
-    }
+    .app-title { font-size: 25px; font-weight: 800; letter-spacing: 0.015em; }
+    .app-desc { font-size: 15px; color:#b3b8c7; margin-top: 2px; font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 18px;}
     .header-email { font-size:15px; color:#e2e6ed; font-weight: 500; }
-    .plan-pill {
-      background: linear-gradient(90deg,#2670ff,#31ffa7);
-      color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.04em;
-      box-shadow: 0 1px 8px rgba(48,154,241,.08); border: none;
-    }
-    .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px; transition: background .23s;}
+    .plan-pill { background: linear-gradient(90deg,#2670ff,#31ffa7); color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.04em; }
+    .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px;}
     .header-logout:hover { background:#386afa;}
     .card { background:#fff; padding:22px; margin:20px 0; border-radius:14px; box-shadow:0 2px 15px rgba(40,50,90,.09);}
     h2 { margin:0 0 10px 0; color:#191f2a; font-size:22px; font-weight:900;}
@@ -100,6 +83,7 @@
         <img src="assets/logo.png" alt="Logo" class="logo"/>
         <div>
           <div class="app-title">Smart Tracker <span style="font-size:15px;font-weight:normal;background:rgba(38,112,255,.1);border-radius:7px;padding:2px 11px;color:#2670ff;margin-left:7px;" id="planPillHeader"></span></div>
+          <div class="app-desc">Vehicle tracking & fleet dashboard</div>
         </div>
       </div>
       <div class="header-right">
@@ -201,7 +185,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-  // --- Firebase Config ---
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -215,7 +198,6 @@
   const auth = firebase.auth();
   const db = firebase.database();
 
-  // --- DOM refs ---
   const userEmailEl = document.getElementById('userEmail');
   const planPill = document.getElementById('planPill');
   const planPillHeader = document.getElementById('planPillHeader');
@@ -257,7 +239,6 @@
     silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true },
     gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
   };
-  // --- Ads ---
   let adTimerInt = null, currentAdIndex=0, adsList=[];
   function showAd(ad) {
     adArea.innerHTML = 'Loading...';
@@ -295,13 +276,10 @@
     });
   }
   function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
-
-  // --- Upgrade/plan logic ---
   function renderRequestUI(upgradeRequest, currentPlan) {
     upgradeToSilverBtn.style.display = 'none';
     upgradeToGoldBtn.style.display = 'none';
     let statusMsg = '';
-    // Gold disables ALL upgrades (including after upgrade)
     if (currentPlan === 'gold') {
       upgradeBtns.style.display = 'none';
       statusMsg = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
@@ -329,7 +307,6 @@
     }
     requestStatusArea.innerHTML = statusMsg;
   }
-
   function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
   function applyPlanToUI(udata) {
     const plan = udata.plan || 'basic';
@@ -342,7 +319,7 @@
     planPillHeader.textContent = plan.toUpperCase();
     planExpiryEl.textContent = prettyTS(plan_expiry); vehicleLimitEl.textContent = vehicle_limit;
     exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
-    renderAdsForPlan(plan); // This will HIDE ads for Gold
+    renderAdsForPlan(plan);
     renderRequestUI(udata.upgrade_request || null, plan);
   }
   function createUpgradeRequest(uid, desiredPlan) {
@@ -388,7 +365,8 @@
         [`users/${uid}/plan`]: 'basic',
         [`users/${uid}/plan_expiry`]: null,
         [`users/${uid}/vehicle_limit`]: PLAN_POLICIES.basic.vehicle_limit,
-        [`users/${uid}/exportCSV`]: false
+        [`users/${uid}/exportCSV`]: false,
+        [`users/${uid}/upgrade_request/status`]: 'cancelled'
       };
       db.ref().update(updates).then(() => {
         const k = `downgrade_${uid}_${Date.now()}`;
@@ -399,7 +377,7 @@
 
   let map, marker;
   function updateMap(lat, lng, popupText=null) {
-    if (!lat || !lng) return;
+    if (!(typeof lat==='number' && typeof lng==='number' && !isNaN(lat) && !isNaN(lng))) return;
     if (!map) {
       map = L.map('map').setView([lat, lng], 14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
       marker = L.marker([lat, lng]).addTo(map);
@@ -408,8 +386,10 @@
     }
     if (popupText) marker.bindPopup(popupText).openPopup();
   }
-  function focusOnMap(lat,lng) { updateMap(lat,lng,`📍 ${lat}, ${lng}`); }
-  window.focusOnMap = focusOnMap;
+  window.focusOnMap = function(lat, lng) {
+    lat = parseFloat(lat); lng = parseFloat(lng);
+    if (!isNaN(lat) && !isNaN(lng)) updateMap(lat, lng, `📍 ${lat}, ${lng}`);
+  }
   function renderHistory(historyObj) {
     historyTbody.innerHTML = '';
     if (!historyObj) {
@@ -440,17 +420,11 @@
     visible.forEach(entry => {
       const loc = entry.location || '';
       const time = entry.time || '';
-      const [lat,lng] = (loc.split(',') || [0,0]).map(s=>s.trim());
+      const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
+      const canFocus = !isNaN(lat) && !isNaN(lng);
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${time}</td><td>${loc}</td><td><button class="view-btn">View</button></td>`;
-      tr.querySelector('.view-btn').addEventListener('click', ()=>{
-        const tms = Date.parse(time);
-        if (!isNaN(tms) && tms < cutoffMs) {
-          showModal(`This record is older than your plan allows. Upgrade to see more history.`, true);
-        } else {
-          focusOnMap(parseFloat(lat)||0, parseFloat(lng)||0);
-        }
-      });
+      tr.innerHTML = `<td>${time}</td><td>${loc}</td>
+        <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${lat},${lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
       historyTbody.appendChild(tr);
     });
   }
@@ -525,7 +499,6 @@
   auth.onAuthStateChanged(async (user)=>{
     if(!user) { window.location.href='login.html'; return; }
     uidGlobal = user.uid; userEmailEl.textContent = user.email || user.uid;
-
     db.ref(`users/${uidGlobal}`).on('value', snap=>{
       const udata = snap.val() || {};
       applyPlanToUI(udata);
@@ -533,12 +506,11 @@
       if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; }
       else { isAdmin = false; adminPanel.style.display = 'none'; }
     });
-
     const ref = db.ref(`users/${uidGlobal}/vehicle`);
     ref.child("current").on("value", snap => {
       const d = snap.val(); if (!d) return;
       locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
-      if (d.latitude && d.longitude) updateMap(d.latitude, d.longitude);
+      if (d.latitude && d.longitude) updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
       lastActiveEl.textContent = d.last_active || "Unknown";
       statusEl.textContent = d.status || "Unknown";
       batteryHealthEl.textContent = typeof d.battery !== 'undefined' ? `${d.battery}%` : "N/A";
@@ -599,7 +571,6 @@
         ).join('') + '</ul>';
     });
   });
-
   upgradeToSilverBtn.addEventListener('click', ()=> {
     if (!uidGlobal) return alert('Not logged in');
     createUpgradeRequest(uidGlobal, 'silver').then(()=> {
@@ -620,7 +591,6 @@
       exportHistoryCSV(snap.val());
     });
   });
-
   </script>
 </body>
 </html>
