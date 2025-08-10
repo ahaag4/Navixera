@@ -3,90 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Tracker Dashboard</title>
+  <title>Smart Tracker Dashboard - Subscriptions</title>
   <link rel="stylesheet" href="style.css"/>
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f9fc;
-    }
-    .dashboard {
-      max-width: 1000px;
-      margin: auto;
-      padding: 20px;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #343a40;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-    }
-    .logo { height: 40px; }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    h2 { margin-top: 0; color: #343a40; }
-    #map { height: 300px; width: 100%; border-radius: 10px; }
-    table {
-      width: 100%; border-collapse: collapse; margin-top: 10px;
-    }
-    th, td {
-      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
-    }
-    .switch {
-      position: relative; display: inline-block; width: 60px; height: 30px;
-    }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .4s; border-radius: 30px;
-    }
-    .slider:before {
-      position: absolute; content: "";
-      height: 22px; width: 22px; left: 4px; bottom: 4px;
-      background-color: white; transition: .4s; border-radius: 50%;
-    }
-    input:checked + .slider { background-color: #28a745; }
-    input:checked + .slider:before { transform: translateX(30px); }
-    .view-btn {
-      background-color: #007bff; color: white; padding: 5px 12px;
-      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
-    }
-    .view-btn:hover { background-color: #0056b3; }
-    .user-info { display: flex; align-items: center; gap: 10px; }
-    #logoutBtn {
-      background: #dc3545; color: white; border: none;
-      padding: 6px 12px; border-radius: 6px; cursor: pointer;
-    }
-    /* small styles for new components/online display */
-    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    /* Keep your original styling, added few small classes for ads and modal */
+    body { font-family: Arial, sans-serif; margin:0; background:#f7f9fc; }
+    .dashboard { max-width:1000px; margin:auto; padding:20px; }
+    header { display:flex; justify-content:space-between; align-items:center; background:#343a40; color:white; padding:10px 20px; border-radius:10px; }
+    .logo { height:40px; }
+    .card { background:white; padding:20px; margin:20px 0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    h2 { margin-top:0; color:#343a40; }
+    #map { height:300px; width:100%; border-radius:10px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:10px; text-align:left; border-bottom:1px solid #ccc; }
+    .view-btn { background-color:#007bff; color:white; padding:5px 12px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+    .user-info { display:flex; align-items:center; gap:10px; }
+    #logoutBtn { background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
-    .badge.online { background:#28a745; }
-    .badge.offline { background:#dc3545; }
-    .components-list { margin-top:10px; list-style:none; padding-left:0; }
-    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
-    .comp-ok { color:#28a745; font-weight:600 }
-    .comp-warn { color:#e67700; font-weight:600 }
-    .comp-bad { color:#c82333; font-weight:600 }
-    .comp-unknown { color:#6c757d; font-weight:600 }
-
-    /* Subscription / earnings layout */
-    .subscription-row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .badge.online { background:#28a745; } .badge.offline { background:#dc3545; }
+    /* Ads area */
+    .ad-banner { width:100%; height:60px; background:#eee; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#444; margin-top:12px; font-weight:600; }
+    .interstitial { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); z-index:9999; }
+    .interstitial .card { width:90%; max-width:400px; text-align:center; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); z-index:10000; }
+    .modal .dialog { background:#fff; padding:18px; border-radius:10px; width:90%; max-width:480px; }
+    .modal .actions { margin-top:12px; display:flex; gap:8px; justify-content:flex-end; }
+    .btn { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+    .btn-primary { background:#007bff; color:#fff; }
+    .btn-warning { background:#ffc107; color:#212529; }
     .small-muted { color:#6c757d; font-size:13px; }
-    #exportCSVBtn { background:#17a2b8; color:white; padding:6px 10px; border:none; border-radius:6px; cursor:pointer; }
-    #requestUpgradeBtn { background:#ffc107; color:#212529; padding:6px 10px; border:none; border-radius:6px; cursor:pointer; }
-    .earning-card { display:flex; gap:12px; align-items:center; justify-content:space-between; }
-    .earning-actions button { margin-left:8px; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
+    .plan-pill { padding:6px 10px; border-radius:6px; background:#f0f0f0; font-weight:600; }
   </style>
 </head>
 <body>
@@ -96,97 +44,75 @@
       <h1>Smart Tracker</h1>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
+        <span id="planPill" class="plan-pill">PLAN</span>
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <!-- Status card (existing) -->
+    <!-- Ad banner area (behavior depends on plan) -->
+    <div id="adArea" class="ad-banner">Ad placeholder</div>
+
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-
-      <div class="status-row">
-        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
-        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
-      </div>
-
+      <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
-      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
-
-      <div id="componentsBlock">
-        <h4>Components</h4>
-        <ul id="componentsList" class="components-list">
-          <li class="comp-unknown">No data</li>
-        </ul>
-      </div>
     </section>
 
-    <!-- Alarm card (existing) -->
-    <section class="card alarm-card">
-      <h2>🔔 Alarm</h2>
-      <label class="switch">
-        <input type="checkbox" id="alarmToggle">
-        <span class="slider round"></span>
-      </label>
-      <p id="alarmStatusText">Loading alarm status...</p>
-    </section>
-
-    <!-- Subscription & earnings card (NEW) -->
     <section class="card subscription-card">
-      <h2>💳 Subscription & Upgrades</h2>
-      <div class="subscription-row">
-        <div>
-          <p>Current Plan: <strong id="currentPlan">Loading...</strong></p>
-          <p class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></p>
-          <p class="small-muted">CSV Export: <span id="csvAllowed">-</span></p>
-        </div>
-
-        <div id="subscriptionActions">
-          <button id="requestUpgradeBtn">Request Upgrade</button>
-          <button id="cancelUpgradeBtn" style="display:none; background:#6c757d; color:white; padding:6px 10px; border:none; border-radius:6px; cursor:pointer;">Cancel Request</button>
+      <h2>💳 Subscription & Plans</h2>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <div>Current Plan: <strong id="currentPlan">Loading...</strong></div>
+        <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
+        <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
+        <div style="margin-left:auto;">
+          <button id="btnToSilver" class="btn btn-warning">Upgrade to Silver (₹149/mo)</button>
+          <button id="btnToGold" class="btn btn-primary">Upgrade to Gold (₹249/mo)</button>
         </div>
       </div>
-
-      <div id="upgradeStatus" style="margin-top:8px;color:#333;">&nbsp;</div>
-
-      <hr style="margin:12px 0;">
-
-      <div class="earning-card">
-        <div>
-          <h4>More earning models / Upsells</h4>
-          <p class="small-muted">Add paid features later: extra vehicle slots, extended history retention, one-time CSV export for basic users, premium alerts, analytics.</p>
-        </div>
-        <div class="earning-actions">
-          <!-- Placeholder actions - wire these to payment processors later -->
-          <button id="buyOneTimeExportBtn" style="background:#007bff;color:#fff;">Buy CSV Export</button>
-          <button id="buyExtraVehicleBtn" style="background:#28a745;color:#fff;">Buy +1 Vehicle</button>
-        </div>
+      <div id="subscriptionTips" style="margin-top:12px;" class="small-muted">
+        Basic: 24h history • Silver: 7 days • Gold: 90 days
       </div>
     </section>
 
-    <!-- Map card (existing) -->
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
       <div id="map">Loading map...</div>
     </section>
 
-    <!-- History card (existing) + CSV export control (NEW) -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div><small class="small-muted">Recent movements are shown below.</small></div>
-        <div>
-          <button id="exportCSVBtn" style="display:none;">Export CSV</button>
-        </div>
+        <div><button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button></div>
       </div>
-
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
+
+  </div>
+
+  <!-- Simple modal for upsell / info -->
+  <div id="modal" class="modal">
+    <div class="dialog">
+      <div id="modalContent"></div>
+      <div class="actions">
+        <button id="modalClose" class="btn">Close</button>
+        <button id="modalUpgrade" class="btn btn-primary" style="display:none;">Upgrade Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interstitial ad (simulated) -->
+  <div id="interstitial" class="interstitial" style="display:none;">
+    <div class="card">
+      <h3>Interstitial Ad</h3>
+      <p>Simulated interstitial (dismiss after 3s)</p>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -195,9 +121,14 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script>
-    // ===========================
-    // Existing Firebase config
-    // ===========================
+    /*******************************************************
+     * Tiered Plan Implementation with Auto-downgrade
+     * - Plans: basic / silver / gold
+     * - plan_expiry: ISO timestamp in users/{uid}/plan_expiry
+     * - Enforcement: history window, ad display, CSV export
+     * - Auto-downgrade: periodic check detects expiry -> set plan to "basic" and notify admin
+     *******************************************************/
+
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -211,44 +142,246 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // ===========================
-    // DOM refs
-    // ===========================
-    const locationEl = document.getElementById("location");
-    const lastActiveEl = document.getElementById("lastActive");
-    const statusEl = document.getElementById("status");
-    const batteryHealthEl = document.getElementById("batteryHealth");
-    const historyEl = document.getElementById("history");
-    const alarmToggle = document.getElementById("alarmToggle");
-    const alarmStatusText = document.getElementById("alarmStatusText");
-    const alarmTriggerEl = document.getElementById("alarmTrigger");
+    // DOM
+    const userEmailEl = document.getElementById('userEmail');
+    const planPillEl = document.getElementById('planPill');
+    const adArea = document.getElementById('adArea');
+    const interstitial = document.getElementById('interstitial');
+    const currentPlanEl = document.getElementById('currentPlan');
+    const planExpiryEl = document.getElementById('planExpiry');
+    const vehicleLimitEl = document.getElementById('vehicleLimit');
+    const historyEl = document.getElementById('history');
+    const exportCSVBtn = document.getElementById('exportCSVBtn');
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modalContent');
+    const modalClose = document.getElementById('modalClose');
+    const modalUpgrade = document.getElementById('modalUpgrade');
+    const btnToSilver = document.getElementById('btnToSilver');
+    const btnToGold = document.getElementById('btnToGold');
 
-    // new DOM refs
-    const onlineStatusEl = document.getElementById("onlineStatus");
-    const lastSeenEl = document.getElementById("lastSeen");
-    const componentsListEl = document.getElementById("componentsList");
-    const currentPlanEl = document.getElementById("currentPlan");
-    const vehicleLimitEl = document.getElementById("vehicleLimit");
-    const csvAllowedEl = document.getElementById("csvAllowed");
-    const requestUpgradeBtn = document.getElementById("requestUpgradeBtn");
-    const cancelUpgradeBtn = document.getElementById("cancelUpgradeBtn");
-    const upgradeStatusEl = document.getElementById("upgradeStatus");
-    const exportCSVBtn = document.getElementById("exportCSVBtn");
-    const buyOneTimeExportBtn = document.getElementById("buyOneTimeExportBtn");
-    const buyExtraVehicleBtn = document.getElementById("buyExtraVehicleBtn");
-
-    let map, marker;
-    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
-    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds
     let uidGlobal = null;
+    let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false };
 
-    // local cached plan info for enforcement
-    let localPlan = { plan: 'basic', vehicle_limit: 1, exportCSV: false };
+    // Plan policy constants
+    const PLAN_POLICIES = {
+      basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false },
+      silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true },
+      gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true }
+    };
 
-    // ===========================
-    // small helpers
-    // ===========================
-    function updateMap(lat, lng, popupText = null) {
+    // Utility: ISO string display
+    function prettyTS(iso) {
+      if (!iso) return '-';
+      try { const d = new Date(iso); return d.toLocaleString(); } catch(e) { return iso; }
+    }
+
+    // Ads rendering based on plan
+    function renderAdsForPlan(plan) {
+      const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+      if (policy.ads === 'no-ads') {
+        adArea.style.display = 'none';
+      } else {
+        adArea.style.display = 'flex';
+        if (policy.ads === 'banner-limited') {
+          adArea.textContent = 'Limited banner ad (Silver) — small and unobtrusive';
+        } else {
+          adArea.textContent = 'Banner ad (Basic) — simulated ad area';
+        }
+      }
+    }
+
+    // Show interstitial on login for basic only (once per session)
+    let interstitialShownThisSession = false;
+    function maybeShowInterstitial(plan) {
+      if (interstitialShownThisSession) return;
+      const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+      if (policy.ads === 'banner+interstitial') {
+        interstitialShownThisSession = true;
+        interstitial.style.display = 'flex';
+        setTimeout(() => { interstitial.style.display = 'none'; }, 3000);
+      }
+    }
+
+    // Apply plan to UI & localPlan cache
+    function applyPlan(udata) {
+      // udata should include plan and plan_expiry, vehicle_limit, exportCSV
+      const plan = (udata.plan || 'basic');
+      const plan_expiry = udata.plan_expiry || null;
+      const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
+      const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
+
+      localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
+
+      // UI
+      planPillEl.textContent = plan.toUpperCase();
+      currentPlanEl.textContent = plan.toUpperCase();
+      planExpiryEl.textContent = prettyTS(plan_expiry);
+      vehicleLimitEl.textContent = vehicle_limit;
+      exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
+
+      renderAdsForPlan(plan);
+      maybeShowInterstitial(plan);
+    }
+
+    // Auto-downgrade: if plan_expiry passed, set to basic and notify admin.
+    // This function is called periodically and on user data change.
+    function checkAndAutoDowngrade(uid, udata) {
+      if (!udata) return;
+      if (!udata.plan || !udata.plan_expiry) return;
+      const now = Date.now();
+      const expiryMs = (new Date(udata.plan_expiry)).getTime();
+      if (isNaN(expiryMs)) return;
+      if (expiryMs <= now && udata.plan !== 'basic') {
+        // Downgrade
+        const updates = {
+          plan: 'basic',
+          plan_expiry: null,
+          vehicle_limit: PLAN_POLICIES.basic.vehicle_limit,
+          exportCSV: false
+        };
+        db.ref(`users/${uid}`).update(updates).then(() => {
+          // notify admin about downgrade event
+          const key = `downgrade_${uid}_${Date.now()}`;
+          db.ref(`admin/downgrades/${key}`).set({
+            uid: uid,
+            old_plan: udata.plan,
+            new_plan: 'basic',
+            time: new Date().toISOString(),
+            reason: 'plan_expired_auto_downgrade'
+          });
+          // apply locally
+          applyPlan(updates);
+          // show user modal
+          showModal(`Your ${udata.plan} subscription expired and has been downgraded to Basic.`, false);
+        }).catch(err => {
+          console.error('Auto-downgrade failed:', err);
+        });
+      }
+    }
+
+    // Show modal utility
+    function showModal(html, showUpgradeBtn = false, suggestedPlan = 'silver') {
+      modalContent.innerHTML = html;
+      modal.style.display = 'flex';
+      modalUpgrade.style.display = showUpgradeBtn ? 'inline-block' : 'none';
+      if (showUpgradeBtn) {
+        modalUpgrade.dataset.plan = suggestedPlan;
+      }
+    }
+    modalClose.onclick = () => { modal.style.display = 'none'; };
+    modalUpgrade.onclick = () => {
+      modal.style.display = 'none';
+      const tgt = modalUpgrade.dataset.plan === 'gold' ? 'gold' : 'silver';
+      initiatePurchaseFlow(tgt);
+    };
+
+    // Payment simulation / purchase flow hooks
+    // In production, replace purchasePlan() with server-verified payment/webhook.
+    function initiatePurchaseFlow(plan) {
+      if (!uidGlobal) return alert('Not logged in');
+      // Show a simple confirm (replace with payment provider)
+      if (!confirm(`Simulate purchase of ${plan.toUpperCase()} for one month?`)) return;
+      // On success call onPaymentSuccess with subscription details (server should do this)
+      const now = new Date();
+      const expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      // Simulate server-side setting of plan; use update with caution in prod
+      const updates = {
+        plan: plan,
+        plan_expiry: expiry.toISOString(),
+        vehicle_limit: PLAN_POLICIES[plan].vehicle_limit,
+        exportCSV: true
+      };
+      db.ref(`users/${uidGlobal}`).update(updates).then(() => {
+        // Also write a record under admin/purchases for reconciliation
+        const k = `purchase_${uidGlobal}_${Date.now()}`;
+        db.ref(`admin/purchases/${k}`).set({
+          uid: uidGlobal, plan, plan_expiry: updates.plan_expiry, time: new Date().toISOString(), method: 'simulated'
+        });
+        alert(`Purchase simulated: ${plan.toUpperCase()}. Expires: ${prettyTS(updates.plan_expiry)}`);
+      }).catch(err => {
+        console.error('Simulated purchase failed', err);
+        alert('Purchase failed.');
+      });
+    }
+
+    // History rendering with plan enforcement: Basic=24h, Silver=7d, Gold=90d
+    function renderHistoryWithPolicy(historyObj) {
+      historyEl.innerHTML = '';
+      if (!historyObj) {
+        historyEl.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
+        return;
+      }
+      const entries = Object.values(historyObj).slice().reverse(); // recent first
+      // compute allowed window
+      const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
+      const cutoffMs = Date.now() - (policy.historyDays * 24 * 60 * 60 * 1000);
+      // Filter entries by time if time is parseable as ISO or "YYYY-MM-DD HH:MM:SS"
+      const filtered = entries.filter(e => {
+        if (!e.time) return false;
+        // try Date.parse
+        const t = Date.parse(e.time);
+        if (!isNaN(t)) return t >= cutoffMs;
+        // try "YYYY-MM-DD HH:MM:SS"
+        const parts = e.time.split(' ');
+        if (parts.length>=2) {
+          const d = parts[0].split('-'), tm = parts[1].split(':');
+          if (d.length===3 && tm.length===3) {
+            const dt = new Date(parseInt(d[0]), parseInt(d[1])-1, parseInt(d[2]), parseInt(tm[0]), parseInt(tm[1]), parseInt(tm[2]));
+            return dt.getTime() >= cutoffMs;
+          }
+        }
+        // if cannot parse, exclude by default
+        return false;
+      });
+
+      // If user clicked a date older than allowed -> show upsell modal (handled when clicking those rows)
+      if (filtered.length === 0) {
+        historyEl.innerHTML = '<tr><td colspan="3">No history available within your plan window.</td></tr>';
+        return;
+      }
+
+      filtered.forEach(entry => {
+        const loc = entry.location || '';
+        const time = entry.time || '';
+        const [lat, lng] = loc.split(',').map(s => s ? s.trim() : '');
+        const safeLat = parseFloat(lat) || 0;
+        const safeLng = parseFloat(lng) || 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${time}</td><td>${loc}</td><td><button class="view-btn">View</button></td>`;
+        tr.querySelector('.view-btn').addEventListener('click', () => {
+          // If clicking an entry that's outside policy (older than cutoff) show upsell
+          const tms = Date.parse(time);
+          if (!isNaN(tms) && tms < (Date.now() - (policy.historyDays * 24 * 60 * 60 * 1000))) {
+            // outside allowed window
+            showModal(`This record is older than your plan allows. Upgrade to see more history: Basic → Silver (7d) → Gold (90d).`, true, 'silver');
+          } else {
+            focusOnMap(safeLat, safeLng);
+          }
+        });
+        historyEl.appendChild(tr);
+      });
+    }
+
+    // CSV export enforcement
+    function exportHistoryToCSV(historyObj) {
+      if (!localPlan.exportCSV) {
+        showModal('CSV export is not available on your current plan. Upgrade to Silver or Gold to enable full exports.', true, 'silver');
+        return;
+      }
+      if (!historyObj) { alert('No history to export'); return; }
+      const rows = [['time','location']];
+      Object.values(historyObj).forEach(e => rows.push([e.time || '', e.location || '']));
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+
+    // Map helpers (reused)
+    let map, marker;
+    function updateMap(lat, lng, popupText) {
       if (!lat || !lng) return;
       if (!map) {
         map = L.map('map').setView([lat, lng], 15);
@@ -260,432 +393,87 @@
       }
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
+    function focusOnMap(lat, lng) { updateMap(lat,lng,`📍 ${lat}, ${lng}`); }
 
-    function focusOnMap(lat, lng) {
-      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
-    }
-
-    function renderComponents(obj) {
-      componentsListEl.innerHTML = "";
-      if (!obj) {
-        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
-        return;
-      }
-      const order = Object.keys(obj);
-      if (order.length === 0) {
-        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
-        return;
-      }
-      order.forEach(k => {
-        const v = obj[k];
-        let cls = "comp-unknown";
-        if (v === "ok" || v === "activity") cls = "comp-ok";
-        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
-        else if (v === "down") cls = "comp-bad";
-        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
-      });
-    }
-
-    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
-    function parseTimestampToMs(ts) {
-      if (!ts || typeof ts !== 'string') return null;
-      const parts = ts.trim().split(' ');
-      if (parts.length < 2) {
-        const fallback = Date.parse(ts);
-        return isNaN(fallback) ? null : fallback;
-      }
-      const dateParts = parts[0].split('-');
-      const timeParts = parts[1].split(':');
-      if (dateParts.length < 3 || timeParts.length < 3) return null;
-      const y = parseInt(dateParts[0], 10);
-      const m = parseInt(dateParts[1], 10) - 1;
-      const d = parseInt(dateParts[2], 10);
-      const hh = parseInt(timeParts[0], 10);
-      const mm = parseInt(timeParts[1], 10);
-      const ss = parseInt(timeParts[2], 10);
-      const dt = new Date(y, m, d, hh, mm, ss);
-      return dt.getTime();
-    }
-
-    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
-      const lastActiveMs = parseTimestampToMs(lastActiveStr);
-      if (!lastActiveMs) {
-        return !!firebaseOnlineFlag;
-      }
-      const age = Date.now() - lastActiveMs;
-      if (age > ONLINE_TTL_MS) {
-        return false;
-      }
-      return !!firebaseOnlineFlag;
-    }
-
-    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
-      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-      if (isOnline) {
-        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-      } else {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-      }
-      lastActiveEl.textContent = lastActiveStr || "Unknown";
-    }
-
-    // ===========================
-    // Plan / subscription helper functions
-    // ===========================
-    function applyPlanToUI(planObj) {
-      // planObj = { plan: "basic"|"premium", vehicle_limit: number, exportCSV: boolean }
-      localPlan = Object.assign({}, localPlan, planObj || {});
-      currentPlanEl.textContent = (localPlan.plan || 'basic').toUpperCase();
-      vehicleLimitEl.textContent = localPlan.vehicle_limit || 1;
-      csvAllowedEl.textContent = (localPlan.exportCSV ? 'Allowed' : 'Not allowed');
-
-      // control upgrade button visibility & text
-      if ((localPlan.plan || 'basic') === 'premium') {
-        requestUpgradeBtn.style.display = 'none';
-        cancelUpgradeBtn.style.display = 'none';
-        upgradeStatusEl.textContent = 'You are on the PREMIUM plan.';
-      } else {
-        requestUpgradeBtn.style.display = 'inline-block';
-      }
-
-      // export button visibility
-      exportCSVBtn.style.display = localPlan.exportCSV ? 'inline-block' : 'none';
-    }
-
-    function showUpgradeStatusText(status) {
-      if (!status) {
-        upgradeStatusEl.textContent = '';
-        return;
-      }
-      const s = status.toLowerCase();
-      if (s === 'pending') {
-        upgradeStatusEl.textContent = 'Upgrade request pending approval by admin.';
-        requestUpgradeBtn.style.display = 'none';
-        cancelUpgradeBtn.style.display = 'inline-block';
-      } else if (s === 'approved') {
-        upgradeStatusEl.textContent = 'Upgrade approved. Your plan has been updated.';
-        requestUpgradeBtn.style.display = 'none';
-        cancelUpgradeBtn.style.display = 'none';
-      } else if (s === 'rejected') {
-        upgradeStatusEl.textContent = 'Upgrade request rejected by admin.';
-        requestUpgradeBtn.style.display = 'inline-block';
-        cancelUpgradeBtn.style.display = 'none';
-      } else {
-        upgradeStatusEl.textContent = `Upgrade status: ${status}`;
-      }
-    }
-
-    // ===========================
-    // History rendering with plan enforcement
-    // ===========================
-    // If plan is basic -> show only 1 most recent record.
-    function renderHistoryWithPlan(historyObj) {
-      historyEl.innerHTML = '';
-      if (!historyObj) {
-        historyEl.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
-        return;
-      }
-      // convert object to array with stable ordering: we'll use keys->values
-      const entries = Object.values(historyObj).slice().reverse(); // most recent first
-      let toShow = entries;
-      if (!localPlan.exportCSV) {
-        // basic mode: limit to 1
-        toShow = entries.slice(0, 1);
-      }
-      if (!toShow.length) {
-        historyEl.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
-        return;
-      }
-      toShow.forEach(entry => {
-        const loc = entry.location || '';
-        const time = entry.time || '';
-        const [lat, lng] = (loc && loc.split(',')) || [0,0];
-        const safeLat = parseFloat(lat) || 0;
-        const safeLng = parseFloat(lng) || 0;
-        historyEl.innerHTML += `
-          <tr>
-            <td>${time}</td>
-            <td>${loc}</td>
-            <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
-          </tr>`;
-      });
-    }
-
-    // ===========================
-    // CSV Export
-    // ===========================
-    function exportHistoryToCSV(historyObj) {
-      if (!localPlan.exportCSV) {
-        alert('CSV export not allowed on your plan. Upgrade to enable this feature.');
-        return;
-      }
-      if (!historyObj) {
-        alert('No history to export.');
-        return;
-      }
-      // flatten entries into CSV lines
-      const rows = [];
-      rows.push(['time','location','latitude','longitude']);
-      const entries = Object.values(historyObj);
-      entries.forEach(e => {
-        const time = e.time || '';
-        const loc = e.location || '';
-        const [lat, lng] = loc.split(',').map(s => s ? s.trim() : '');
-        rows.push([time, loc, lat || '', lng || '']);
-      });
-      // convert to CSV string
-      const csvContent = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
-      // create download link
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const now = new Date();
-      const filename = `history_${now.toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
-      a.setAttribute('download', filename);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    // ===========================
-    // Upgrade request flow
-    // ===========================
-    requestUpgradeBtn.addEventListener('click', () => {
-      if (!uidGlobal) return alert('Not logged in');
-      const now = new Date().toISOString();
-      // set user's upgrade_request to pending
-      db.ref(`users/${uidGlobal}/upgrade_request`).set({
-        status: 'pending',
-        request_time: now
-      }).then(() => {
-        // duplicate a minimal request in admin node so admin panel can list all requests easily
-        const adminReqKey = `${uidGlobal}_${Date.now()}`;
-        db.ref(`admin/upgrade_requests/${adminReqKey}`).set({
-          uid: uidGlobal,
-          request_time: now,
-          requested_plan: 'premium',
-          status: 'pending'
-        });
-        upgradeStatusEl.textContent = 'Upgrade Request Sent (Pending Approval)';
-        requestUpgradeBtn.style.display = 'none';
-        cancelUpgradeBtn.style.display = 'inline-block';
-      }).catch(err => {
-        console.error('Failed to send upgrade request:', err);
-        alert('Failed to send upgrade request. Try again later.');
-      });
-    });
-
-    cancelUpgradeBtn.addEventListener('click', () => {
+    // Periodic auto-downgrade checker (also executed on user data change)
+    const AUTO_CHECK_INTERVAL_MS = 60 * 1000; // check every 60s
+    setInterval(() => {
       if (!uidGlobal) return;
-      // cancel user's upgrade request
-      db.ref(`users/${uidGlobal}/upgrade_request/status`).set('cancelled').then(() => {
-        // Optionally remove admin request: here we mark status cancelled (admin must clean up)
-        // Admin node may contain duplicate entries; we won't try to find & remove them here to avoid dangerous writes.
-        upgradeStatusEl.textContent = 'Upgrade request cancelled.';
-        requestUpgradeBtn.style.display = 'inline-block';
-        cancelUpgradeBtn.style.display = 'none';
-      }).catch(err => {
-        console.error('Failed to cancel upgrade request', err);
-        alert('Failed to cancel request.');
-      });
-    });
+      db.ref(`users/${uidGlobal}`).once('value').then(snap => {
+        const u = snap.val() || {};
+        checkAndAutoDowngrade(uidGlobal, u);
+      }).catch(err => console.error('Auto-check error', err));
+    }, AUTO_CHECK_INTERVAL_MS);
 
-    // Placeholders for upsell actions - to wire to payments later
-    buyOneTimeExportBtn.addEventListener('click', () => {
-      alert('Buy CSV Export: payment integration placeholder. Implement your payment flow (e.g., Razorpay/Stripe) and on success set users/{uid}/exportCSV to true for a limited time.');
-    });
-    buyExtraVehicleBtn.addEventListener('click', () => {
-      alert('Buy Extra Vehicle: payment integration placeholder. Implement a payment flow and on success increment users/{uid}/vehicle_limit.');
-    });
-
-    // Export button click (we need to fetch the history snapshot first)
-    exportCSVBtn.addEventListener('click', () => {
-      if (!uidGlobal) return alert('Not logged in.');
-      const histRef = db.ref(`users/${uidGlobal}/vehicle/history`);
-      histRef.once('value').then(snap => {
-        const hist = snap.val();
-        exportHistoryToCSV(hist);
-      }).catch(err => {
-        console.error('CSV export failed', err);
-        alert('Failed to export CSV.');
-      });
-    });
-
-    // ===========================
-    // Dashboard loader
-    // ===========================
-    function startLastActivePoll(uid) {
-      if (!uid) return;
-      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
-      setInterval(() => {
-        currentRef.once('value').then(snap => {
-          const lastActive = snap.val();
-          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
-            const onlineFlag = onlineSnap.val();
-            renderOnlineAndLastActive(onlineFlag, lastActive);
-          });
-        });
-      }, LAST_ACTIVE_POLL_MS);
-    }
-
-    function loadDashboard(uid) {
-      uidGlobal = uid;
-      const vehicleRef = db.ref(`users/${uid}/vehicle`);
-
-      // load user's plan details (subscribe to changes)
-      const userPlanRef = db.ref(`users/${uid}`);
-      userPlanRef.on('value', snap => {
-        const udata = snap.val() || {};
-        // default plan values if missing
-        const planObj = {
-          plan: (udata.plan || 'basic'),
-          vehicle_limit: (udata.vehicle_limit || 1),
-          exportCSV: !!udata.exportCSV
-        };
-        applyPlanToUI(planObj);
-
-        // reflect upgrade_request status UI
-        if (udata.upgrade_request && udata.upgrade_request.status) {
-          showUpgradeStatusText(udata.upgrade_request.status);
-        } else {
-          showUpgradeStatusText(null);
-        }
-      });
-
-      // current block (existing behavior retained)
-      vehicleRef.child("current").on("value", (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-
-        const { latitude, longitude, status, last_active, battery } = data;
-
-        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
-          locationEl.textContent = `${latitude}, ${longitude}`;
-          updateMap(latitude, longitude);
-        } else {
-          locationEl.textContent = "No location";
-        }
-
-        lastActiveEl.textContent = last_active || "Unknown";
-        statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-
-        vehicleRef.child("online").once("value").then(onlineSnap => {
-          const onlineFlag = onlineSnap.val();
-          renderOnlineAndLastActive(onlineFlag, last_active);
-        });
-      });
-
-      // history block (enforced by plan on render)
-      vehicleRef.child("history").on("value", (snapshot) => {
-        const history = snapshot.val();
-        // Enforce plan when rendering (basic -> only latest; premium -> all)
-        renderHistoryWithPlan(history);
-      });
-
-      // components block
-      vehicleRef.child("components").on("value", (snapshot) => {
-        const comps = snapshot.val();
-        renderComponents(comps);
-      });
-
-      // online flag listener
-      vehicleRef.child("online").on("value", (snapshot) => {
-        const onlineFlag = snapshot.val();
-        vehicleRef.child("current/last_active").once("value").then(snap => {
-          const lastActive = snap.val();
-          renderOnlineAndLastActive(onlineFlag, lastActive);
-        });
-      });
-
-      // last_seen
-      vehicleRef.child("last_seen").on("value", (snapshot) => {
-        const lastSeenVal = snapshot.val();
-        lastSeenEl.textContent = lastSeenVal || "N/A";
-      });
-
-      // alarm value (toggle UI)
-      vehicleRef.child("alarm").on("value", (snapshot) => {
-        const status = snapshot.val() || "off";
-        alarmToggle.checked = (status === "on");
-        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
-      });
-
-      // last_trigger
-      vehicleRef.child("last_trigger").on("value", (snapshot) => {
-        const trigger = snapshot.val();
-        if (trigger && trigger.time && trigger.status === "alert") {
-          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
-        } else {
-          alarmTriggerEl.textContent = "No triggers";
-        }
-      });
-
-      // status node
-      vehicleRef.child("current/status").on("value", (snapshot) => {
-        const s = snapshot.val();
-        if (s) statusEl.textContent = s;
-      });
-
-      // allow operator to toggle alarm from web UI
-      alarmToggle.addEventListener("change", () => {
-        const newState = alarmToggle.checked ? "on" : "off";
-        vehicleRef.child("alarm").set(newState).catch(err => {
-          console.error("Failed to set alarm:", err);
-        });
-      });
-
-      // start periodic poll for last_active
-      startLastActivePoll(uid);
-    }
-
-    // ===========================
-    // Auth state
-    // ===========================
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        loadDashboard(user.uid);
-        document.getElementById("userEmail").textContent = user.email;
-        document.getElementById("logoutBtn").onclick = () => auth.signOut();
-      } else {
-        window.location.href = "login.html";
+    // Auth & Dashboard wiring
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
       }
+      uidGlobal = user.uid;
+      userEmailEl.textContent = user.email || user.uid;
+      // Listen to user record (plan & flags + vehicle/vehicle current/current/history)
+      db.ref(`users/${uidGlobal}`).on('value', snap => {
+        const udata = snap.val() || {};
+        applyPlan(udata);
+        checkAndAutoDowngrade(uidGlobal, udata);
+      });
+
+      const vehicleRef = db.ref(`users/${uidGlobal}/vehicle`);
+      vehicleRef.child('current').on('value', snap => {
+        const d = snap.val();
+        if (!d) return;
+        document.getElementById('location').textContent = (d.latitude && d.longitude) ? `${d.latitude}, ${d.longitude}` : 'No location';
+        document.getElementById('lastActive').textContent = d.last_active || 'Unknown';
+        document.getElementById('status').textContent = d.status || 'Unknown';
+        document.getElementById('batteryHealth').textContent = (typeof d.battery !== 'undefined') ? `${d.battery}%` : 'N/A';
+        if (d.latitude && d.longitude) updateMap(d.latitude, d.longitude);
+      });
+
+      vehicleRef.child('history').on('value', snap => {
+        const hist = snap.val();
+        renderHistoryWithPolicy(hist);
+      });
+
+      // wire export
+      exportCSVBtn.addEventListener('click', () => {
+        db.ref(`users/${uidGlobal}/vehicle/history`).once('value').then(snap => {
+          exportHistoryToCSV(snap.val());
+        });
+      });
+
+      // show interstitial once on login if plan requires
+      db.ref(`users/${uidGlobal}/plan`).once('value').then(snap => {
+        const p = snap.val() || 'basic';
+        maybeShowInterstitial(p);
+      });
+
     });
 
-    // Expose focusOnMap to global scope (used by inline onclick)
-    window.focusOnMap = focusOnMap;
+    // Buttons to simulate purchase (you will replace with payment flow)
+    btnToSilver.addEventListener('click', () => initiatePurchaseFlow('silver'));
+    btnToGold.addEventListener('click', () => initiatePurchaseFlow('gold'));
 
-    // ===========================
-    // Admin notes (for implementer)
-    // ===========================
-    /*
-      Admin panel MUST:
-      - Listen to admin/upgrade_requests to view pending requests.
-      - On approve, update user's nodes:
-          users/{uid}/plan = "premium"
-          users/{uid}/vehicle_limit = 3
-          users/{uid}/exportCSV = true
-          users/{uid}/upgrade_request/status = "approved"
-        Optionally set an expiry if this is a paid upgrade.
-      - On rejection set users/{uid}/upgrade_request/status = "rejected" (and optionally admin/upgrade_requests/{key}/status = "rejected")
-    */
+    // Modal close when clicking outside
+    window.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
 
-    // ===========================
-    // Additional enforcement example (when adding new vehicles)
-    // ===========================
-    // If you have UI to add vehicles, check user's vehicle_limit before creating.
-    // Example (not wired to any button here):
-    async function canCreateNewVehicle(uid) {
-      const uSnap = await db.ref(`users/${uid}`).once('value');
-      const u = uSnap.val() || {};
-      const limit = u.vehicle_limit || 1;
-      // count existing vehicles (if you store vehicles under users/{uid}/vehicles)
-      const vehiclesSnap = await db.ref(`users/${uid}/vehicles`).once('value');
-      const count = vehiclesSnap.exists() ? Object.keys(vehiclesSnap.val() || {}).length : 0;
-      return count < limit;
-    }
+    // Logout
+    document.getElementById('logoutBtn').onclick = () => auth.signOut();
+
+    // ----------------------------
+    // Admin hooks you should implement server-side:
+    // - On real payment webhook: set users/{uid}/plan, plan_expiry, vehicle_limit, exportCSV etc.
+    // - Ensure server verifies payment signature before updating user plan.
+    //
+    // Example server-side action after verified payment (pseudocode):
+    // db.ref(`users/${uid}`).update({ plan: 'silver', plan_expiry: '2025-09-10T...', vehicle_limit:3, exportCSV:true })
+    // Also write admin/purchases/{...} record.
+    //
+    // Security: add Firebase Realtime Database Rules to prevent clients from escalating their own plan.
+    // ----------------------------
 
   </script>
 </body>
