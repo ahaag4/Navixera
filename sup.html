@@ -173,7 +173,6 @@
   // ====== Auth guard for admin ======
   auth.onAuthStateChanged(async (user) => {
     if (!user) return location.href = 'login.html';
-    // verify user is super-admin in users/{uid}.role or admin flag
     const snap = await db.ref(`users/${user.uid}`).once('value');
     const u = snap.val();
     if (!u || u.role !== 'super-admin') return location.href = 'dashboard.html';
@@ -202,7 +201,6 @@
       let companiesSet = new Set(), vehicles = 0, deliveries = 0, alerts = 0;
       for(const uid in users){
         const u = users[uid];
-        // companies detection
         if (u.vehicle && u.vehicle.companies) {
           Object.keys(u.vehicle.companies).forEach(cn => companiesSet.add(cn));
           Object.values(u.vehicle.companies).forEach(comp => {
@@ -227,46 +225,55 @@
     });
   }
 
-  // ====== Pending Approvals ======
+  // ====== Pending Approvals FIXED ======
   function loadPendingApprovals(){
     pendingUsersList.innerHTML = '';
-    db.ref('users').orderByChild('approved').equalTo(false).once('value').then(snap=>{
+    db.ref('users').once('value').then(snap=>{
       const users = snap.val()||{};
       let any = false;
       Object.entries(users).forEach(([uid,u])=>{
-        if(!u.role) return;
-        if(u.role === 'super-admin') return;
-        // show pending if approved !== true
-        if(u.approved !== true) {
+        if (!u.role || u.role === 'super-admin') return;
+        if (u.approved !== true) {
           any = true;
           const name = u.companyName || u.email || uid;
+          const plan = u.requestedPlan || u.plan || 'N/A';
           const li = document.createElement('li');
           li.className = 'list-group-item d-flex justify-content-between align-items-center';
-          li.innerHTML = `<div><strong>${name}</strong> <small class="text-muted">(${u.role})</small></div>`;
+          li.innerHTML = `<div>
+              <strong>${name}</strong> <small class="text-muted">(${u.role})</small>
+              <div class="text-muted small">Requested Plan: ${plan}</div>
+            </div>`;
           const actions = document.createElement('div');
-          const approveBtn = document.createElement('button'); approveBtn.className='btn btn-success btn-sm me-1'; approveBtn.textContent='Approve';
-          const rejectBtn = document.createElement('button'); rejectBtn.className='btn btn-danger btn-sm'; rejectBtn.textContent='Reject';
-          approveBtn.onclick = ()=> approveUser(uid);
+          const approveBtn = document.createElement('button'); 
+          approveBtn.className='btn btn-success btn-sm me-1'; 
+          approveBtn.textContent='Approve';
+          approveBtn.onclick = ()=> approveUser(uid, plan);
+          const rejectBtn = document.createElement('button'); 
+          rejectBtn.className='btn btn-danger btn-sm'; 
+          rejectBtn.textContent='Reject';
           rejectBtn.onclick = ()=> rejectUser(uid);
-          actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
+          actions.appendChild(approveBtn); 
+          actions.appendChild(rejectBtn);
           li.appendChild(actions);
           pendingUsersList.appendChild(li);
         }
       });
-      if(!any) pendingUsersList.innerHTML = `<li class="list-group-item text-muted">No pending approvals.</li>`;
+      if (!any) {
+        pendingUsersList.innerHTML = `<li class="list-group-item text-muted">No pending approvals.</li>`;
+      }
     });
   }
 
-  function approveUser(uid){
-    db.ref(`users/${uid}`).update({ approved: true })
+  function approveUser(uid, plan){
+    db.ref(`users/${uid}`).update({ approved: true, plan: plan })
       .then(()=>{ alert('User approved'); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); })
-      .catch(err=>{ alert('Error: '+err.message); console.error(err); });
+      .catch(err=>{ alert('Error: '+err.message); });
   }
   function rejectUser(uid){
     if(!confirm('Delete this user?')) return;
     db.ref(`users/${uid}`).remove()
       .then(()=>{ alert('User removed'); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); })
-      .catch(err=>{ alert('Error: '+err.message); console.error(err); });
+      .catch(err=>{ alert('Error: '+err.message); });
   }
 
   // ====== Approved Users table ======
@@ -286,7 +293,6 @@
   }
 
   window.openUserDetails = function(uid){
-    // quick popup with basic info (expand as needed)
     db.ref(`users/${uid}`).once('value').then(snap=>{
       const u = snap.val() || {};
       alert(`User: ${u.companyName||u.email||uid}\nRole: ${u.role}\nPlan: ${u.plan||'basic'}`);
@@ -320,7 +326,6 @@
         delBtn.onclick = ()=> {
           if(!confirm('Delete this ad?')) return;
           db.ref(`admin/ads/${key}`).remove().then(()=> {
-            // also remove storage file if present
             if(ad.storagePath) storage.ref(ad.storagePath).delete().catch(()=>{/*ignore*/});
             loadAds();
           });
@@ -338,17 +343,14 @@
     const active = adActiveEl.value === 'true';
     const urlProvided = (adUrlInput.value || '').trim();
     const file = adFileInput.files[0];
-
     const key = db.ref('admin/ads').push().key;
     const createdAt = new Date().toISOString();
     const adMeta = { placement, type, active, createdAt };
-
     try {
       if (file) {
-        // upload to storage under admin_ads/{key}/{filename}
         const path = `admin_ads/${key}/${file.name}`;
         const ref = storage.ref(path);
-        const uploadTask = await ref.put(file);
+        await ref.put(file);
         const downloadUrl = await ref.getDownloadURL();
         adMeta.url = downloadUrl;
         adMeta.storagePath = path;
@@ -366,94 +368,6 @@
     }
   }
 
-  // ====== Live map (basic) ======
+  // ====== Live map ======
   function setupLiveMap(){
-    liveMap = L.map('map').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(liveMap);
-    // watch users and place markers
-    db.ref('users').on('value', snap=>{
-      const users = snap.val()||{};
-      // reuse liveMarkers by vehicle id (if your DB format differs adapt accordingly)
-      Object.values(liveMarkers || {}).forEach(m => liveMap.removeLayer(m));
-      liveMarkers = {};
-      for(const uid in users){
-        const u = users[uid];
-        if(u.vehicle && u.vehicle.companies){
-          Object.entries(u.vehicle.companies).forEach(([cname,comp])=>{
-            const vehs = comp.vehicle || {};
-            Object.entries(vehs).forEach(([vid,v])=>{
-              const gps = v.gps || v.last_gps || '';
-              const [lat,lng] = gps.split(',').map(Number);
-              if(!lat || !lng) return;
-              const marker = L.marker([lat,lng]).addTo(liveMap).bindPopup(`${vid} (${cname})`);
-              liveMarkers[vid] = marker;
-            });
-          });
-        }
-      }
-    });
-  }
-
-  // ====== History map ======
-  function setupHistoryMap(){
-    historyMap = L.map('historyMap').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(historyMap);
-  }
-
-  function clearHistoryMap(){
-    if(!historyMap) return;
-    historyMap.eachLayer(layer => {
-      if(layer instanceof L.Polyline || layer instanceof L.Marker || layer instanceof L.CircleMarker) historyMap.removeLayer(layer);
-    });
-  }
-
-  function handleLoadHistory(){
-    const uid = historyUserSelect.value;
-    if(!uid) return alert('Select user');
-    db.ref(`users/${uid}/vehicle/history`).once('value').then(snap=>{
-      const hist = snap.val()||{};
-      const pts = [];
-      Object.values(hist).forEach(h => {
-        let loc = null;
-        if(typeof h === 'string') loc = h;
-        else if(h.location) loc = h.location;
-        if(loc){
-          const arr = loc.split(',').map(Number);
-          if(!isNaN(arr[0]) && !isNaN(arr[1])) pts.push(arr);
-        }
-      });
-      if(pts.length===0) return alert('No valid history');
-      clearHistoryMap();
-      const poly = L.polyline(pts,{color:'blue'}).addTo(historyMap);
-      historyMap.fitBounds(poly.getBounds());
-      deleteHistoryBtn.style.display = 'inline-block';
-      deleteHistoryBtn.onclick = ()=> deleteHistoryByUser(uid);
-    });
-  }
-
-  function deleteHistoryByUser(uid){
-    if(!confirm('Delete all movement history for this user?')) return;
-    db.ref(`users/${uid}/vehicle/history`).set(null).then(()=> {
-      alert('History deleted'); clearHistoryMap(); deleteHistoryBtn.style.display='none';
-    }).catch(err=>{ alert('Error: '+err.message); });
-  }
-
-  // ====== Dropdown population ======
-  function loadUserDropdowns(){
-    historyUserSelect.innerHTML = '<option value="">Select User</option>';
-    db.ref('users').once('value').then(snap=>{
-      const users = snap.val()||{};
-      Object.entries(users).forEach(([uid,u])=>{
-        if(u.role==='company' || u.role==='customer') {
-          const label = u.companyName || u.email || uid;
-          historyUserSelect.innerHTML += `<option value="${uid}">${label}</option>`;
-        }
-      });
-    });
-  }
-
-  // Initialize minimal
-  // (auth guard will call init)
-  </script>
-</body>
-</html>
+    liveMap = L.map('map').setView([20,78
