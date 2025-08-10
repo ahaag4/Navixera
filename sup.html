@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Super Admin - SVMS (Realtime DB) - Subscription Plan Approval</title>
+  <title>Super Admin - SVMS Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -30,7 +30,6 @@
       <pre id="debugLog">Loading...</pre>
     </div>
 
-    <!-- Stats -->
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div></div>
@@ -38,10 +37,8 @@
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div></div>
     </div>
 
-    <!-- Live map -->
     <div class="card mb-4"><div class="card-body"><h5>Live Vehicle Locations</h5><div id="map"></div></div></div>
 
-    <!-- User Pending approvals -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Pending User Approvals</h5>
@@ -49,7 +46,7 @@
       </div>
     </div>
 
-    <!-- Subscription Plan requests & approval -->
+    <!-- Subscription Plan Approval section -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Subscription Plan Upgrade Requests</h5>
@@ -58,7 +55,6 @@
       </div>
     </div>
 
-    <!-- Ads management -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Ads Management</h5>
@@ -105,7 +101,6 @@
       </div>
     </div>
 
-    <!-- Approved users -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Approved Users</h5>
@@ -113,7 +108,6 @@
       </div>
     </div>
 
-    <!-- Movement history -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Movement History</h5>
@@ -131,7 +125,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <script>
   // ==== CONFIG/Firebase ====
   const firebaseConfig = {
@@ -153,8 +146,7 @@
   function logDebug(...args){
     const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ');
     debugEl.textContent = (debugEl.textContent || '') + s + '\n';
-    debugEl.scrollTop = debugEl.scrollHeight;
-    console.log(...args);
+    debugEl.scrollTop = debugEl.scrollHeight; console.log(...args);
   }
   function escapeHtml(s){
     if(!s && s !== 0) return '';
@@ -172,7 +164,6 @@
   });
   logoutBtn.onclick = () => auth.signOut().then(()=>location.href='login.html');
 
-  // ==== INIT ====
   function init(adminUid){
     setupLiveMap(); setupHistoryMap(); loadStats(); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); loadAds();
     uploadAdBtn.onclick = handleUploadAd;
@@ -181,9 +172,10 @@
     logDebug('Initialized for admin: ', adminUid);
   }
 
-  // ...STATS, Map, User Approvals, Ads, History, Dropdowns... unchanged from previous posts...
+  // ...STATS, Map, User Approvals, Ads Management, Dropdowns, and history loading...
+  // KEEP your working code for these sections, or reuse from my previous answers
 
-  // ====== SUBSCRIPTION PLAN APPROVAL SECTION BELOW ======
+  // ====== SUBSCRIPTION PLAN APPROVAL SECTION ======
   const subscriptionPendingList = document.getElementById('subscriptionPendingList');
   function loadPendingSubscriptions() {
     db.ref('users').on('value', snap => {
@@ -203,7 +195,6 @@
               <div class="small">Request: <b>${planLabel}</b> <span class="pill-pending">Pending</span></div>
               <div class="small text-muted">${escapeHtml(requestTime)}</div>
             </div>`;
-          // Actions
           const actions = document.createElement('div');
           const approveBtn = document.createElement('button');
           approveBtn.className = 'btn btn-success btn-sm me-2';
@@ -252,10 +243,51 @@
       .then(() => { alert('Upgrade request rejected.'); })
       .catch(err => alert('Reject failed: ' + err.message));
   }
-  // --- END subscription plan approval panel ---
 
-  // ...rest (ads, stats, maps, etc) unchanged from previous post...
-  // If you want all functions, just copy both this section and your current working admin code.
+  // -- END Subscription Plan Approval Section
+
+  // (Add your/live loading for stats, maps, ads, history, user approvals here as per your current working code.)
+
+  // Minimal map starter (optional)
+  function setupLiveMap(){
+    try {
+      window.liveMap = L.map('map').setView([20,78],5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
+    } catch{}
+  }
+  function setupHistoryMap(){
+    window.historyMap = L.map('historyMap').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
+  }
+  function loadStats(){
+    db.ref('users').once('value').then(snap=>{
+      const users = snap.val()||{};
+      let companiesSet = new Set(), vehicles = 0, deliveries = 0, alerts = 0;
+      for(const uid in users){
+        const u = users[uid];
+        if (u && u.vehicle && u.vehicle.companies) {
+          Object.keys(u.vehicle.companies).forEach(cn => companiesSet.add(cn));
+          Object.values(u.vehicle.companies).forEach(comp => {
+            const vehs = comp.vehicle||{};
+            vehicles += Object.keys(vehs).length;
+            Object.values(vehs).forEach(v => {
+              if (v && v.deliveries) {
+                const d = v.deliveries;
+                deliveries += (typeof d === 'object' && !Array.isArray(d)) ? Object.keys(d).length : (Array.isArray(d) ? d.length : 0);
+              }
+            });
+          });
+        } else if (u && u.vehicles) {
+          vehicles += Object.keys(u.vehicles).length;
+        }
+        if (u && u.vehicle && u.vehicle.last_trigger && u.vehicle.last_trigger.status === 'alert') alerts++;
+      }
+      totalCompaniesEl.innerText = companiesSet.size;
+      totalVehiclesEl.innerText = vehicles;
+      totalDeliveriesEl.innerText = deliveries;
+      alertsTodayEl.innerText = alerts;
+    });
+  }
   </script>
 </body>
 </html>
