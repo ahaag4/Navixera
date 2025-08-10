@@ -23,33 +23,27 @@
     <button class="btn btn-light ms-auto" id="logoutBtn">Logout</button>
   </nav>
   <div class="container py-4">
-
-    <!-- Debug log -->
     <div class="mb-3">
       <strong>Debug (visible):</strong>
       <pre id="debugLog">Loading...</pre>
     </div>
-
-    <!-- Stats -->
+    <!-- Statistics -->
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div></div>
     </div>
-
     <!-- Live map -->
     <div class="card mb-4"><div class="card-body"><h5>Live Vehicle Locations</h5><div id="map"></div></div></div>
-
-    <!-- Pending approvals -->
+    <!-- User approvals -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Pending User Approvals</h5>
         <ul class="list-group" id="pendingUsersList"></ul>
       </div>
     </div>
-
-    <!-- Subscription Plan Requests -->
+    <!-- Subscription Plan Approvals -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Subscription Plan Upgrade Requests</h5>
@@ -57,7 +51,6 @@
         <div class="small text-muted">Approve/reject users' Silver/Gold upgrade requests.</div>
       </div>
     </div>
-
     <!-- Approved users -->
     <div class="card mb-4">
       <div class="card-body">
@@ -65,7 +58,6 @@
         <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Name</th><th>Role</th><th>Plan</th><th>Action</th></tr></thead><tbody id="approvedUsersTable"></tbody></table></div>
       </div>
     </div>
-
     <!-- Movement history -->
     <div class="card mb-4">
       <div class="card-body">
@@ -77,12 +69,12 @@
       </div>
     </div>
   </div>
+
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-  // ==== Firebase Config ====
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -96,15 +88,16 @@
   const auth = firebase.auth();
   const db = firebase.database();
 
-  // ==== Debug Log Helper ====
+  // Debug utility
   const debugEl = document.getElementById('debugLog');
   function logDebug(...args){
     const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ');
     debugEl.textContent = (debugEl.textContent || '') + s + '\n';
-    debugEl.scrollTop = debugEl.scrollHeight; console.log(...args);
+    debugEl.scrollTop = debugEl.scrollHeight;
+    console.log(...args);
   }
 
-  // ==== Escape for HTML ====
+  // Helper to escape HTML
   function escapeHtml(s){
     if(!s && s !== 0) return '';
     return String(s).replace(/[&<>"'`=\/]/g, function (c) {
@@ -112,7 +105,7 @@
     });
   }
 
-  // ==== AUTH & INITIALIZATION ====
+  // ==== AUTH GUARD ====
   auth.onAuthStateChanged(async (user) => {
     if (!user) return location.href = 'login.html';
     const snap = await db.ref(`users/${user.uid}`).once('value');
@@ -135,7 +128,7 @@
     logDebug('Initialized for admin: ', adminUid);
   }
 
-  // ==== STATS ====
+  // Stats
   function loadStats(){
     db.ref('users').once('value').then(snap=>{
       const users = snap.val()||{};
@@ -166,7 +159,7 @@
     });
   }
 
-  // ==== PENDING USERS ====
+  // Pending User Approvals
   function loadPendingApprovals(){
     const list=document.getElementById("pendingUsersList");
     list.innerHTML="";
@@ -181,8 +174,8 @@
           list.innerHTML += `<li class="list-group-item d-flex justify-content-between">
             ${name} (${u.role})
             <span>
-              <button class="btn btn-success btn-sm me-1" onclick="approve('${uid}')">Approve</button>
-              <button class="btn btn-danger btn-sm" onclick="reject('${uid}')">Reject</button>
+              <button class="btn btn-success btn-sm me-1" onclick="window.approve('${uid}')">Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="window.reject('${uid}')">Reject</button>
             </span>
           </li>`;
         }
@@ -190,22 +183,20 @@
       if(!found) list.innerHTML = '<li class="list-group-item text-muted">No pending approvals.</li>';
     });
   }
-
   window.approve = function(uid){
     db.ref(`users/${uid}`).update({ approved: true })
       .then(() => { alert("✅ Approved"); loadPendingApprovals(); loadApprovedUsers(); })
-      .catch((err) => { alert("Error approving: " + err.message); console.error("Approve error:", err); });
+      .catch((err) => { alert("Error approving: " + err.message); logDebug("Approve error:", err); });
   };
-
   window.reject = function(uid){
     if(confirm("Delete user?")) {
       db.ref(`users/${uid}`).remove()
         .then(() => { alert("❌ Rejected and removed"); loadPendingApprovals(); loadApprovedUsers(); })
-        .catch((err) => { alert("Error rejecting: " + err.message); console.error("Reject error:", err); });
+        .catch((err) => { alert("Error rejecting: " + err.message); logDebug("Reject error:", err); });
     }
   };
 
-  // ==== SUBSCRIPTION APPROVAL PANEL ====
+  // Subscription Plan Approval Section
   function loadPendingSubscriptions() {
     const subscriptionPendingList = document.getElementById('subscriptionPendingList');
     db.ref('users').on('value', snap => {
@@ -228,12 +219,12 @@
           const actions = document.createElement('div');
           const approveBtn = document.createElement('button');
           approveBtn.className = 'btn btn-success btn-sm me-2';
-          approveBtn.textContent = 'Approve';
-          approveBtn.onclick = () => approveSubscriptionPlan(uid, planLabel, name);
+          approveBtn.innerText = 'Approve';
+          approveBtn.onclick = function() { window.approveSubscriptionPlan(uid, planLabel, name); };
           const rejectBtn = document.createElement('button');
           rejectBtn.className = 'btn btn-danger btn-sm';
-          rejectBtn.textContent = 'Reject';
-          rejectBtn.onclick = () => rejectSubscriptionPlan(uid, planLabel, name);
+          rejectBtn.innerText = 'Reject';
+          rejectBtn.onclick = function() { window.rejectSubscriptionPlan(uid, planLabel, name); };
           actions.appendChild(approveBtn); actions.appendChild(rejectBtn); li.appendChild(actions);
           subscriptionPendingList.appendChild(li);
         }
@@ -241,6 +232,7 @@
       if (!any) subscriptionPendingList.innerHTML = `<li class="list-group-item text-muted">No pending subscription upgrades.</li>`;
     });
   }
+
   function approveSubscriptionPlan(uid, plan, name) {
     if (!uid || !plan) return alert('Missing info');
     let days = parseFloat(prompt('Expiry days from now? Default 30', '30')) || 30;
@@ -266,6 +258,7 @@
       .then(() => { alert('Subscription plan upgraded and approved.'); })
       .catch(err => alert('Approve failed: ' + err.message));
   }
+  window.approveSubscriptionPlan = approveSubscriptionPlan;
   function rejectSubscriptionPlan(uid, plan, name) {
     if (!uid) return;
     if (!confirm('Reject upgrade for user '+name+'?')) return;
@@ -273,8 +266,9 @@
       .then(() => { alert('Upgrade request rejected.'); })
       .catch(err => alert('Reject failed: ' + err.message));
   }
+  window.rejectSubscriptionPlan = rejectSubscriptionPlan;
 
-  // ==== Approved Users List ====
+  // Approved Users (table)
   function loadApprovedUsers(){
     const tbl=document.getElementById("approvedUsersTable");
     tbl.innerHTML="";
@@ -296,7 +290,7 @@
     });
   }
 
-  // ==== Movement History Map (simple) ====
+  // Movement History Map (simple)
   function setupLiveMap(){ try {
     window.liveMap = L.map('map').setView([20,78],5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
@@ -306,7 +300,6 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
   } catch{}}
 
-  // ==== History Dropdown ====
   function loadUserDropdowns(){
     db.ref("users").once("value",snap=>{
       const users=snap.val()||{};
@@ -322,7 +315,6 @@
   function handleLoadHistory(){
     const uid=document.getElementById("historyUserSelect").value;
     const btn=document.getElementById("deleteHistoryBtn"), historyMap=window.historyMap;
-    // This is a simple fetch & draw (improve as you like)
     if(!uid){ alert("Select user"); btn.style.display="none"; return; }
     db.ref(`users/${uid}/vehicle/history`).once("value",snap=>{
       const history=snap.val()||{}, coords=[];
@@ -351,10 +343,10 @@
       })
       .catch((err) => {
         alert("Error deleting: " + err.message);
-        console.error("History delete error:", err);
+        logDebug("History delete error:", err);
       });
   }
-
+  document.getElementById('loadHistoryBtn').onclick = handleLoadHistory;
   </script>
 </body>
 </html>
