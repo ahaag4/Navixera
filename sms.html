@@ -80,6 +80,13 @@
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
 
+    /* Subscription / earnings layout */
+    .subscription-row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .small-muted { color:#6c757d; font-size:13px; }
+    #exportCSVBtn { background:#17a2b8; color:white; padding:6px 10px; border:none; border-radius:6px; cursor:pointer; }
+    #requestUpgradeBtn { background:#ffc107; color:#212529; padding:6px 10px; border:none; border-radius:6px; cursor:pointer; }
+    .earning-card { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .earning-actions button { margin-left:8px; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -93,6 +100,7 @@
       </div>
     </header>
 
+    <!-- Status card (existing) -->
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
 
@@ -115,6 +123,7 @@
       </div>
     </section>
 
+    <!-- Alarm card (existing) -->
     <section class="card alarm-card">
       <h2>🔔 Alarm</h2>
       <label class="switch">
@@ -124,26 +133,71 @@
       <p id="alarmStatusText">Loading alarm status...</p>
     </section>
 
+    <!-- Subscription & earnings card (NEW) -->
+    <section class="card subscription-card">
+      <h2>💳 Subscription & Upgrades</h2>
+      <div class="subscription-row">
+        <div>
+          <p>Current Plan: <strong id="currentPlan">Loading...</strong></p>
+          <p class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></p>
+          <p class="small-muted">CSV Export: <span id="csvAllowed">-</span></p>
+        </div>
+
+        <div id="subscriptionActions">
+          <button id="requestUpgradeBtn">Request Upgrade</button>
+          <button id="cancelUpgradeBtn" style="display:none; background:#6c757d; color:white; padding:6px 10px; border:none; border-radius:6px; cursor:pointer;">Cancel Request</button>
+        </div>
+      </div>
+
+      <div id="upgradeStatus" style="margin-top:8px;color:#333;">&nbsp;</div>
+
+      <hr style="margin:12px 0;">
+
+      <div class="earning-card">
+        <div>
+          <h4>More earning models / Upsells</h4>
+          <p class="small-muted">Add paid features later: extra vehicle slots, extended history retention, one-time CSV export for basic users, premium alerts, analytics.</p>
+        </div>
+        <div class="earning-actions">
+          <!-- Placeholder actions - wire these to payment processors later -->
+          <button id="buyOneTimeExportBtn" style="background:#007bff;color:#fff;">Buy CSV Export</button>
+          <button id="buyExtraVehicleBtn" style="background:#28a745;color:#fff;">Buy +1 Vehicle</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Map card (existing) -->
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
       <div id="map">Loading map...</div>
     </section>
 
+    <!-- History card (existing) + CSV export control (NEW) -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div><small class="small-muted">Recent movements are shown below.</small></div>
+        <div>
+          <button id="exportCSVBtn" style="display:none;">Export CSV</button>
+        </div>
+      </div>
+
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
-
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <script>
+    // ===========================
+    // Existing Firebase config
+    // ===========================
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -157,6 +211,9 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
+    // ===========================
+    // DOM refs
+    // ===========================
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -166,16 +223,31 @@
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
 
-    // NEW elements
+    // new DOM refs
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
+    const currentPlanEl = document.getElementById("currentPlan");
+    const vehicleLimitEl = document.getElementById("vehicleLimit");
+    const csvAllowedEl = document.getElementById("csvAllowed");
+    const requestUpgradeBtn = document.getElementById("requestUpgradeBtn");
+    const cancelUpgradeBtn = document.getElementById("cancelUpgradeBtn");
+    const upgradeStatusEl = document.getElementById("upgradeStatus");
+    const exportCSVBtn = document.getElementById("exportCSVBtn");
+    const buyOneTimeExportBtn = document.getElementById("buyOneTimeExportBtn");
+    const buyExtraVehicleBtn = document.getElementById("buyExtraVehicleBtn");
 
     let map, marker;
     const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
-    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds
     let uidGlobal = null;
 
+    // local cached plan info for enforcement
+    let localPlan = { plan: 'basic', vehicle_limit: 1, exportCSV: false };
+
+    // ===========================
+    // small helpers
+    // ===========================
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
       if (!map) {
@@ -217,10 +289,8 @@
     // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
-      // Expect format "YYYY-MM-DD HH:MM:SS"
       const parts = ts.trim().split(' ');
       if (parts.length < 2) {
-        // fallback to Date.parse if possible
         const fallback = Date.parse(ts);
         return isNaN(fallback) ? null : fallback;
       }
@@ -237,48 +307,221 @@
       return dt.getTime();
     }
 
-    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
       if (!lastActiveMs) {
-        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
         return !!firebaseOnlineFlag;
       }
       const age = Date.now() - lastActiveMs;
       if (age > ONLINE_TTL_MS) {
-        return false; // treat as offline if last_active too old
+        return false;
       }
-      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
+      return !!firebaseOnlineFlag;
     }
 
-    // update the "Online" badge and lastActive text depending on recency
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-
       if (isOnline) {
         onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
       } else {
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
-
-      if (lastActiveStr) {
-        lastActiveEl.textContent = lastActiveStr;
-      } else {
-        lastActiveEl.textContent = "Unknown";
-      }
-
-      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
+      lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
 
-    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
+    // ===========================
+    // Plan / subscription helper functions
+    // ===========================
+    function applyPlanToUI(planObj) {
+      // planObj = { plan: "basic"|"premium", vehicle_limit: number, exportCSV: boolean }
+      localPlan = Object.assign({}, localPlan, planObj || {});
+      currentPlanEl.textContent = (localPlan.plan || 'basic').toUpperCase();
+      vehicleLimitEl.textContent = localPlan.vehicle_limit || 1;
+      csvAllowedEl.textContent = (localPlan.exportCSV ? 'Allowed' : 'Not allowed');
+
+      // control upgrade button visibility & text
+      if ((localPlan.plan || 'basic') === 'premium') {
+        requestUpgradeBtn.style.display = 'none';
+        cancelUpgradeBtn.style.display = 'none';
+        upgradeStatusEl.textContent = 'You are on the PREMIUM plan.';
+      } else {
+        requestUpgradeBtn.style.display = 'inline-block';
+      }
+
+      // export button visibility
+      exportCSVBtn.style.display = localPlan.exportCSV ? 'inline-block' : 'none';
+    }
+
+    function showUpgradeStatusText(status) {
+      if (!status) {
+        upgradeStatusEl.textContent = '';
+        return;
+      }
+      const s = status.toLowerCase();
+      if (s === 'pending') {
+        upgradeStatusEl.textContent = 'Upgrade request pending approval by admin.';
+        requestUpgradeBtn.style.display = 'none';
+        cancelUpgradeBtn.style.display = 'inline-block';
+      } else if (s === 'approved') {
+        upgradeStatusEl.textContent = 'Upgrade approved. Your plan has been updated.';
+        requestUpgradeBtn.style.display = 'none';
+        cancelUpgradeBtn.style.display = 'none';
+      } else if (s === 'rejected') {
+        upgradeStatusEl.textContent = 'Upgrade request rejected by admin.';
+        requestUpgradeBtn.style.display = 'inline-block';
+        cancelUpgradeBtn.style.display = 'none';
+      } else {
+        upgradeStatusEl.textContent = `Upgrade status: ${status}`;
+      }
+    }
+
+    // ===========================
+    // History rendering with plan enforcement
+    // ===========================
+    // If plan is basic -> show only 1 most recent record.
+    function renderHistoryWithPlan(historyObj) {
+      historyEl.innerHTML = '';
+      if (!historyObj) {
+        historyEl.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
+        return;
+      }
+      // convert object to array with stable ordering: we'll use keys->values
+      const entries = Object.values(historyObj).slice().reverse(); // most recent first
+      let toShow = entries;
+      if (!localPlan.exportCSV) {
+        // basic mode: limit to 1
+        toShow = entries.slice(0, 1);
+      }
+      if (!toShow.length) {
+        historyEl.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
+        return;
+      }
+      toShow.forEach(entry => {
+        const loc = entry.location || '';
+        const time = entry.time || '';
+        const [lat, lng] = (loc && loc.split(',')) || [0,0];
+        const safeLat = parseFloat(lat) || 0;
+        const safeLng = parseFloat(lng) || 0;
+        historyEl.innerHTML += `
+          <tr>
+            <td>${time}</td>
+            <td>${loc}</td>
+            <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+          </tr>`;
+      });
+    }
+
+    // ===========================
+    // CSV Export
+    // ===========================
+    function exportHistoryToCSV(historyObj) {
+      if (!localPlan.exportCSV) {
+        alert('CSV export not allowed on your plan. Upgrade to enable this feature.');
+        return;
+      }
+      if (!historyObj) {
+        alert('No history to export.');
+        return;
+      }
+      // flatten entries into CSV lines
+      const rows = [];
+      rows.push(['time','location','latitude','longitude']);
+      const entries = Object.values(historyObj);
+      entries.forEach(e => {
+        const time = e.time || '';
+        const loc = e.location || '';
+        const [lat, lng] = loc.split(',').map(s => s ? s.trim() : '');
+        rows.push([time, loc, lat || '', lng || '']);
+      });
+      // convert to CSV string
+      const csvContent = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+      // create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const filename = `history_${now.toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+      a.setAttribute('download', filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ===========================
+    // Upgrade request flow
+    // ===========================
+    requestUpgradeBtn.addEventListener('click', () => {
+      if (!uidGlobal) return alert('Not logged in');
+      const now = new Date().toISOString();
+      // set user's upgrade_request to pending
+      db.ref(`users/${uidGlobal}/upgrade_request`).set({
+        status: 'pending',
+        request_time: now
+      }).then(() => {
+        // duplicate a minimal request in admin node so admin panel can list all requests easily
+        const adminReqKey = `${uidGlobal}_${Date.now()}`;
+        db.ref(`admin/upgrade_requests/${adminReqKey}`).set({
+          uid: uidGlobal,
+          request_time: now,
+          requested_plan: 'premium',
+          status: 'pending'
+        });
+        upgradeStatusEl.textContent = 'Upgrade Request Sent (Pending Approval)';
+        requestUpgradeBtn.style.display = 'none';
+        cancelUpgradeBtn.style.display = 'inline-block';
+      }).catch(err => {
+        console.error('Failed to send upgrade request:', err);
+        alert('Failed to send upgrade request. Try again later.');
+      });
+    });
+
+    cancelUpgradeBtn.addEventListener('click', () => {
+      if (!uidGlobal) return;
+      // cancel user's upgrade request
+      db.ref(`users/${uidGlobal}/upgrade_request/status`).set('cancelled').then(() => {
+        // Optionally remove admin request: here we mark status cancelled (admin must clean up)
+        // Admin node may contain duplicate entries; we won't try to find & remove them here to avoid dangerous writes.
+        upgradeStatusEl.textContent = 'Upgrade request cancelled.';
+        requestUpgradeBtn.style.display = 'inline-block';
+        cancelUpgradeBtn.style.display = 'none';
+      }).catch(err => {
+        console.error('Failed to cancel upgrade request', err);
+        alert('Failed to cancel request.');
+      });
+    });
+
+    // Placeholders for upsell actions - to wire to payments later
+    buyOneTimeExportBtn.addEventListener('click', () => {
+      alert('Buy CSV Export: payment integration placeholder. Implement your payment flow (e.g., Razorpay/Stripe) and on success set users/{uid}/exportCSV to true for a limited time.');
+    });
+    buyExtraVehicleBtn.addEventListener('click', () => {
+      alert('Buy Extra Vehicle: payment integration placeholder. Implement a payment flow and on success increment users/{uid}/vehicle_limit.');
+    });
+
+    // Export button click (we need to fetch the history snapshot first)
+    exportCSVBtn.addEventListener('click', () => {
+      if (!uidGlobal) return alert('Not logged in.');
+      const histRef = db.ref(`users/${uidGlobal}/vehicle/history`);
+      histRef.once('value').then(snap => {
+        const hist = snap.val();
+        exportHistoryToCSV(hist);
+      }).catch(err => {
+        console.error('CSV export failed', err);
+        alert('Failed to export CSV.');
+      });
+    });
+
+    // ===========================
+    // Dashboard loader
+    // ===========================
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
-      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
       setInterval(() => {
         currentRef.once('value').then(snap => {
           const lastActive = snap.val();
-          // Also fetch online flag to decide
           db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
             const onlineFlag = onlineSnap.val();
             renderOnlineAndLastActive(onlineFlag, lastActive);
@@ -291,14 +534,33 @@
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      // current block
+      // load user's plan details (subscribe to changes)
+      const userPlanRef = db.ref(`users/${uid}`);
+      userPlanRef.on('value', snap => {
+        const udata = snap.val() || {};
+        // default plan values if missing
+        const planObj = {
+          plan: (udata.plan || 'basic'),
+          vehicle_limit: (udata.vehicle_limit || 1),
+          exportCSV: !!udata.exportCSV
+        };
+        applyPlanToUI(planObj);
+
+        // reflect upgrade_request status UI
+        if (udata.upgrade_request && udata.upgrade_request.status) {
+          showUpgradeStatusText(udata.upgrade_request.status);
+        } else {
+          showUpgradeStatusText(null);
+        }
+      });
+
+      // current block (existing behavior retained)
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         const { latitude, longitude, status, last_active, battery } = data;
 
-        // display location safely
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
@@ -310,36 +572,17 @@
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
 
-        // Now evaluate online display using last_active recency and the firebase online flag
         vehicleRef.child("online").once("value").then(onlineSnap => {
           const onlineFlag = onlineSnap.val();
           renderOnlineAndLastActive(onlineFlag, last_active);
         });
       });
 
-      // history block
+      // history block (enforced by plan on render)
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
-        historyEl.innerHTML = "";
-        if (history) {
-          // reverse for most recent first
-          const entries = Object.values(history).reverse();
-          entries.forEach(entry => {
-            const loc = entry.location || "";
-            const time = entry.time || "";
-            const [lat, lng] = loc.split(",");
-            const safeLat = parseFloat(lat) || 0;
-            const safeLng = parseFloat(lng) || 0;
-            historyEl.innerHTML += `
-              <tr>
-                <td>${time}</td>
-                <td>${loc}</td>
-                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
-              </tr>`;
-          });
-        } else {
-          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
-        }
+        // Enforce plan when rendering (basic -> only latest; premium -> all)
+        renderHistoryWithPlan(history);
       });
 
       // components block
@@ -348,17 +591,16 @@
         renderComponents(comps);
       });
 
-      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
+      // online flag listener
       vehicleRef.child("online").on("value", (snapshot) => {
         const onlineFlag = snapshot.val();
-        // fetch last_active to make decision
         vehicleRef.child("current/last_active").once("value").then(snap => {
           const lastActive = snap.val();
           renderOnlineAndLastActive(onlineFlag, lastActive);
         });
       });
 
-      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
+      // last_seen
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const lastSeenVal = snapshot.val();
         lastSeenEl.textContent = lastSeenVal || "N/A";
@@ -381,7 +623,7 @@
         }
       });
 
-      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
+      // status node
       vehicleRef.child("current/status").on("value", (snapshot) => {
         const s = snapshot.val();
         if (s) statusEl.textContent = s;
@@ -395,11 +637,13 @@
         });
       });
 
-      // start periodic poll for last_active to ensure "Last Active" updates every 30s
+      // start periodic poll for last_active
       startLastActivePoll(uid);
     }
 
-    // auth state
+    // ===========================
+    // Auth state
+    // ===========================
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
@@ -410,8 +654,39 @@
       }
     });
 
-    // Expose focusOnMap to global scope for inline onclick in generated rows
+    // Expose focusOnMap to global scope (used by inline onclick)
     window.focusOnMap = focusOnMap;
+
+    // ===========================
+    // Admin notes (for implementer)
+    // ===========================
+    /*
+      Admin panel MUST:
+      - Listen to admin/upgrade_requests to view pending requests.
+      - On approve, update user's nodes:
+          users/{uid}/plan = "premium"
+          users/{uid}/vehicle_limit = 3
+          users/{uid}/exportCSV = true
+          users/{uid}/upgrade_request/status = "approved"
+        Optionally set an expiry if this is a paid upgrade.
+      - On rejection set users/{uid}/upgrade_request/status = "rejected" (and optionally admin/upgrade_requests/{key}/status = "rejected")
+    */
+
+    // ===========================
+    // Additional enforcement example (when adding new vehicles)
+    // ===========================
+    // If you have UI to add vehicles, check user's vehicle_limit before creating.
+    // Example (not wired to any button here):
+    async function canCreateNewVehicle(uid) {
+      const uSnap = await db.ref(`users/${uid}`).once('value');
+      const u = uSnap.val() || {};
+      const limit = u.vehicle_limit || 1;
+      // count existing vehicles (if you store vehicles under users/{uid}/vehicles)
+      const vehiclesSnap = await db.ref(`users/${uid}/vehicles`).once('value');
+      const count = vehiclesSnap.exists() ? Object.keys(vehiclesSnap.val() || {}).length : 0;
+      return count < limit;
+    }
+
   </script>
 </body>
 </html>
