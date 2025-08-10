@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Super Admin - SVMS (Realtime DB)</title>
+  <title>Super Admin - SVMS</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -15,6 +15,8 @@
     .stat-card {text-align:center;padding:18px;background:#fff;border-radius:10px}
     #debugLog {height:110px;overflow:auto;background:#fff;padding:10px;border-radius:6px;border:1px solid #e6e6e6;font-size:12px}
     .pill-pending{background:#ffd966;color:#4a2900;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
+    .pill-approved{background:#31ffa7;color:#167054;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
+    .pill-rejected{background:#f8d7da;color:#721c24;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
   </style>
 </head>
 <body>
@@ -34,7 +36,7 @@
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div></div>
     </div>
-    <!-- Live Map -->
+    <!-- Live map -->
     <div class="card mb-4"><div class="card-body"><h5>Live Vehicle Locations</h5><div id="map"></div></div></div>
     <!-- Pending User Approvals -->
     <div class="card mb-4">
@@ -43,7 +45,7 @@
         <ul class="list-group" id="pendingUsersList"></ul>
       </div>
     </div>
-    <!-- Subscription Plan Upgrade Requests -->
+    <!-- Subscription Plan Approvals -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Subscription Plan Upgrade Requests</h5>
@@ -97,7 +99,7 @@
         <div id="adsList"></div>
       </div>
     </div>
-    <!-- Approved users -->
+    <!-- Approved Users -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Approved Users</h5>
@@ -121,6 +123,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+  // ---- Firebase Config -----
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -135,29 +138,33 @@
   const db = firebase.database();
   const storage = firebase.storage();
 
-  // ---- Basic debug utility
+  // ==== Debug utility
   const debugEl = document.getElementById('debugLog');
   function logDebug(...args){
     const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ');
     debugEl.textContent = (debugEl.textContent || '') + s + '\n';
-    debugEl.scrollTop = debugEl.scrollHeight; console.log(...args);
+    debugEl.scrollTop = debugEl.scrollHeight;
+    console.log(...args);
   }
+
+  // ==== Escape helper
   function escapeHtml(s){
     if(!s && s !== 0) return '';
     return String(s).replace(/[&<>"'`=\/]/g, function (c) {
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c];
     });
   }
-
-  // ---- AUTH GUARD ----
+  // ==== AUTH & INITIALIZE ====
   auth.onAuthStateChanged(async (user) => {
     if (!user) return location.href = 'login.html';
     const snap = await db.ref(`users/${user.uid}`).once('value');
     const u = snap.val();
-    const isSuperAdmin = u && (u.role === 'super-admin' || u.role === 'admin' || u.isAdmin === true || u.admin === true);
-    if(!isSuperAdmin) return location.href = 'dashboard.html';
+    if(!u || !(u.role === 'super-admin' || u.role === 'admin' || u.isAdmin === true || u.admin === true)){
+      return location.href = 'dashboard.html';
+    }
     init(user.uid);
   });
+
   document.getElementById('logoutBtn').onclick = () => auth.signOut().then(()=>location.href='login.html');
 
   function init(adminUid){
@@ -174,11 +181,146 @@
     logDebug('Initialized for admin: ', adminUid);
   }
 
-  // Stats, approvals, user lists (see previous code above)
-  // ...rest of your dashboard code unchanged...
-  // -- Only unique ad management/actions below --
+  // ==== Stats ====
+  function loadStats(){ /* ... same as above ... */ 
+    db.ref('users').once('value').then(snap=>{
+      const users = snap.val()||{};
+      let companiesSet = new Set(), vehicles = 0, deliveries = 0, alerts = 0;
+      for(const uid in users){
+        const u = users[uid];
+        if (u && u.vehicle && u.vehicle.companies) {
+          Object.keys(u.vehicle.companies).forEach(cn => companiesSet.add(cn));
+          Object.values(u.vehicle.companies).forEach(comp => {
+            const vehs = comp.vehicle||{};
+            vehicles += Object.keys(vehs).length;
+            Object.values(vehs).forEach(v => {
+              if (v && v.deliveries) {
+                const d = v.deliveries;
+                deliveries += (typeof d === 'object' && !Array.isArray(d)) ? Object.keys(d).length : (Array.isArray(d) ? d.length : 0);
+              }
+            });
+          });
+        } else if (u && u.vehicles) {
+          vehicles += Object.keys(u.vehicles).length;
+        }
+        if (u && u.vehicle && u.vehicle.last_trigger && u.vehicle.last_trigger.status === 'alert') alerts++;
+      }
+      document.getElementById('totalCompanies').innerText = companiesSet.size;
+      document.getElementById('totalVehicles').innerText = vehicles;
+      document.getElementById('totalDeliveries').innerText = deliveries;
+      document.getElementById('alertsToday').innerText = alerts;
+    });
+  }
 
-  // ----- Ads MANAGEMENT -----
+  // ==== Pending User Approvals
+  function loadPendingApprovals(){ /* ... as above ... */
+    const list=document.getElementById("pendingUsersList");
+    list.innerHTML="";
+    db.ref("users").once("value", snap=>{
+      const users=snap.val()||{};
+      let found = false;
+      for(const uid in users){
+        const u=users[uid];
+        if((u.role==="company"||u.role==="customer") && u.approved!==true){
+          found = true;
+          const name = u.companyName||u.email||uid;
+          list.innerHTML += `<li class="list-group-item d-flex justify-content-between">
+            ${name} (${u.role})
+            <span>
+              <button class="btn btn-success btn-sm me-1" onclick="window.approve('${uid}')">Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="window.reject('${uid}')">Reject</button>
+            </span>
+          </li>`;
+        }
+      }
+      if(!found) list.innerHTML = '<li class="list-group-item text-muted">No pending approvals.</li>';
+    });
+  }
+  window.approve = function(uid){
+    db.ref(`users/${uid}`).update({ approved: true })
+      .then(() => { alert("✅ Approved"); loadPendingApprovals(); loadApprovedUsers(); })
+      .catch((err) => { alert("Error approving: " + err.message); logDebug("Approve error:", err); });
+  };
+  window.reject = function(uid){
+    if(confirm("Delete user?")) {
+      db.ref(`users/${uid}`).remove()
+        .then(() => { alert("❌ Rejected and removed"); loadPendingApprovals(); loadApprovedUsers(); })
+        .catch((err) => { alert("Error rejecting: " + err.message); logDebug("Reject error:", err); });
+    }
+  };
+
+  // ==== Subscription Plan Upgrade Approvals
+  function loadPendingSubscriptions() {
+    const subscriptionPendingList = document.getElementById('subscriptionPendingList');
+    db.ref('users').on('value', snap => {
+      const users = snap.val() || {};
+      subscriptionPendingList.innerHTML = '';
+      let any = false;
+      Object.entries(users).forEach(([uid, u]) => {
+        if (u && u.upgrade_request && u.upgrade_request.status === 'pending' && u.upgrade_request.requestedPlan) {
+          any = true;
+          const planLabel = (u.upgrade_request.requestedPlan || '').toUpperCase();
+          const name = u.companyName || u.email || uid;
+          const requestTime = u.upgrade_request.request_time || '';
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.innerHTML = `<div>
+              <strong>${escapeHtml(name)}</strong> <small class="text-muted">UID: ${uid}</small>
+              <div class="small">Request: <b>${planLabel}</b> <span class="pill-pending">Pending</span></div>
+              <div class="small text-muted">${escapeHtml(requestTime)}</div>
+            </div>`;
+          const actions = document.createElement('div');
+          const approveBtn = document.createElement('button');
+          approveBtn.className = 'btn btn-success btn-sm me-2';
+          approveBtn.innerText = 'Approve';
+          approveBtn.onclick = function() { window.approveSubscriptionPlan(uid, planLabel, name); };
+          const rejectBtn = document.createElement('button');
+          rejectBtn.className = 'btn btn-danger btn-sm';
+          rejectBtn.innerText = 'Reject';
+          rejectBtn.onclick = function() { window.rejectSubscriptionPlan(uid, planLabel, name); };
+          actions.appendChild(approveBtn); actions.appendChild(rejectBtn); li.appendChild(actions);
+          subscriptionPendingList.appendChild(li);
+        }
+      });
+      if (!any) subscriptionPendingList.innerHTML = `<li class="list-group-item text-muted">No pending subscription upgrades.</li>`;
+    });
+  }
+  function approveSubscriptionPlan(uid, plan, name) {
+    if (!uid || !plan) return alert('Missing info');
+    let days = parseFloat(prompt('Expiry days from now? Default 30', '30')) || 30;
+    let expiry = new Date(Date.now() + days*24*60*60*1000).toISOString();
+    const PLAN_POLICIES = {
+      basic: { vehicle_limit: 1, exportCSV: false },
+      silver: { vehicle_limit: 3, exportCSV: true },
+      gold: { vehicle_limit: 3, exportCSV: true }
+    };
+    let planLower = plan.toLowerCase();
+    let settings = PLAN_POLICIES[planLower] || PLAN_POLICIES.silver;
+    const updates = {};
+    updates[`users/${uid}/plan`] = planLower;
+    updates[`users/${uid}/plan_expiry`] = expiry;
+    updates[`users/${uid}/vehicle_limit`] = settings.vehicle_limit;
+    updates[`users/${uid}/exportCSV`] = settings.exportCSV;
+    updates[`users/${uid}/upgrade_request/status`] = 'approved';
+    updates[`admin/subscription_approvals/${uid}_${Date.now()}`] = {
+      adminBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)),
+      uid, plan: planLower, name, time: new Date().toISOString()
+    };
+    db.ref().update(updates)
+      .then(() => { alert('Subscription plan upgraded and approved.'); })
+      .catch(err => alert('Approve failed: ' + err.message));
+  }
+  window.approveSubscriptionPlan = approveSubscriptionPlan;
+  function rejectSubscriptionPlan(uid, plan, name) {
+    if (!uid) return;
+    if (!confirm('Reject upgrade for user '+name+'?')) return;
+    db.ref(`users/${uid}/upgrade_request/status`).set('rejected')
+      .then(() => { alert('Upgrade request rejected.'); })
+      .catch(err => alert('Reject failed: ' + err.message));
+  }
+  window.rejectSubscriptionPlan = rejectSubscriptionPlan;
+
+  // ==== Ads Management (fully working)
   function loadAds(){
     const adsList = document.getElementById('adsList');
     adsList.innerHTML = '<div class="text-muted">Loading ads…</div>';
@@ -216,7 +358,6 @@
       });
     }).catch(err => logDebug('loadAds error: ' + err.message));
   }
-
   async function handleUploadAd(){
     const placement = document.getElementById('adPlacement').value;
     const type = document.getElementById('adType').value;
@@ -249,91 +390,7 @@
     }
   }
 
-  // Subscription Plan Upgrade Requests panel -- as in prior answer, with button handlers bound to window:
-  function loadPendingSubscriptions() {
-    const subscriptionPendingList = document.getElementById('subscriptionPendingList');
-    db.ref('users').on('value', snap => {
-      const users = snap.val() || {};
-      subscriptionPendingList.innerHTML = '';
-      let any = false;
-      Object.entries(users).forEach(([uid, u]) => {
-        if (u && u.upgrade_request && u.upgrade_request.status === 'pending' && u.upgrade_request.requestedPlan) {
-          any = true;
-          const planLabel = (u.upgrade_request.requestedPlan || '').toUpperCase();
-          const name = u.companyName || u.email || uid;
-          const requestTime = u.upgrade_request.request_time || '';
-          const li = document.createElement('li');
-          li.className = 'list-group-item d-flex justify-content-between align-items-center';
-          li.innerHTML = `<div>
-              <strong>${escapeHtml(name)}</strong> <small class="text-muted">UID: ${uid}</small>
-              <div class="small">Request: <b>${planLabel}</b> <span class="pill-pending">Pending</span></div>
-              <div class="small text-muted">${escapeHtml(requestTime)}</div>
-            </div>`;
-          const actions = document.createElement('div');
-          const approveBtn = document.createElement('button');
-          approveBtn.className = 'btn btn-success btn-sm me-2';
-          approveBtn.innerText = 'Approve';
-          approveBtn.onclick = function() { window.approveSubscriptionPlan(uid, planLabel, name); };
-          const rejectBtn = document.createElement('button');
-          rejectBtn.className = 'btn btn-danger btn-sm';
-          rejectBtn.innerText = 'Reject';
-          rejectBtn.onclick = function() { window.rejectSubscriptionPlan(uid, planLabel, name); };
-          actions.appendChild(approveBtn); actions.appendChild(rejectBtn); li.appendChild(actions);
-          subscriptionPendingList.appendChild(li);
-        }
-      });
-      if (!any) subscriptionPendingList.innerHTML = `<li class="list-group-item text-muted">No pending subscription upgrades.</li>`;
-    });
-  }
-
-  function approveSubscriptionPlan(uid, plan, name) {
-    if (!uid || !plan) return alert('Missing info');
-    let days = parseFloat(prompt('Expiry days from now? Default 30', '30')) || 30;
-    let expiry = new Date(Date.now() + days*24*60*60*1000).toISOString();
-    const PLAN_POLICIES = {
-      basic: { vehicle_limit: 1, exportCSV: false },
-      silver: { vehicle_limit: 3, exportCSV: true },
-      gold: { vehicle_limit: 3, exportCSV: true }
-    };
-    let planLower = plan.toLowerCase();
-    let settings = PLAN_POLICIES[planLower] || PLAN_POLICIES.silver;
-    const updates = {};
-    updates[`users/${uid}/plan`] = planLower;
-    updates[`users/${uid}/plan_expiry`] = expiry;
-    updates[`users/${uid}/vehicle_limit`] = settings.vehicle_limit;
-    updates[`users/${uid}/exportCSV`] = settings.exportCSV;
-    updates[`users/${uid}/upgrade_request/status`] = 'approved';
-    updates[`admin/subscription_approvals/${uid}_${Date.now()}`] = {
-      adminBy: (auth.currentUser && (auth.currentUser.email || auth.currentUser.uid)),
-      uid, plan: planLower, name, time: new Date().toISOString()
-    };
-    db.ref().update(updates)
-      .then(() => { alert('Subscription plan upgraded and approved.'); })
-      .catch(err => alert('Approve failed: ' + err.message));
-  }
-  window.approveSubscriptionPlan = approveSubscriptionPlan;
-  function rejectSubscriptionPlan(uid, plan, name) {
-    if (!uid) return;
-    if (!confirm('Reject upgrade for user '+name+'?')) return;
-    db.ref(`users/${uid}/upgrade_request/status`).set('rejected')
-      .then(() => { alert('Upgrade request rejected.'); })
-      .catch(err => alert('Reject failed: ' + err.message));
-  }
-  window.rejectSubscriptionPlan = rejectSubscriptionPlan;
-
-  // --- Add other admin panels (users/history/map) as per earlier answers if needed ---
-
-  // Minimal live map setup, for demo:
-  function setupLiveMap(){ try {
-    window.liveMap = L.map('map').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
-  } catch{} }
-  function setupHistoryMap(){ try {
-    window.historyMap = L.map('historyMap').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
-  } catch{} }
-
-  // Approved users (see earlier answers for table code)
+  // ==== Approved users
   function loadApprovedUsers(){
     const tbl=document.getElementById("approvedUsersTable");
     tbl.innerHTML="";
@@ -355,7 +412,7 @@
     });
   }
 
-  // User selection dropdowns for history
+  // ==== User dropdown (for history map)
   function loadUserDropdowns(){
     db.ref("users").once("value",snap=>{
       const users=snap.val()||{};
@@ -368,6 +425,16 @@
       }
     });
   }
+
+  // ==== Movement History by User
+  function setupLiveMap(){ try {
+    window.liveMap = L.map('map').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
+  } catch{} }
+  function setupHistoryMap(){ try {
+    window.historyMap = L.map('historyMap').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
+  } catch{} }
   function handleLoadHistory(){
     const uid=document.getElementById("historyUserSelect").value;
     const btn=document.getElementById("deleteHistoryBtn"), historyMap=window.historyMap;
