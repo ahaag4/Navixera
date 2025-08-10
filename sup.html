@@ -29,7 +29,6 @@
       <strong>Debug (visible):</strong>
       <pre id="debugLog">Loading...</pre>
     </div>
-
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div></div>
@@ -46,7 +45,6 @@
       </div>
     </div>
 
-    <!-- Subscription Plan Approval section -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Subscription Plan Upgrade Requests</h5>
@@ -100,14 +98,12 @@
         <div id="adsList"></div>
       </div>
     </div>
-
     <div class="card mb-4">
       <div class="card-body">
         <h5>Approved Users</h5>
         <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Name</th><th>Role</th><th>Plan</th><th>Action</th></tr></thead><tbody id="approvedUsersTable"></tbody></table></div>
       </div>
     </div>
-
     <div class="card mb-4">
       <div class="card-body">
         <h5>Movement History</h5>
@@ -118,15 +114,12 @@
       </div>
     </div>
   </div>
-
-  <!-- Firebase libs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-  // ==== CONFIG/Firebase ====
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -140,19 +133,18 @@
   const auth = firebase.auth();
   const db = firebase.database();
   const storage = firebase.storage();
-
   const debugEl = document.getElementById('debugLog');
   function logDebug(...args){
     const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ');
     debugEl.textContent = (debugEl.textContent || '') + s + '\n';
     debugEl.scrollTop = debugEl.scrollHeight; console.log(...args);
   }
+  // Escape helper
   function escapeHtml(s){
     if(!s && s !== 0) return '';
     return String(s).replace(/[&<>"'`=\/]/g, function (c) {return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c];});
   }
-
-  // ==== AUTH GUARD ====
+  // -- ADMIN GUARD --
   auth.onAuthStateChanged(async (user) => {
     if (!user) return location.href = 'login.html';
     const snap = await db.ref(`users/${user.uid}`).once('value');
@@ -162,7 +154,6 @@
     init(user.uid);
   });
   logoutBtn.onclick = () => auth.signOut().then(()=>location.href='login.html');
-
   function init(adminUid){
     setupLiveMap(); setupHistoryMap(); loadStats(); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); loadAds();
     uploadAdBtn.onclick = handleUploadAd;
@@ -171,8 +162,7 @@
     logDebug('Initialized for admin: ', adminUid);
   }
 
-  // --- Subscription Plan Upgrade Approval ---
-  // This panel will show users with upgrade_request.status === "pending"
+  // ---- SUBSCRIPTION PLAN APPROVAL ----
   const subscriptionPendingList = document.getElementById('subscriptionPendingList');
   function loadPendingSubscriptions() {
     db.ref('users').on('value', snap => {
@@ -241,20 +231,12 @@
       .catch(err => alert('Reject failed: ' + err.message));
   }
 
-  // ...rest of your admin code for stats, maps, ads, user approvals...
-  // Below is minimal setup for stats and maps.
-  // Use your full implementations as in previous admin panel code.
-
-  function setupLiveMap(){
-    try {
-      window.liveMap = L.map('map').setView([20,78],5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
-    } catch{}
-  }
-  function setupHistoryMap(){
-    window.historyMap = L.map('historyMap').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
-  }
+  // ---- REMAINDER: You can use your previous code for live stats, map, user approvals, ads ----
+  // Minimal map and stats setup:
+  function setupLiveMap(){try{window.liveMap = L.map('map').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);}catch{}}
+  function setupHistoryMap(){window.historyMap = L.map('historyMap').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);}
   function loadStats(){
     db.ref('users').once('value').then(snap=>{
       const users = snap.val()||{};
@@ -284,8 +266,9 @@
       alertsTodayEl.innerText = alerts;
     });
   }
+  // ...keep/loadPendingApprovals(), loadApprovedUsers(), loadUserDropdowns(), handleUploadAd(), handleLoadHistory(), deleteHistoryByUser(), etc. as in previous complete code...
 
-  // Add your live implementation (ads/user approvals/history/etc) as in your earlier admin, or ask for that section if needed!
+  // END
   </script>
 </body>
 </html>
