@@ -4,130 +4,141 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Smart Tracker — Subscription + Admin</title>
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial, sans-serif; margin:0; background:#f7f9fc; color:#222; }
-    .dashboard { max-width:1100px; margin:18px auto; padding:18px; }
-    header { display:flex; align-items:center; gap:12px; justify-content:space-between; background:#343a40; color:#fff; padding:12px 20px; border-radius:10px; }
-    .logo { height:40px; }
-    .card { background:#fff; padding:16px; margin:18px 0; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    h2 { margin:0 0 8px 0; color:#343a40; }
-    .plan-pill { padding:6px 10px; border-radius:8px; background:#f2f2f2; font-weight:700; }
-    .ad-banner { width:100%; height:60px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:8px; margin-top:12px; color:#333; font-weight:700; }
-    .interstitial { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999; }
-    .interstitial .card { width:86%; max-width:420px; text-align:center; }
-    .btn { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
-    .btn-primary { background:#007bff; color:#fff; }
-    .btn-warning { background:#ffc107; color:#212529; }
-    .btn-danger { background:#dc3545; color:#fff; }
-    .btn-ghost { background:transparent; border:1px solid #ddd; }
-    .small-muted { color:#6c757d; font-size:13px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
-    .view-btn { background:#007bff; color:#fff; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
-    .admin-panel { margin-top:12px; }
-    .pending-pill { background:#ffd966; color:#4a2900; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .approved-pill { background:#d4edda; color:#155724; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .rejected-pill { background:#f8d7da; color:#721c24; padding:6px 10px; border-radius:6px; font-weight:700; }
-    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
-    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    body { background: #f6f7fa; }
+    .navbar-brand { font-weight: 700; }
+    .ad-banner { width: 100%; min-height: 64px; background: #e9ecef; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 18px; overflow: hidden; }
+    .ad-banner img, .ad-banner video { max-height: 62px; max-width: 96vw; border-radius: 8px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 18px;}
+    h2, h3 { font-weight: 700; color: #343a40; }
+    .plan-pill { padding: 7px 14px; border-radius: 20px; background: #e2e3e5; font-weight:700; margin-right: 8px;}
+    @media (max-width: 575px) {
+      h2, h3 { font-size: 1.15rem; }
+      .plan-pill { font-size: 1rem; padding: 5px 10px; }
+      .ad-banner { min-height: 52px; }
+      .ad-banner img, .ad-banner video { max-height: 48px;}
+    }
+    .pending-pill, .approved-pill, .rejected-pill {
+      padding:5px 12px; border-radius:20px; font-weight:600; font-size:1em;
+    }
+    .pending-pill { background: #fff3cd; color:#856404; }
+    .approved-pill { background: #d4edda; color:#155724; }
+    .rejected-pill { background: #f8d7da; color:#721c24; }
+    .small-muted { color:#6c757d; font-size:.94em;}
+    .table { font-size: .98em;}
   </style>
 </head>
 <body>
-  <div class="dashboard">
-    <header>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="assets/logo.png" alt="Logo" class="logo"/>
-        <div>
-          <div style="font-size:20px;font-weight:700;">Smart Tracker</div>
-          <div style="font-size:12px;color:#ddd;">Vehicle tracking & fleet dashboard</div>
-        </div>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-sm navbar-dark bg-primary mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <img src="assets/logo.png" alt="Logo" style="height:32px; margin-right:10px;">
+        Smart Tracker
+      </a>
+      <div class="d-flex align-items-center ms-auto">
+        <span id="userEmail" class="small-muted me-3">Loading...</span>
+        <span id="planPill" class="plan-pill">—</span>
+        <button id="logoutBtn" class="btn btn-light btn-sm ms-2">Logout</button>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div id="userEmail" class="small-muted">Loading...</div>
-        <div id="planPill" class="plan-pill">—</div>
-        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
-      </div>
-    </header>
+    </div>
+  </nav>
 
+  <div class="container" style="max-width:1000px;">
     <!-- Ad area -->
     <div id="adArea" class="ad-banner">Ad placeholder</div>
 
-    <!-- Status card -->
-    <section class="card status-card">
-      <h2>🔍 Live Status</h2>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <div><strong>Online:</strong> <span id="onlineStatus">Checking...</span></div>
-        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
-      </div>
-      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
-      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
-      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
-      <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
-    </section>
-
-    <!-- Subscription + upgrade request -->
-    <section class="card subscription-card">
-      <h2>💳 Subscription & Upgrades</h2>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <div>Plan: <strong id="currentPlan">Loading</strong></div>
-        <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
-        <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-        <div style="margin-left:auto;">
-          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
-          <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
+    <!-- Status & Plan -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h3>Live Status</h3>
+            <div class="row">
+              <div class="col-6"><strong>Online:</strong> <span id="onlineStatus">Checking...</span></div>
+              <div class="col-6"><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
+            </div>
+            <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+            <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+            <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+            <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
+          </div>
         </div>
       </div>
-      <div style="margin-top:10px;">
-        <span id="requestStatusArea"></span>
+      <div class="col-md-6">
+        <!-- Subscription -->
+        <div class="card">
+          <div class="card-body">
+            <h3>Subscription & Upgrades</h3>
+            <div>Plan: <strong id="currentPlan">Loading</strong></div>
+            <div class="small-muted mt-1">Expiry: <span id="planExpiry">-</span></div>
+            <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
+            <div class="mt-2">
+              <button id="upgradeToSilver" class="btn btn-warning btn-sm">Request Silver (₹149/mo)</button>
+              <button id="upgradeToGold" class="btn btn-primary btn-sm">Request Gold (₹249/mo)</button>
+            </div>
+            <div style="margin-top:10px;">
+              <span id="requestStatusArea"></span>
+            </div>
+            <div class="small-muted mt-2">
+              Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV) • Gold (90d, no ads, advanced export)
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:12px;" class="small-muted">
-        Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
-      </div>
-    </section>
+    </div>
 
     <!-- Map -->
-    <section class="card map-card">
-      <h2>🗺 Live Map</h2>
-      <div id="map" style="height:300px;border-radius:8px;">Loading map...</div>
-    </section>
+    <div class="card mb-4">
+      <div class="card-body">
+        <h3>Live Map</h3>
+        <div id="map" style="height:290px;border-radius:8px;">Loading map...</div>
+      </div>
+    </div>
 
     <!-- History -->
-    <section class="card history-card">
-      <h2>📈 Movement History</h2>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="small-muted">Recent movements</div>
-        <div>
-          <button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button>
+    <div class="card mb-4">
+      <div class="card-body">
+        <h3>Movement History</h3>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="small-muted">Recent movements</div>
+          <button id="exportCSVBtn" class="btn btn-primary btn-sm" style="display:none;">Export CSV</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+            <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
+          </table>
         </div>
       </div>
-      <table>
-        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
-        <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
-      </table>
-    </section>
+    </div>
 
-    <!-- Admin panel (visible only to admin users) -->
-    <section id="adminPanel" class="card admin-panel" style="display:none;">
-      <h2>🔧 Admin Panel — Upgrade Requests</h2>
-      <div id="adminList">Loading admin data…</div>
-      <hr/>
-      <h3>Recent admin logs</h3>
-      <div id="adminLogs">Loading logs…</div>
-    </section>
+    <!-- Admin panel (hidden by default) -->
+    <div id="adminPanel" class="card admin-panel mb-5" style="display:none;">
+      <div class="card-body">
+        <h3>🔧 Admin Panel — Upgrade Requests</h3>
+        <div id="adminList">Loading admin data…</div>
+        <hr/>
+        <h5>Recent admin logs</h5>
+        <div id="adminLogs">Loading logs…</div>
+      </div>
+    </div>
   </div>
 
-  <!-- Interstitial -->
+  <!-- Interstitial (simulate for login, optional) -->
   <div id="interstitial" class="interstitial"><div class="card"><h3>Ad (simulated)</h3><p>Will close in 3s...</p></div></div>
 
   <!-- Modal for upsell/info -->
-  <div id="modal"><div class="dialog"><div id="modalContent"></div><div style="margin-top:12px;text-align:right;"><button id="modalClose" class="btn btn-ghost">Close</button><button id="modalUpgradeBtn" class="btn btn-primary" style="display:none;">Request Upgrade</button></div></div></div>
+  <div id="modal" style="display:none;"><div class="dialog"><div id="modalContent"></div><div class="mt-3 text-end"><button id="modalClose" class="btn btn-light btn-sm">Close</button><button id="modalUpgradeBtn" class="btn btn-primary btn-sm" style="display:none;">Request Upgrade</button></div></div></div>
 
+  <!-- JS/libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
   // ---------- Firebase config ----------
   const firebaseConfig = {
@@ -177,109 +188,113 @@
 
   function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
 
-  // -------------- Banner AD logic -------------------
+  // -------------- Banner Ad Logic: Responsive fetch + render -------------------
   function loadBannerAdForUser(plan) {
-      // Only show ads for Basic and Silver plans
-      const showAd = plan !== 'gold';
-      if (!showAd) {
-          adArea.style.display = 'none';
-          return;
+    // Only show ads for Basic and Silver plans
+    const showAd = plan !== 'gold';
+    if (!showAd) {
+      adArea.style.display = 'none';
+      return;
+    }
+    db.ref('admin/ads').once('value').then(snap => {
+      const ads = snap.val() || {};
+      // Find first active dashboard banner or video
+      // Extend this logic to support video ads too, if needed
+      const found = Object.values(ads).find(ad =>
+        ad && ad.active && (ad.type === 'banner' || ad.type === 'video') &&
+        (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer') &&
+        ad.url
+      );
+      if (found) {
+        if (found.type === 'banner') {
+          adArea.innerHTML = `<img src="${found.url}" alt="Ad Banner" class="img-fluid" style="max-height:62px;">`;
+        } else if (found.type === 'video') {
+          adArea.innerHTML = `<video controls style="max-height:62px;max-width:99vw;"><source src="${found.url}"></video>`;
+        }
+        adArea.style.display = 'flex';
+      } else {
+        adArea.innerHTML = 'No active ad';
+        adArea.style.display = 'flex';
       }
-      db.ref('admin/ads').once('value').then(snap => {
-          const ads = snap.val() || {};
-          // Find first active dashboard banner
-          const found = Object.values(ads).find(ad =>
-              ad && ad.active && ad.type === 'banner' &&
-              (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer') &&
-              ad.url
-          );
-          if (found) {
-              adArea.innerHTML = `<img src="${found.url}" style="max-height:60px;border-radius:8px;">`;
-              adArea.style.display = 'flex';
-          } else {
-              adArea.innerHTML = 'No active ad';
-              adArea.style.display = 'flex';
-          }
-      }).catch(err => {
-          adArea.innerHTML = 'Ad load error';
-          adArea.style.display = 'flex';
-          console.error('Ad fetch failed:', err);
-      });
+    }).catch(err => {
+      adArea.innerHTML = '<span class="small-muted">Ad load error</span>';
+      adArea.style.display = 'flex';
+      console.error('Ad fetch failed:', err);
+    });
   }
 
   // ---------- Plan UI logic ----------
   function applyPlanToUI(udata) {
-      const plan = udata.plan || 'basic';
-      const plan_expiry = udata.plan_expiry || null;
-      const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
-      const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
-      localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
+    const plan = udata.plan || 'basic';
+    const plan_expiry = udata.plan_expiry || null;
+    const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
+    const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
+    localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
 
-      planPill.textContent = plan.toUpperCase();
-      currentPlanEl.textContent = plan.toUpperCase();
-      planExpiryEl.textContent = prettyTS(plan_expiry);
-      vehicleLimitEl.textContent = vehicle_limit;
-      exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
+    planPill.textContent = plan.toUpperCase();
+    currentPlanEl.textContent = plan.toUpperCase();
+    planExpiryEl.textContent = prettyTS(plan_expiry);
+    vehicleLimitEl.textContent = vehicle_limit;
+    exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
 
-      // ------ Show database-powered ad banner -------
-      loadBannerAdForUser(plan);
+    // Show responsive database-powered ad banner
+    loadBannerAdForUser(plan);
 
-      // If there's a pending upgrade_request, show pending UI
-      const req = udata.upgrade_request || null;
-      renderRequestUI(req);
+    // If there's a pending upgrade_request, show pending UI
+    const req = udata.upgrade_request || null;
+    renderRequestUI(req);
   }
 
   // ---------- Upgrade request UI logic ----------
   function renderRequestUI(upgradeRequest) {
-      if (!upgradeRequest || !upgradeRequest.status) {
-          requestStatusArea.innerHTML = '';
-          upgradeToSilverBtn.style.display = 'inline-block';
-          upgradeToGoldBtn.style.display = 'inline-block';
-          return;
-      }
-      const s = upgradeRequest.status;
-      if (s === 'pending') {
-          upgradeToSilverBtn.style.display = 'none';
-          upgradeToGoldBtn.style.display = 'none';
-          requestStatusArea.innerHTML = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
-      } else if (s === 'approved') {
-          upgradeToSilverBtn.style.display = 'none';
-          upgradeToGoldBtn.style.display = 'none';
-          requestStatusArea.innerHTML = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
-      } else if (s === 'rejected') {
-          upgradeToSilverBtn.style.display = 'inline-block';
-          upgradeToGoldBtn.style.display = 'inline-block';
-          requestStatusArea.innerHTML = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
-      } else if (s === 'cancelled') {
-          upgradeToSilverBtn.style.display = 'inline-block';
-          upgradeToGoldBtn.style.display = 'inline-block';
-          requestStatusArea.innerHTML = `<span class="small-muted">Upgrade request cancelled</span>`;
-      }
+    if (!upgradeRequest || !upgradeRequest.status) {
+      requestStatusArea.innerHTML = '';
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      return;
+    }
+    const s = upgradeRequest.status;
+    if (s === 'pending') {
+      upgradeToSilverBtn.style.display = 'none';
+      upgradeToGoldBtn.style.display = 'none';
+      requestStatusArea.innerHTML = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
+    } else if (s === 'approved') {
+      upgradeToSilverBtn.style.display = 'none';
+      upgradeToGoldBtn.style.display = 'none';
+      requestStatusArea.innerHTML = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
+    } else if (s === 'rejected') {
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      requestStatusArea.innerHTML = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
+    } else if (s === 'cancelled') {
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      requestStatusArea.innerHTML = `<span class="small-muted">Upgrade request cancelled</span>`;
+    }
   }
 
   // ---------- Authentication + user loader ----------
   auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-          location.href = 'login.html';
-          return;
-      }
-      uidGlobal = user.uid;
-      userEmailEl.textContent = user.email;
+    if (!user) {
+      location.href = 'login.html';
+      return;
+    }
+    uidGlobal = user.uid;
+    userEmailEl.textContent = user.email || 'No email';
 
-      // Load user record
-      db.ref(`users/${uidGlobal}`).once('value').then(snap => {
-          const udata = snap.val() || {};
-          isAdmin = udata.role === 'super-admin' || udata.role === 'admin' || udata.admin === true || udata.isAdmin === true;
-          applyPlanToUI(udata);
-          // ... load map and history, etc ...
-      }).catch(err => {
-          userEmailEl.textContent = 'Error loading user';
-      });
+    db.ref(`users/${uidGlobal}`).once('value').then(snap => {
+      const udata = snap.val() || {};
+      isAdmin = udata.role === 'super-admin' || udata.role === 'admin' || udata.admin === true || udata.isAdmin === true;
+      applyPlanToUI(udata);
+      // Add map and history loader here as needed
+    }).catch(err => {
+      userEmailEl.textContent = 'Error loading user';
+    });
   });
 
   logoutBtn.onclick = () => auth.signOut().then(()=>location.href='login.html');
 
-  // The rest of your logic for maps, history, etc. stays unchanged.
+  // Add your map, history, and admin panel logic as before...
 
   </script>
 </body>
