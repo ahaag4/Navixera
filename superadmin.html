@@ -1,71 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Super Admin - SVMS (Firestore)</title>
-
-  <!-- Bootstrap -->
+  <title>Super Admin — Subscription Approvals</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body{background:#f8f9fa}
-    .navbar{background:#0d6efd}
-    .navbar-brand{color:#fff!important;font-weight:600}
-    .card{border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
-    #map,#historyMap{height:400px;border-radius:8px}
+    body{background:#f8f9fa;padding:18px;font-family:Arial,Helvetica,sans-serif}
+    .card{border-radius:8px;padding:14px;margin-bottom:12px}
+    .small{font-size:13px;color:#666}
   </style>
 </head>
 <body>
-  <nav class="navbar px-3">
-    <a class="navbar-brand">Super Admin - SVMS (Firestore)</a>
-    <button class="btn btn-light ms-auto" id="logoutBtn">Logout</button>
-  </nav>
-
-  <div class="container py-4">
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-md-3"><div class="card p-3 text-center"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 text-center"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 text-center"><h3 id="totalDeliveries">0</h3><p>Total Deliveries</p></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 text-center"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div></div>
-    </div>
-
-    <div class="card mb-4"><div class="card-body"><h5>Live Vehicle Locations</h5><div id="map"></div></div></div>
-
-    <div class="card mb-4"><div class="card-body"><h5>Pending Approvals</h5><ul id="pendingUsersList" class="list-group"></ul></div></div>
-
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>Ads Management (Firestore)</h5>
-        <div class="row g-2">
-          <div class="col-md-3"><label>Type</label><select id="adType" class="form-select"><option value="banner">Banner</option><option value="video">Video</option></select></div>
-          <div class="col-md-3"><label>Upload</label><input id="adFile" type="file" class="form-control"/></div>
-          <div class="col-md-3"><label>Or URL</label><input id="adUrl" class="form-control"/></div>
-          <div class="col-md-3"><label>Placement</label><select id="adPlacement" class="form-select"><option value="dashboard_top">Dashboard Top</option><option value="login_interstitial">Login Interstitial</option></select></div>
-          <div class="col-md-3 mt-2"><label>Active</label><select id="adActive" class="form-select"><option value="true">Active</option><option value="false">Inactive</option></select></div>
-          <div class="col-md-3 mt-2 d-flex align-items-end"><button id="uploadAdBtn" class="btn btn-primary w-100">Upload / Save Ad</button></div>
-        </div>
-        <hr/>
-        <div id="adsList"></div>
+  <div style="max-width:1100px;margin:auto">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3>Super Admin — Subscription Requests</h3>
+      <div>
+        <span id="adminEmail" class="me-3 small">Loading...</span>
+        <button id="logoutBtn" class="btn btn-outline-secondary btn-sm">Logout</button>
       </div>
     </div>
 
-    <div class="card mb-4"><div class="card-body"><h5>Approved Users</h5><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Plan</th><th>Action</th></tr></thead><tbody id="approvedUsersTable"></tbody></table></div></div>
+    <div class="card bg-white">
+      <h5>Pending Subscription Requests</h5>
+      <div class="small mb-2">Click approve to activate the plan for the user (30-day expiry)</div>
+      <div id="pendingRequestsArea">Loading...</div>
+    </div>
 
-    <div class="card mb-4"><div class="card-body"><h5>Movement History</h5><select id="historyUserSelect" class="form-select mb-2"></select><button id="loadHistoryBtn" class="btn btn-secondary mb-2">Load History</button><div id="historyMap" style="height:300px;"></div><button id="deleteHistoryBtn" class="btn btn-danger mt-2" style="display:none">Delete History</button></div></div>
+    <div class="card bg-white">
+      <h5>Approvals Log</h5>
+      <div id="approvalsLog">Loading...</div>
+    </div>
+
+    <div class="card bg-white">
+      <h5>User Earnings (Add credits)</h5>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="small">User ID</label>
+          <input id="earnUserId" class="form-control" placeholder="uid"/>
+        </div>
+        <div class="col-md-3">
+          <label class="small">Amount (₹)</label>
+          <input id="earnAmount" class="form-control" type="number" placeholder="100"/>
+        </div>
+        <div class="col-md-3">
+          <button id="addEarningsBtn" class="btn btn-primary">Add Earnings</button>
+        </div>
+      </div>
+      <hr/>
+      <h6>Balances</h6>
+      <div id="earningsList">Loading...</div>
+    </div>
   </div>
 
-  <!-- Firebase libs (compat) -->
+  <!-- Firebase libs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script>
+  // ---------- CONFIG ----------
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
+    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
     projectId: "svms-c0232",
     storageBucket: "svms-c0232.appspot.com",
     messagingSenderId: "359201898609",
@@ -73,199 +71,142 @@
   };
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  const db = firebase.firestore();
-  const storage = firebase.storage();
+  const db = firebase.database();
 
-  // UI refs
-  const pendingUsersList = document.getElementById('pendingUsersList');
-  const adsList = document.getElementById('adsList');
-  const uploadAdBtn = document.getElementById('uploadAdBtn');
-  const adFileInput = document.getElementById('adFile');
-  const adUrlInput = document.getElementById('adUrl');
-  const adType = document.getElementById('adType');
-  const adPlacement = document.getElementById('adPlacement');
-  const adActive = document.getElementById('adActive');
+  // ---------- DOM ----------
+  const adminEmail = document.getElementById('adminEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const pendingRequestsArea = document.getElementById('pendingRequestsArea');
+  const approvalsLog = document.getElementById('approvalsLog');
+  const earnUserId = document.getElementById('earnUserId');
+  const earnAmount = document.getElementById('earnAmount');
+  const addEarningsBtn = document.getElementById('addEarningsBtn');
+  const earningsList = document.getElementById('earningsList');
 
-  const approvedUsersTable = document.getElementById('approvedUsersTable');
-  const historyUserSelect = document.getElementById('historyUserSelect');
-  const loadHistoryBtn = document.getElementById('loadHistoryBtn');
-  const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
-  let liveMap, historyMap, liveMarkers = {};
+  let adminUid = null;
 
-  auth.onAuthStateChanged(async user=>{
-    if(!user) return location.href='login.html';
-    // check admin flag
-    const doc = await db.collection('users').doc(user.uid).get();
-    const u = doc.exists ? doc.data() : null;
-    if(!u || u.role !== 'super-admin') return location.href='dashboard.html';
-    init();
+  // ---------- Auth guard ----------
+  auth.onAuthStateChanged(async user => {
+    if(!user) return window.location.href = 'login.html';
+    adminUid = user.uid;
+    adminEmail.textContent = user.email || adminUid;
+
+    // verify role
+    const snap = await db.ref(`users/${adminUid}`).once('value');
+    const u = snap.val() || {};
+    if(u.role !== 'super-admin') {
+      alert('Not authorized');
+      return window.location.href = 'dashboard.html';
+    }
+
+    // start listeners
+    listenSubscriptionRequests();
+    listenApprovalsLog();
+    loadEarnings();
   });
 
-  function init(){
-    setupLiveMap(); setupHistoryMap(); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); loadAds();
-    uploadAdBtn.onclick = handleUploadAd;
-    loadHistoryBtn.onclick = handleLoadHistory;
-  }
+  logoutBtn.onclick = ()=> auth.signOut().then(()=> window.location.href='login.html');
 
-  // Pending approvals (Firestore)
-  async function loadPendingApprovals(){
-    pendingUsersList.innerHTML = '';
-    const q = await db.collection('users').where('approved','==',false).get();
-    if(q.empty){ pendingUsersList.innerHTML = '<li class="list-group-item text-muted">No pending approvals.</li>'; return; }
-    q.forEach(doc=>{
-      const u = doc.data(); const uid = doc.id;
-      if(u.role==='super-admin') return;
-      const li = document.createElement('li'); li.className='list-group-item d-flex justify-content-between';
-      li.innerHTML = `<div><strong>${u.companyName||u.email||uid}</strong> <small>(${u.role})</small></div>`;
-      const actions = document.createElement('div');
-      const a = document.createElement('button'); a.className='btn btn-success btn-sm me-1'; a.textContent='Approve';
-      const r = document.createElement('button'); r.className='btn btn-danger btn-sm'; r.textContent='Reject';
-      a.onclick = ()=> db.collection('users').doc(uid).update({approved:true}).then(()=>loadPendingApprovals());
-      r.onclick = ()=> db.collection('users').doc(uid).delete().then(()=>loadPendingApprovals());
-      actions.appendChild(a); actions.appendChild(r); li.appendChild(actions);
-      pendingUsersList.appendChild(li);
-    });
-  }
-
-  // Approved users
-  async function loadApprovedUsers(){
-    const snapshot = await db.collection('users').where('approved','==',true).get();
-    let rows = '';
-    snapshot.forEach(doc=>{
-      const u = doc.data(); const uid = doc.id;
-      if(u.role==='company' || u.role==='customer') rows += `<tr><td>${u.companyName||u.email||uid}</td><td>${u.role}</td><td>${u.plan||'basic'}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openUser('${uid}')">Open</button></td></tr>`;
-    });
-    approvedUsersTable.innerHTML = rows || `<tr><td colspan=4 class="text-muted">No approved users.</td></tr>`;
-  }
-  window.openUser = function(uid){ db.collection('users').doc(uid).get().then(s=>alert(JSON.stringify(s.data(),null,2))); }
-
-  // Ads management (Firestore)
-  async function loadAds(){
-    adsList.innerHTML = '<div class="text-muted">Loading ads…</div>';
-    const snap = await db.collection('admin_ads').orderBy('createdAt','desc').get();
-    adsList.innerHTML = '';
-    snap.forEach(doc=>{
-      const ad = doc.data(); const id = doc.id;
-      const div = document.createElement('div'); div.className='mb-2 p-2 bg-white border rounded';
-      div.innerHTML = `<div><strong>${ad.placement}</strong> · ${ad.type} · ${ad.active ? 'ACTIVE' : 'INACTIVE'} · <small>${ad.createdAt?.toDate?.().toLocaleString?.()||ad.createdAt}</small></div>`;
-      const content = document.createElement('div');
-      if(ad.type==='banner') content.innerHTML = ad.url ? `<img src="${ad.url}" style="max-width:320px;border-radius:6px" />` : '<small class="text-muted">No url</small>';
-      else content.innerHTML = ad.url ? `<video controls style="max-width:320px"><source src="${ad.url}"></video>` : '<small class="text-muted">No url</small>';
-      const btns = document.createElement('div'); btns.className='mt-2';
-      const toggle = document.createElement('button'); toggle.className='btn btn-sm btn-outline-secondary me-2';
-      toggle.textContent = ad.active ? 'Deactivate' : 'Activate'; toggle.onclick = ()=> db.collection('admin_ads').doc(id).update({active: !ad.active}).then(()=>loadAds());
-      const del = document.createElement('button'); del.className='btn btn-sm btn-danger'; del.textContent='Delete';
-      del.onclick = async ()=> {
-        if(!confirm('Delete this ad?')) return;
-        if(ad.storagePath) await storage.ref(ad.storagePath).delete().catch(()=>{/*ignore*/});
-        await db.collection('admin_ads').doc(id).delete();
-        loadAds();
-      };
-      btns.appendChild(toggle); btns.appendChild(del);
-      div.appendChild(content); div.appendChild(btns);
-      adsList.appendChild(div);
-    });
-  }
-
-  async function handleUploadAd(){
-    const file = adFileInput.files[0];
-    const url = (adUrlInput.value || '').trim();
-    const type = adType.value;
-    const placement = adPlacement.value;
-    const active = adActive.value === 'true';
-    if(!file && !url) return alert('Upload a file or enter a URL.');
-    try{
-      let downloadUrl = url;
-      let storagePath = null;
-      if(file){
-        const id = db.collection('admin_ads').doc().id;
-        storagePath = `admin_ads/${id}/${file.name}`;
-        const ref = storage.ref(storagePath);
-        await ref.put(file);
-        downloadUrl = await ref.getDownloadURL();
+  // ---------- Listen subscription requests ----------
+  function listenSubscriptionRequests(){
+    db.ref('subscriptionRequests').on('value', snap => {
+      const v = snap.val() || {};
+      const entries = Object.entries(v).filter(([k, val]) => val && val.status === 'pending');
+      if(entries.length === 0) {
+        pendingRequestsArea.innerHTML = '<div class="small text-muted">No pending requests.</div>';
+        return;
       }
-      await db.collection('admin_ads').add({ type, placement, url: downloadUrl, storagePath, active, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-      alert('Ad saved');
-      adFileInput.value = ''; adUrlInput.value='';
-      loadAds();
-    }catch(e){ console.error(e); alert('Upload error: '+e.message); }
-  }
-
-  // Live map
-  function setupLiveMap(){
-    liveMap = L.map('map').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(liveMap);
-    db.collection('users').onSnapshot(snap=>{
-      // remove old markers
-      Object.values(liveMarkers||{}).forEach(m=>liveMap.removeLayer(m));
-      liveMarkers = {};
-      snap.forEach(doc=>{
-        const u = doc.data(); const uid = doc.id;
-        if(u.vehicle && u.vehicle.companies){
-          Object.entries(u.vehicle.companies).forEach(([cname,comp])=>{
-            const vehs = comp.vehicle||{};
-            Object.entries(vehs).forEach(([vid,v])=>{
-              const gps = v.gps || v.last_gps || '';
-              const [lat,lng] = (gps+'').split(',').map(Number);
-              if(!lat||!lng) return;
-              const m = L.marker([lat,lng]).addTo(liveMap).bindPopup(`${vid} (${cname})`);
-              liveMarkers[vid] = m;
-            });
-          });
-        }
+      const list = document.createElement('div');
+      list.className = 'list-group';
+      entries.forEach(([reqId, req])=>{
+        const div = document.createElement('div');
+        div.className = 'list-group-item d-flex justify-content-between align-items-start';
+        div.innerHTML = `<div><strong>${req.uid}</strong> requested <strong>${req.requestedPlan}</strong><div class="small text-muted">${req.request_time}</div></div>`;
+        const actions = document.createElement('div');
+        const approveBtn = document.createElement('button'); approveBtn.className='btn btn-sm btn-success me-2'; approveBtn.textContent='Approve';
+        const rejectBtn = document.createElement('button'); rejectBtn.className='btn btn-sm btn-danger'; rejectBtn.textContent='Reject';
+        approveBtn.onclick = ()=> handleApprove(reqId, req);
+        rejectBtn.onclick = ()=> handleReject(reqId, req);
+        actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
+        div.appendChild(actions);
+        list.appendChild(div);
       });
+      pendingRequestsArea.innerHTML = '';
+      pendingRequestsArea.appendChild(list);
     });
   }
 
-  // History map
-  function setupHistoryMap(){ historyMap = L.map('historyMap').setView([20,78],5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(historyMap); }
-  async function handleLoadHistory(){
-    const uid = historyUserSelect.value;
-    if(!uid) return alert('Select user');
-    const doc = await db.collection('users').doc(uid).get();
-    const u = doc.data()||{};
-    const hist = u?.vehicle?.history || {};
-    const pts = [];
-    Object.values(hist).forEach(entry=>{
-      let loc = typeof entry === 'string' ? entry : entry.location;
-      if(!loc) return;
-      const arr = loc.split(',').map(Number);
-      if(!isNaN(arr[0]) && !isNaN(arr[1])) pts.push(arr);
+  // ---------- Approve / Reject handlers ----------
+  async function handleApprove(reqId, req){
+    if(!confirm(`Approve ${req.uid} → ${req.requestedPlan}?`)) return;
+    const targetUid = req.uid;
+    const plan = req.requestedPlan || 'silver';
+    // set plan, expiry, vehicle_limit, exportCSV and mark user's upgrade_request and subscriptionRequests reqId as approved
+    const now = new Date();
+    const expiry = new Date(now.getTime() + 30*24*60*60*1000).toISOString();
+    const updates = {};
+    updates[`users/${targetUid}/plan`] = plan;
+    updates[`users/${targetUid}/plan_expiry`] = expiry;
+    updates[`users/${targetUid}/vehicle_limit`] = (plan === 'silver' || plan === 'gold') ? 3 : 1;
+    updates[`users/${targetUid}/exportCSV`] = true;
+    updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
+    updates[`subscriptionRequests/${reqId}/status`] = 'approved';
+    const log = { adminUid, uid: targetUid, plan, approvedAt: new Date().toISOString(), reqId };
+    updates[`admin/approvals/${reqId}`] = log;
+    try {
+      await db.ref().update(updates);
+      alert('Approved and applied to user.');
+    } catch(err){ console.error(err); alert('Approve failed: '+err.message); }
+  }
+
+  async function handleReject(reqId, req){
+    if(!confirm('Reject this request?')) return;
+    const updates = {};
+    if(req && req.uid) updates[`users/${req.uid}/upgrade_request/status`] = 'rejected';
+    updates[`subscriptionRequests/${reqId}/status`] = 'rejected';
+    updates[`admin/approvals/${reqId}`] = { adminUid, uid: req.uid || null, status:'rejected', processedAt: new Date().toISOString(), reqId };
+    try {
+      await db.ref().update(updates);
+      alert('Rejected.');
+    } catch(err){ console.error(err); alert('Reject failed: '+err.message); }
+  }
+
+  // ---------- approvals log ----------
+  function listenApprovalsLog(){
+    db.ref('admin/approvals').limitToLast(100).on('value', snap => {
+      const v = snap.val() || {};
+      const rows = Object.entries(v).reverse().map(([k,log])=>{
+        return `<div class="small mb-1">${log.approvedAt || log.processedAt || ''} — <strong>${log.adminUid}</strong> → ${log.uid} : ${log.plan || log.status}</div>`;
+      }).join('');
+      approvalsLog.innerHTML = rows || '<div class="small text-muted">No approvals yet</div>';
     });
-    if(pts.length===0) return alert('No history');
-    clearHistoryMap();
-    const poly = L.polyline(pts,{color:'blue'}).addTo(historyMap);
-    historyMap.fitBounds(poly.getBounds());
-    deleteHistoryBtn.style.display = 'inline-block';
-    deleteHistoryBtn.onclick = async ()=> {
-      if(!confirm('Delete history?')) return;
-      // update user doc to remove history (production use server-side)
-      await db.collection('users').doc(uid).update({ 'vehicle.history': firebase.firestore.FieldValue.delete() });
-      clearHistoryMap(); deleteHistoryBtn.style.display='none';
-      alert('Deleted');
-    };
   }
-  function clearHistoryMap(){ if(!historyMap) return; historyMap.eachLayer(l=>{ if(l instanceof L.Polyline || l instanceof L.Marker || l instanceof L.CircleMarker) historyMap.removeLayer(l); }); }
 
-  async function loadUserDropdowns(){
-    historyUserSelect.innerHTML = '<option value="">Select User</option>';
-    const snap = await db.collection('users').get();
-    snap.forEach(doc=> {
-      const u = doc.data(); const id = doc.id;
-      if(u.role === 'company' || u.role === 'customer') historyUserSelect.innerHTML += `<option value="${id}">${u.companyName||u.email||id}</option>`;
+  // ---------- Earnings ----------
+  addEarningsBtn.onclick = async () => {
+    const target = earnUserId.value.trim();
+    const amt = Number(earnAmount.value);
+    if(!target || !amt || amt <= 0) return alert('Enter user id and positive amount');
+    try {
+      // atomic add
+      const ref = db.ref(`earnings/${target}`);
+      const snap = await ref.once('value');
+      const prev = snap.val() && snap.val().amount ? Number(snap.val().amount) : 0;
+      await ref.set({ amount: prev + amt, lastUpdated: new Date().toISOString() });
+      alert(`Added ₹${amt} to ${target}. New balance: ₹${prev + amt}`);
+      earnUserId.value = ''; earnAmount.value = '';
+    } catch(err){ console.error(err); alert('Add failed: '+err.message); }
+    loadEarnings();
+  };
+
+  function loadEarnings(){
+    db.ref('earnings').on('value', snap => {
+      const v = snap.val() || {};
+      const rows = Object.entries(v).map(([uid,eo])=> `<div class="small mb-1"><strong>${uid}</strong> : ₹${eo.amount || 0}</div>`).join('');
+      earningsList.innerHTML = rows || '<div class="small text-muted">No earnings records.</div>';
     });
   }
 
-  async function loadApprovedUsers(){
-    const q = await db.collection('users').where('approved','==',true).get();
-    let rows = '';
-    q.forEach(doc=>{ const u=doc.data(), id=doc.id; if(u.role==='company'||u.role==='customer') rows += `<tr><td>${u.companyName||u.email||id}</td><td>${u.role}</td><td>${u.plan||'basic'}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openUser('${id}')">Open</button></td></tr>`; });
-    approvedUsersTable.innerHTML = rows || `<tr><td colspan=4>No approved users</td></tr>`;
-  }
-  window.openUser = function(uid){ db.collection('users').doc(uid).get().then(s=>alert(JSON.stringify(s.data(),null,2))); }
-
-  // initial bootstrap
-  // auth.onAuthStateChanged handles service check
   </script>
 </body>
 </html>
