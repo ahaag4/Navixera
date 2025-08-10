@@ -41,7 +41,7 @@
     .header-email { font-size:15px; color:#e2e6ed; font-weight: 500; }
     .plan-pill {
       background: linear-gradient(90deg,#2670ff,#31ffa7);
-      color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.06em;
+      color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.04em;
       box-shadow: 0 1px 8px rgba(48,154,241,.08); border: none;
     }
     .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px; transition: background .23s;}
@@ -62,6 +62,7 @@
     .pending-pill { background:#ffd966; color:#4a2900; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
     .approved-pill { background:#31ffa7; color:#167054; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
     .rejected-pill { background:#f8d7da; color:#721c24; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .small-muted { color:#6c757d; font-size:14px; }
     .components-list { margin-top:11px; list-style:none; padding-left:0; }
     .components-list li { padding:7px 0; border-bottom:1px dashed #f0f3fa; }
     .comp-ok { color:#25ad45; font-weight:700;}
@@ -77,7 +78,6 @@
     .btn-warning { background:#ffd966; color:#4a2900; font-weight:700;}
     .btn-danger { background:#dc3545; color:#fff; font-weight:700;}
     .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
-    .small-muted { color:#6c757d; font-size:14px; }
     #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
     #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
     @media (max-width:600px) {
@@ -154,7 +154,7 @@
       <div style="margin-top:10px;">
         <span id="requestStatusArea"></span>
       </div>
-      <div style="margin-top:12px;" class="small-muted">
+      <div style="margin-top:14px;" class="small-muted">
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
       </div>
     </section>
@@ -359,7 +359,7 @@
     const targetUid = adminReqObj.uid;
     const plan = adminReqObj.requestedPlan || 'silver';
     const now = new Date();
-    const expiry = new Date(now.getTime() + (30*24*60*60*1000)); // 30 days
+    const expiry = new Date(now.getTime() + (30*24*60*60*1000));
     const updates = {};
     updates[`users/${targetUid}/plan`] = plan;
     updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
@@ -515,7 +515,6 @@
       });
     }, 30000);
   }
-
   function showModal(html, showUpgrade=false) {
     modalContent.innerHTML = html;
     modal.style.display = 'flex';
