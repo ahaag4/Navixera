@@ -1,711 +1,417 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart Tracker Dashboard</title>
-
-  <!-- Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="assets/favicon.ico"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    :root{
-      --primary: #0d6efd;
-      --bg: #f6f8fb;
-      --card: #ffffff;
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
     }
-    html,body { height:100%; margin:0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: var(--bg); color:#212529; }
-    .container-xl { max-width:1200px; }
-    header.appbar { background: linear-gradient(90deg,var(--primary), #1469ff); color:white; padding:12px 18px; border-radius:8px; margin-top:18px; }
-    header.appbar .brand { font-weight:700; font-size:1.2rem; letter-spacing:0.2px; }
-    .top-controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .card { border-radius:12px; box-shadow:0 6px 20px rgba(12,30,60,0.06); background:var(--card); border:0; }
-    #map { height: 480px; border-radius:8px; }
-    .panel { padding:16px; }
-    .vehicle-row { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:8px; }
-    .vehicle-row + .vehicle-row { margin-top:8px; }
-    .badge-status { font-weight:600; padding:.35rem .55rem; border-radius:8px; font-size:.8rem; }
-    .online { background:#28a745; color:white; }
-    .offline { background:#dc3545; color:white; }
-    .btn-ghost { background:transparent; border:1px solid rgba(0,0,0,0.06); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; }
-    .small { font-size:.85rem; color:#6b7280; }
-    .controls-row .form-control, .controls-row .form-select { min-width: 160px; }
-    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1200; }
-    @media (max-width: 992px) {
-      #map { height: 320px; }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
     }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+    .logo { height: 40px; }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+
   </style>
 </head>
 <body>
-  <div class="container-xl my-3">
-
-    <header class="appbar d-flex align-items-center justify-content-between">
-      <div class="brand">Smart Tracker — Dashboard</div>
-      <div class="d-flex align-items-center gap-3">
-        <div id="currentUser" class="small">Not signed in</div>
-        <button id="logoutBtn" class="btn btn-light btn-sm">Logout</button>
+  <div class="dashboard">
+    <header>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Smart Tracker</h1>
+      <div class="user-info">
+        <span id="userEmail">Loading...</span>
+        <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <div class="row g-3 mt-3">
-      <!-- Left column: map -->
-      <div class="col-lg-8">
-        <div class="card">
-          <div class="panel">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <div>
-                <div class="small">Live Vehicle Locations</div>
-                <h5 style="margin:0">Map</h5>
-              </div>
-              <div class="top-controls">
-                <input id="searchVehicle" class="form-control form-control-sm" placeholder="Search vehicle id..." />
-                <button id="centerBtn" class="btn btn-sm btn-outline-primary">Center</button>
-                <button id="followBtn" class="btn btn-sm btn-outline-secondary">Follow: off</button>
-                <button id="exportHistoryBtn" class="btn btn-sm btn-outline-success">Export History CSV</button>
-              </div>
-            </div>
+    <section class="card status-card">
+      <h2>🔍 Live Status</h2>
 
-            <div id="map"></div>
-          </div>
-        </div>
-
-        <div class="card mt-3">
-          <div class="panel">
-            <h6 class="mb-2">Movement History</h6>
-            <div class="d-flex gap-2 mb-2">
-              <select id="historyVehicleSelect" class="form-select form-select-sm">
-                <option value="">Select vehicle</option>
-              </select>
-              <button id="loadHistoryBtn" class="btn btn-sm btn-outline-primary">Load</button>
-              <button id="clearHistoryBtn" class="btn btn-sm btn-outline-danger">Clear History</button>
-            </div>
-            <div style="max-height:200px; overflow:auto">
-              <table class="table table-sm mb-0">
-                <thead><tr><th class="small">Time</th><th class="small">Location</th><th class="small">Action</th></tr></thead>
-                <tbody id="historyTable"><tr><td colspan="3" class="small">No history loaded</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      <div class="status-row">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
+        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
 
-      <!-- Right column: controls and lists -->
-      <div class="col-lg-4">
-        <div class="card panel">
-          <h6>Overview</h6>
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="small">Total vehicles</div>
-              <div id="statVehicles" class="mono">0</div>
-            </div>
-            <div>
-              <div class="small">Active alerts</div>
-              <div id="statAlerts" class="mono text-danger">0</div>
-            </div>
-          </div>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+      <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
+      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
 
-          <hr/>
-
-          <h6 class="mt-2">Vehicles</h6>
-          <div style="max-height:420px; overflow:auto; margin-top:10px" id="vehicleList"></div>
-        </div>
-
-        <div class="card panel mt-3">
-          <h6>Manual Actions</h6>
-          <div class="mb-2">
-            <label class="small">Select vehicle</label>
-            <select id="manualVehicleSelect" class="form-select form-select-sm mb-2"><option value="">-- choose vehicle --</option></select>
-          </div>
-          <div class="d-grid gap-2">
-            <button id="triggerAlarmBtn" class="btn btn-danger btn-sm">Trigger Alarm (manual)</button>
-            <button id="resetAlarmBtn" class="btn btn-outline-danger btn-sm">Reset Alarm</button>
-            <button id="addGeofenceBtn" class="btn btn-outline-primary btn-sm">Add Geofence (draw)</button>
-            <button id="clearGeofencesBtn" class="btn btn-outline-secondary btn-sm">Clear Geofences</button>
-          </div>
-        </div>
-
-        <div class="card panel mt-3">
-          <h6>Settings</h6>
-          <div class="mb-2 small">Last Active Poll Interval</div>
-          <div class="d-flex gap-2 mb-2">
-            <select id="pollInterval" class="form-select form-select-sm" style="width:130px">
-              <option value="15000">15s</option>
-              <option value="30000" selected>30s</option>
-              <option value="60000">60s</option>
-            </select>
-            <button id="saveSettingsBtn" class="btn btn-sm btn-outline-success">Save</button>
-          </div>
-          <div class="mt-2 small text-muted">Geofences are stored locally (browser). For persistent geofence enforcement use server-side rules & Cloud Functions.</div>
-        </div>
+      <div id="componentsBlock">
+        <h4>Components</h4>
+        <ul id="componentsList" class="components-list">
+          <li class="comp-unknown">No data</li>
+        </ul>
       </div>
-    </div>
+    </section>
+
+    <section class="card alarm-card">
+      <h2>🔔 Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <p id="alarmStatusText">Loading alarm status...</p>
+    </section>
+
+    <section class="card map-card">
+      <h2>🗼 Live Map</h2>
+      <div id="map">Loading map...</div>
+    </section>
+
+    <section class="card history-card">
+      <h2>📈 Movement History</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+        <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </section>
+
   </div>
 
-  <!-- Toast container -->
-  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
-
-  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <!-- Leaflet -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-/* ===========================================================
-   Smart Tracker Dashboard (single-file)
-   - Firebase compat (v9 compat SDK)
-   - Leaflet map
-   - Live markers, search, follow
-   - Manual alarm and alarm reset
-   - Movement history viewer & export CSV
-   - Client-side geofences (localStorage)
-   - Debounced inputs & polling
-   =========================================================== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-  authDomain: "svms-c0232.firebaseapp.com",
-  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-  projectId: "svms-c0232",
-  storageBucket: "svms-c0232.appspot.com",
-  messagingSenderId: "359201898609",
-  appId: "1:359201898609:web:893ef076207abb06471bd0"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const batteryHealthEl = document.getElementById("batteryHealth");
+    const historyEl = document.getElementById("history");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
+    const alarmTriggerEl = document.getElementById("alarmTrigger");
 
-/* ---------- DOM refs ---------- */
-const currentUser = document.getElementById('currentUser');
-const logoutBtn = document.getElementById('logoutBtn');
-const mapEl = document.getElementById('map');
-const vehicleListEl = document.getElementById('vehicleList');
-const historyTable = document.getElementById('historyTable');
-const historyVehicleSelect = document.getElementById('historyVehicleSelect');
-const loadHistoryBtn = document.getElementById('loadHistoryBtn');
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-const searchVehicleInput = document.getElementById('searchVehicle');
-const centerBtn = document.getElementById('centerBtn');
-const followBtn = document.getElementById('followBtn');
-const followExportBtn = document.getElementById('exportHistoryBtn');
-const statVehicles = document.getElementById('statVehicles');
-const statAlerts = document.getElementById('statAlerts');
-const manualVehicleSelect = document.getElementById('manualVehicleSelect');
-const triggerAlarmBtn = document.getElementById('triggerAlarmBtn');
-const resetAlarmBtn = document.getElementById('resetAlarmBtn');
-const addGeofenceBtn = document.getElementById('addGeofenceBtn');
-const clearGeofencesBtn = document.getElementById('clearGeofencesBtn');
-const pollIntervalSelect = document.getElementById('pollInterval');
-const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-const toastContainer = document.querySelector('.toast-container');
+    // NEW elements
+    const onlineStatusEl = document.getElementById("onlineStatus");
+    const lastSeenEl = document.getElementById("lastSeen");
+    const componentsListEl = document.getElementById("componentsList");
 
-const toast = (msg, type='primary', timeout=3500) => {
-  const div = document.createElement('div');
-  div.className = `toast align-items-center text-bg-${type} border-0`;
-  div.role = 'alert';
-  div.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
-    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-  toastContainer.appendChild(div);
-  const t = new bootstrap.Toast(div, { delay: timeout });
-  t.show();
-  div.addEventListener('hidden.bs.toast', () => div.remove());
-};
+    let map, marker;
+    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
+    let uidGlobal = null;
 
-/* ---------- App state ---------- */
-let userUid = null;
-let companyName = null; // Not strictly required; we will read from current user node
-let map, markerGroup;
-const markers = {};         // vehicleId -> L.Marker
-let followVehicleId = null;
-let followInterval = null;
-let vehiclesCache = {};     // vehicleId -> vehicleData
-let settings = { pollInterval: 30000 };
-let geofences = {};         // vehicleId -> array of {lat,lng,radius,id}
-const GEOFENCE_STORAGE_KEY = 'svms_geofences_v1';
-
-/* ---------- Helpers ---------- */
-function parseGps(gps) {
-  if (!gps || typeof gps !== 'string') return null;
-  const p = gps.split(',').map(s => s.trim());
-  if (p.length < 2) return null;
-  const lat = Number(p[0]), lng = Number(p[1]);
-  if (!isFinite(lat) || !isFinite(lng)) return null;
-  return [lat, lng];
-}
-function formatTimeIso(iso) {
-  if (!iso) return 'N/A';
-  try { return new Date(iso).toLocaleString(); } catch { return iso; }
-}
-function debounce(fn, ms=300){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-
-/* ---------- Map init ---------- */
-function initMap() {
-  map = L.map(mapEl).setView([19.2183,72.9781], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  markerGroup = L.featureGroup().addTo(map);
-  // load geofences from storage
-  try {
-    const raw = localStorage.getItem(GEOFENCE_STORAGE_KEY);
-    if (raw) geofences = JSON.parse(raw) || {};
-  } catch(e){}
-  // render any stored geofences
-  renderAllGeofences();
-}
-
-/* ---------- Render vehicle marker & list ---------- */
-function upsertMarker(vid, vdata) {
-  const coords = parseGps(vdata.gps || vdata.location || '');
-  if (!coords) return;
-  if (!markers[vid]) {
-    const m = L.marker(coords, { title: vid });
-    m.bindPopup(renderPopupHtml(vid, vdata));
-    m.addTo(markerGroup);
-    markers[vid] = m;
-  } else {
-    markers[vid].setLatLng(coords);
-    const popup = markers[vid].getPopup();
-    if (popup) popup.setContent(renderPopupHtml(vid, vdata));
-  }
-}
-
-function renderPopupHtml(vid, vdata) {
-  const battery = (vdata.battery !== undefined) ? `${vdata.battery}%` : 'N/A';
-  const status = vdata.status || vdata.current?.status || 'unknown';
-  const loc = vdata.gps || vdata.location || 'N/A';
-  const lastActive = vdata.last_active || vdata.current?.last_active || 'N/A';
-  return `<div style="min-width:180px;"><strong>${vid}</strong><div class="small text-muted">Status: ${status}</div>
-    <div class="small">Battery: ${battery}<br/>${loc}<br/>Last active: ${lastActive}</div></div>`;
-}
-
-function renderVehicleList() {
-  vehicleListEl.innerHTML = '';
-  const ids = Object.keys(vehiclesCache).sort();
-  statVehicles.textContent = ids.length;
-  let alertCount = 0;
-  ids.forEach(vid => {
-    const v = vehiclesCache[vid];
-    const online = !!v.online || false;
-    const battery = (v.battery !== undefined) ? `${v.battery}%` : 'N/A';
-    const lastActive = v.last_active || v.current?.last_active || 'N/A';
-    const status = v.status || v.current?.status || 'unknown';
-    const isAlert = v.last_trigger && v.last_trigger.status === 'alert';
-    if (isAlert) alertCount++;
-    const div = document.createElement('div');
-    div.className = 'vehicle-row bg-light px-2';
-    div.innerHTML = `
-      <div>
-        <div><strong>${vid}</strong> <span class="small text-muted">— ${status}</span></div>
-        <div class="small">Battery: ${battery} · Last: ${lastActive}</div>
-      </div>
-      <div class="d-flex gap-2 align-items-center">
-        <span class="badge-status ${online ? 'online' : 'offline'}">${online ? 'ONLINE' : 'OFFLINE'}</span>
-        <button class="btn btn-sm btn-outline-primary" data-action="center" data-vid="${vid}">Center</button>
-        <button class="btn btn-sm btn-outline-secondary" data-action="follow" data-vid="${vid}">Follow</button>
-        <button class="btn btn-sm btn-outline-danger" data-action="alarm" data-vid="${vid}">${isAlert ? 'ALERT' : 'Alarm'}</button>
-      </div>
-    `;
-    vehicleListEl.appendChild(div);
-
-    // attach actions
-    div.querySelectorAll('button').forEach(b=>{
-      b.addEventListener('click', async (ev) => {
-        const act = b.dataset.action;
-        const id = b.dataset.vid;
-        if (act === 'center') {
-          if (markers[id]) map.setView(markers[id].getLatLng(), 15);
-        } else if (act === 'follow') {
-          startFollowVehicle(id);
-        } else if (act === 'alarm') {
-          // toggle alarm to 'alert' manually for this vehicle
-          await triggerAlarmForVehicle(id);
-        }
-      });
-    });
-  });
-  statAlerts.textContent = alertCount;
-  // populate selects
-  populateVehicleSelects(ids);
-}
-
-/* ---------- Vehicle selects ---------- */
-function populateVehicleSelects(ids) {
-  [historyVehicleSelect, manualVehicleSelect].forEach(sel=>{
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">-- select vehicle --</option>';
-    ids.forEach(id => {
-      const opt = document.createElement('option'); opt.value = id; opt.textContent = id; sel.appendChild(opt);
-    });
-    if (ids.includes(cur)) sel.value = cur;
-  });
-}
-
-/* ---------- Follow vehicle ---------- */
-function startFollowVehicle(vid) {
-  followVehicleId = vid;
-  followBtn.textContent = `Follow: ${vid}`;
-  if (followInterval) clearInterval(followInterval);
-  followInterval = setInterval(() => {
-    const m = markers[followVehicleId];
-    if (m) map.setView(m.getLatLng(), Math.max(map.getZoom(), 15));
-  }, 1000);
-}
-
-/* ---------- Stop follow ---------- */
-function stopFollow() {
-  followVehicleId = null;
-  followBtn.textContent = 'Follow: off';
-  if (followInterval) { clearInterval(followInterval); followInterval = null; }
-}
-
-/* ---------- History functions ---------- */
-async function loadHistoryForVehicle(vid) {
-  if (!vid) return toast('Select a vehicle', 'warning');
-  historyTable.innerHTML = '<tr><td colspan="3" class="small">Loading...</td></tr>';
-  try {
-    const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value'); // read whole companies to find vehicle
-    const usersCompanies = snap.val() || {};
-    // find vehicle under this user's companies (we assume company admin or same structure)
-    let foundPath = null;
-    // search all companies for this user
-    for (const cname in usersCompanies) {
-      const vehicles = usersCompanies[cname].vehicle || {};
-      if (vehicles[vid]) { foundPath = `users/${userUid}/vehicle/companies/${cname}/vehicle/${vid}/history`; break; }
+    function updateMap(lat, lng, popupText = null) {
+      if (!lat || !lng) return;
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
+      if (popupText) marker.bindPopup(popupText).openPopup();
     }
-    if (!foundPath) {
-      historyTable.innerHTML = '<tr><td colspan="3">History not found for this vehicle.</td></tr>';
-      return;
-    }
-    const histSnap = await db.ref(foundPath).once('value');
-    const hist = histSnap.val() || {};
-    const rows = [];
-    Object.entries(hist).forEach(([k, entry]) => {
-      rows.push({ time: entry.time || k, location: entry.gps || entry.location || '', raw: entry });
-    });
-    rows.sort((a,b)=> (a.time < b.time ? 1 : -1)); // recent first
-    if (!rows.length) {
-      historyTable.innerHTML = '<tr><td colspan="3">No history points</td></tr>';
-      return;
-    }
-    historyTable.innerHTML = '';
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      const coords = parseGps(r.location) || [0,0];
-      tr.innerHTML = `<td class="small">${r.time}</td><td class="small mono">${r.location}</td>
-        <td><button class="btn btn-sm btn-outline-primary">View</button></td>`;
-      tr.querySelector('button').addEventListener('click', ()=> {
-        const [lat,lng] = coords;
-        if (lat && lng) { map.setView([lat,lng], 16); L.popup().setLatLng([lat,lng]).setContent(`History: ${r.time}`).openOn(map); }
-      });
-      historyTable.appendChild(tr);
-    });
-  } catch(err){
-    console.error(err); historyTable.innerHTML = '<tr><td colspan="3">Error loading history</td></tr>';
-    toast('Failed to load history (see console)', 'danger');
-  }
-}
 
-/* ---------- Export history CSV for selected vehicle ---------- */
-async function exportSelectedHistoryCSV() {
-  const vid = historyVehicleSelect.value;
-  if (!vid) return toast('Select vehicle to export', 'warning');
-  try {
-    const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value');
-    const comp = snap.val() || {};
-    let path = null;
-    for (const cname in comp) {
-      if (comp[cname].vehicle && comp[cname].vehicle[vid]) { path = `users/${userUid}/vehicle/companies/${cname}/vehicle/${vid}/history`; break; }
+    function focusOnMap(lat, lng) {
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
-    if (!path) return toast('History path not found', 'warning');
-    const histSnap = await db.ref(path).once('value');
-    const hist = histSnap.val() || {};
-    const rows = [['time','gps','payload']];
-    Object.entries(hist).forEach(([k,e]) => { rows.push([e.time || k, e.gps || e.location || '', JSON.stringify(e.payload || {})]); });
-    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${vid}_history.csv`; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    toast('CSV exported', 'success');
-  } catch(err){ console.error(err); toast('Export failed', 'danger'); }
-}
 
-/* ---------- Alarm functions (writes to DB) ---------- */
-async function triggerAlarmForVehicle(vid) {
-  if (!vid) return toast('Vehicle id required', 'warning');
-  try {
-    // find vehicle owner company path (we assume current user)
-    const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value');
-    const comps = snap.val() || {};
-    for (const cname in comps) {
-      const vehicles = comps[cname].vehicle || {};
-      if (vehicles[vid]) {
-        const triggerData = { status: 'alert', time: new Date().toISOString(), location: vehicles[vid].gps || 'Unknown' };
-        const uidPath = `users/${userUid}/vehicle/last_trigger`;
-        const historyKey = db.ref().child(`users/${userUid}/vehicle/triggersHistory`).push().key;
-        const updates = {};
-        updates[uidPath] = triggerData;
-        updates[`users/${userUid}/vehicle/triggersHistory/${historyKey}`] = triggerData;
-        await db.ref().update(updates);
-        toast(`Alarm triggered for ${vid}`, 'danger');
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
         return;
       }
-    }
-    toast('Vehicle not found under your companies', 'warning');
-  } catch(err){ console.error(err); toast('Trigger failed', 'danger'); }
-}
-
-async function resetAlarm() {
-  try {
-    await db.ref(`users/${userUid}/vehicle/last_trigger`).set(null);
-    toast('Alarm reset', 'success');
-  } catch(err) { console.error(err); toast('Reset failed', 'danger'); }
-}
-
-/* ---------- Geofence client-side (persistent in localStorage) ---------- */
-let drawnGeofences = {}; // vehicleId -> array of circle layers
-function saveGeofencesToStorage() {
-  localStorage.setItem(GEOFENCE_STORAGE_KEY, JSON.stringify(geofences));
-}
-function renderAllGeofences() {
-  // clear drawn
-  Object.values(drawnGeofences).flat().forEach(c => map.removeLayer(c));
-  drawnGeofences = {};
-  for (const vid in geofences) {
-    geofences[vid].forEach(g => {
-      const circle = L.circle([g.lat, g.lng], { radius: g.radius, color: '#ff7800', opacity: 0.6 }).addTo(map);
-      drawnGeofences[vid] = drawnGeofences[vid] || []; drawnGeofences[vid].push(circle);
-    });
-  }
-}
-function startGeofenceDrawing() {
-  toast('Click map to place geofence center; double-click to finish radius', 'info', 4000);
-  let center = null;
-  let preview = null;
-  const onClick = (e) => {
-    if (!center) {
-      center = e.latlng;
-      preview = L.circle(center, { radius: 10, color:'#ff7800', dashArray:'4 6' }).addTo(map);
-      toast('Now move mouse to resize and click again to set radius', 'info', 3000);
-    } else {
-      const radius = center.distanceTo(e.latlng);
-      const vid = manualVehicleSelect.value;
-      if (!vid) { toast('Select vehicle first to attach geofence', 'warning'); map.removeLayer(preview); cleanup(); return; }
-      geofences[vid] = geofences[vid] || [];
-      geofences[vid].push({ lat:center.lat, lng:center.lng, radius });
-      saveGeofencesToStorage(); renderAllGeofences();
-      toast(`Geofence added for ${vid} (r=${Math.round(radius)}m)`, 'success');
-      map.off('click', onClick); map.off('mousemove', onMove); map.off('dblclick', onDbl);
-      if (preview) map.removeLayer(preview);
-    }
-  };
-  const onMove = (e) => {
-    if (preview && center) {
-      const radius = center.distanceTo(e.latlng);
-      preview.setRadius(radius);
-    }
-  };
-  const onDbl = (e) => {
-    // treat double click as finish with that radius
-    onClick(e);
-  };
-  map.on('click', onClick);
-  map.on('mousemove', onMove);
-  map.on('dblclick', onDbl);
-  function cleanup() { map.off('click', onClick); map.off('mousemove', onMove); map.off('dblclick', onDbl); }
-}
-function clearAllGeofences() {
-  geofences = {}; saveGeofencesToStorage(); renderAllGeofences();
-  toast('Cleared local geofences', 'success');
-}
-// monitor geofence violations client-side on vehicle updates
-function checkGeofenceViolations(vid, coords) {
-  const arr = geofences[vid] || [];
-  arr.forEach(g => {
-    const dist = map.distance([g.lat,g.lng], coords);
-    if (dist > g.radius) {
-      toast(`Vehicle ${vid} EXITED geofence (r=${Math.round(g.radius)}m)`, 'warning', 6000);
-    } else {
-      // optionally notify on entry
-    }
-  });
-}
-
-/* ---------- Real-time DB listeners ---------- */
-async function startRealtime() {
-  try {
-    // find company/vehicles for this user — we'll assume current user contains the vehicle data in same structure as earlier code
-    // Listen to entire user's vehicle node for simplicity
-    const userRef = db.ref(`users/${userUid}/vehicle/companies`);
-    userRef.on('value', snapshot => {
-      const companies = snapshot.val() || {};
-      // rebuild vehiclesCache
-      vehiclesCache = {};
-      for (const cname in companies) {
-        const vset = companies[cname].vehicle || {};
-        for (const vid in vset) {
-          const v = vset[vid];
-          // normalize fields
-          vehiclesCache[vid] = Object.assign({}, v);
-        }
-      }
-      // update UI and markers
-      renderVehicleList();
-      Object.entries(vehiclesCache).forEach(([vid, v])=>{
-        upsertMarker(vid, v);
-        const coords = parseGps(v.gps || v.location || '');
-        if (coords) checkGeofenceViolations(vid, coords);
-      });
-    });
-
-    // listen to user's vehicle/last_trigger to show active alert counts (works in renderVehicleList)
-    db.ref(`users/${userUid}/vehicle/last_trigger`).on('value', snap => {
-      const lt = snap.val();
-      // update UI badge if needed
-      if (lt && lt.status === 'alert') toast(`Alert: ${lt.vehicleId || ''} at ${lt.time}`, 'danger', 6000);
-    });
-  } catch(err){ console.error('startRealtime', err); toast('Realtime init failed', 'danger'); }
-}
-
-/* ---------- Auth ---------- */
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    // redirect to login
-    window.location.href = 'login.html';
-    return;
-  }
-  currentUser.textContent = `${user.email || ''}`;
-  userUid = user.uid;
-  initMap();
-  await startRealtime();
-  startPeriodicPoll();
-});
-
-/* ---------- Periodic poll for last_active or stats ---------- */
-let pollTimer = null;
-function startPeriodicPoll(){
-  if (pollTimer) clearInterval(pollTimer);
-  const ms = Number(pollIntervalSelect.value || settings.pollInterval);
-  pollTimer = setInterval(async () => {
-    // just refresh stats + last_active nodes
-    try {
-      const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value');
-      const companies = snap.val() || {};
-      // update caches & check last_active times
-      let totalVehicles = 0;
-      for (const cname in companies) {
-        const vset = companies[cname].vehicle || {};
-        for (const vid in vset) {
-          totalVehicles++;
-          // ensure cache exists
-          vehiclesCache[vid] = vehiclesCache[vid] || vset[vid];
-          // if online flag present, we could re-evaluate
-        }
-      }
-      statVehicles.textContent = totalVehicles;
-    } catch(err){ console.error('poll error', err); }
-  }, Number(pollIntervalSelect.value));
-}
-
-saveSettingsBtn.addEventListener('click', ()=> {
-  settings.pollInterval = Number(pollIntervalSelect.value);
-  startPeriodicPoll();
-  toast('Settings saved', 'success');
-});
-
-/* ---------- UI bindings ---------- */
-logoutBtn.addEventListener('click', ()=> auth.signOut());
-centerBtn.addEventListener('click', ()=> {
-  const q = searchVehicleInput.value.trim();
-  if (!q) return toast('Enter vehicle id', 'warning');
-  if (markers[q]) { map.setView(markers[q].getLatLng(), 15); markers[q].openPopup(); }
-  else toast('Vehicle not found on map', 'warning');
-});
-followBtn.addEventListener('click', ()=> {
-  if (followVehicleId) { stopFollow(); } else {
-    const q = searchVehicleInput.value.trim();
-    if (!q) return toast('Enter vehicle id to follow', 'warning');
-    startFollowVehicle(q);
-  }
-});
-loadHistoryBtn.addEventListener('click', ()=> loadHistoryForVehicle(historyVehicleSelect.value));
-clearHistoryBtn.addEventListener('click', async ()=> {
-  const vid = historyVehicleSelect.value;
-  if (!vid) return toast('Select vehicle', 'warning');
-  if (!confirm(`Delete history for ${vid}? This cannot be undone.`)) return;
-  // find path
-  try {
-    const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value');
-    const comps = snap.val() || {};
-    for (const cname in comps) {
-      if (comps[cname].vehicle && comps[cname].vehicle[vid]) {
-        await db.ref(`users/${userUid}/vehicle/companies/${cname}/vehicle/${vid}/history`).remove();
-        toast('History removed', 'success');
-        historyTable.innerHTML = '<tr><td colspan="3">No history loaded</td></tr>';
+      const order = Object.keys(obj);
+      if (order.length === 0) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
         return;
       }
+      order.forEach(k => {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
+      });
     }
-    toast('Vehicle not found', 'warning');
-  } catch(err){ console.error(err); toast('Delete history failed', 'danger'); }
-});
-triggerAlarmBtn.addEventListener('click', ()=> triggerAlarmForVehicle(manualVehicleSelect.value));
-resetAlarmBtn.addEventListener('click', ()=> resetAlarm());
-addGeofenceBtn.addEventListener('click', ()=> startGeofenceDrawing());
-clearGeofencesBtn.addEventListener('click', ()=> { clearAllGeofences(); });
-followExportBtn.addEventListener('click', ()=> exportSelectedHistoryCSV());
 
-/* ---------- Utility: find vehicle path helper (used above) ---------- */
-async function findVehiclePath(vid) {
-  const snap = await db.ref(`users/${userUid}/vehicle/companies`).once('value');
-  const comps = snap.val() || {};
-  for (const cname in comps) {
-    if (comps[cname].vehicle && comps[cname].vehicle[vid]) {
-      return { company: cname, path: `users/${userUid}/vehicle/companies/${cname}/vehicle/${vid}` };
+    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
+    function parseTimestampToMs(ts) {
+      if (!ts || typeof ts !== 'string') return null;
+      // Expect format "YYYY-MM-DD HH:MM:SS"
+      const parts = ts.trim().split(' ');
+      if (parts.length < 2) {
+        // fallback to Date.parse if possible
+        const fallback = Date.parse(ts);
+        return isNaN(fallback) ? null : fallback;
+      }
+      const dateParts = parts[0].split('-');
+      const timeParts = parts[1].split(':');
+      if (dateParts.length < 3 || timeParts.length < 3) return null;
+      const y = parseInt(dateParts[0], 10);
+      const m = parseInt(dateParts[1], 10) - 1;
+      const d = parseInt(dateParts[2], 10);
+      const hh = parseInt(timeParts[0], 10);
+      const mm = parseInt(timeParts[1], 10);
+      const ss = parseInt(timeParts[2], 10);
+      const dt = new Date(y, m, d, hh, mm, ss);
+      return dt.getTime();
     }
-  }
-  return null;
-}
 
-/* ---------- Export CSV helper used by exportSelectedHistoryCSV ---------- */
-async function exportSelectedHistoryCSV() {
-  const vid = historyVehicleSelect.value;
-  if (!vid) return toast('Select vehicle to export', 'warning');
-  try {
-    const found = await findVehiclePath(vid);
-    if (!found) return toast('Vehicle not found', 'warning');
-    const histSnap = await db.ref(`${found.path}/history`).once('value');
-    const hist = histSnap.val() || {};
-    const rows = [['time','gps']];
-    Object.entries(hist).forEach(([k,e]) => rows.push([e.time || k, e.gps || e.location || '']));
-    const csv = rows.map(r=> r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' }); const u = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = u; a.download = `${vid}_history.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
-    toast('History exported', 'success');
-  } catch(err){ console.error(err); toast('Export failed', 'danger'); }
-}
+    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
+    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
+      const lastActiveMs = parseTimestampToMs(lastActiveStr);
+      if (!lastActiveMs) {
+        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
+        return !!firebaseOnlineFlag;
+      }
+      const age = Date.now() - lastActiveMs;
+      if (age > ONLINE_TTL_MS) {
+        return false; // treat as offline if last_active too old
+      }
+      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
+    }
 
-/* ---------- Save/Load geofences on unload ---------- */
-window.addEventListener('beforeunload', () => {
-  try { localStorage.setItem(GEOFENCE_STORAGE_KEY, JSON.stringify(geofences)); } catch(e){}
-});
+    // update the "Online" badge and lastActive text depending on recency
+    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
+      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
 
-/* ---------- Small UX: debounce search to highlight marker ---------- */
-searchVehicleInput.addEventListener('input', debounce(() => {
-  const q = searchVehicleInput.value.trim();
-  if (!q) return;
-  const key = Object.keys(markers).find(k => k.toLowerCase() === q.toLowerCase());
-  if (key) {
-    markers[key].openPopup();
-    map.setView(markers[key].getLatLng(), 15);
-  }
-}, 300));
+      if (isOnline) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
 
-/* ---------- Kick things off when auth is ready (auth listener above handles init) ---------- */
-/* Done */
+      if (lastActiveStr) {
+        lastActiveEl.textContent = lastActiveStr;
+      } else {
+        lastActiveEl.textContent = "Unknown";
+      }
+
+      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
+    }
+
+    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
+    function startLastActivePoll(uid) {
+      if (!uid) return;
+      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
+      setInterval(() => {
+        currentRef.once('value').then(snap => {
+          const lastActive = snap.val();
+          // Also fetch online flag to decide
+          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
+            const onlineFlag = onlineSnap.val();
+            renderOnlineAndLastActive(onlineFlag, lastActive);
+          });
+        });
+      }, LAST_ACTIVE_POLL_MS);
+    }
+
+    function loadDashboard(uid) {
+      uidGlobal = uid;
+      const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      // current block
+      vehicleRef.child("current").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const { latitude, longitude, status, last_active, battery } = data;
+
+        // display location safely
+        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
+          locationEl.textContent = `${latitude}, ${longitude}`;
+          updateMap(latitude, longitude);
+        } else {
+          locationEl.textContent = "No location";
+        }
+
+        lastActiveEl.textContent = last_active || "Unknown";
+        statusEl.textContent = status || "Unknown";
+        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
+
+        // Now evaluate online display using last_active recency and the firebase online flag
+        vehicleRef.child("online").once("value").then(onlineSnap => {
+          const onlineFlag = onlineSnap.val();
+          renderOnlineAndLastActive(onlineFlag, last_active);
+        });
+      });
+
+      // history block
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
+        historyEl.innerHTML = "";
+        if (history) {
+          // reverse for most recent first
+          const entries = Object.values(history).reverse();
+          entries.forEach(entry => {
+            const loc = entry.location || "";
+            const time = entry.time || "";
+            const [lat, lng] = loc.split(",");
+            const safeLat = parseFloat(lat) || 0;
+            const safeLng = parseFloat(lng) || 0;
+            historyEl.innerHTML += `
+              <tr>
+                <td>${time}</td>
+                <td>${loc}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+              </tr>`;
+          });
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        }
+      });
+
+      // components block
+      vehicleRef.child("components").on("value", (snapshot) => {
+        const comps = snapshot.val();
+        renderComponents(comps);
+      });
+
+      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
+      vehicleRef.child("online").on("value", (snapshot) => {
+        const onlineFlag = snapshot.val();
+        // fetch last_active to make decision
+        vehicleRef.child("current/last_active").once("value").then(snap => {
+          const lastActive = snap.val();
+          renderOnlineAndLastActive(onlineFlag, lastActive);
+        });
+      });
+
+      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        const lastSeenVal = snapshot.val();
+        lastSeenEl.textContent = lastSeenVal || "N/A";
+      });
+
+      // alarm value (toggle UI)
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
+        alarmToggle.checked = (status === "on");
+        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
+      });
+
+      // last_trigger
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
+        if (trigger && trigger.time && trigger.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
+      });
+
+      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
+      vehicleRef.child("current/status").on("value", (snapshot) => {
+        const s = snapshot.val();
+        if (s) statusEl.textContent = s;
+      });
+
+      // allow operator to toggle alarm from web UI
+      alarmToggle.addEventListener("change", () => {
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState).catch(err => {
+          console.error("Failed to set alarm:", err);
+        });
+      });
+
+      // start periodic poll for last_active to ensure "Last Active" updates every 30s
+      startLastActivePoll(uid);
+    }
+
+    // auth state
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    // Expose focusOnMap to global scope for inline onclick in generated rows
+    window.focusOnMap = focusOnMap;
   </script>
 </body>
 </html>
