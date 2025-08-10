@@ -1,577 +1,417 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Smart Tracker — Subscription + Admin</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Tracker Dashboard</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    /* --- basic styles (kept consistent with previous UI) --- */
-    body { font-family: Arial, sans-serif; margin:0; background:#f7f9fc; color:#222; }
-    .dashboard { max-width:1100px; margin:18px auto; padding:18px; }
-    header { display:flex; align-items:center; gap:12px; justify-content:space-between; background:#343a40; color:#fff; padding:12px 20px; border-radius:10px; }
-    .logo { height:40px; }
-    .card { background:#fff; padding:16px; margin:18px 0; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    h2 { margin:0 0 8px 0; color:#343a40; }
-    .plan-pill { padding:6px 10px; border-radius:8px; background:#f2f2f2; font-weight:700; }
-    .ad-banner { width:100%; height:60px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:8px; margin-top:12px; color:#333; font-weight:700; }
-    .interstitial { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999; }
-    .interstitial .card { width:86%; max-width:420px; text-align:center; }
-    .btn { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
-    .btn-primary { background:#007bff; color:#fff; }
-    .btn-warning { background:#ffc107; color:#212529; }
-    .btn-danger { background:#dc3545; color:#fff; }
-    .btn-ghost { background:transparent; border:1px solid #ddd; }
-    .small-muted { color:#6c757d; font-size:13px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
-    .view-btn { background:#007bff; color:#fff; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
-    .admin-panel { margin-top:12px; }
-    .pending-pill { background:#ffd966; color:#4a2900; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .approved-pill { background:#d4edda; color:#155724; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .rejected-pill { background:#f8d7da; color:#721c24; padding:6px 10px; border-radius:6px; font-weight:700; }
-    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
-    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+    .logo { height: 40px; }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="assets/logo.png" alt="Logo" class="logo"/>
-        <div>
-          <div style="font-size:20px;font-weight:700;">Smart Tracker</div>
-          <div style="font-size:12px;color:#ddd;">Vehicle tracking & fleet dashboard</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div id="userEmail" class="small-muted">Loading...</div>
-        <div id="planPill" class="plan-pill">—</div>
-        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Smart Tracker</h1>
+      <div class="user-info">
+        <span id="userEmail">Loading...</span>
+        <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <!-- Ad area -->
-    <div id="adArea" class="ad-banner">Ad placeholder</div>
-
-    <!-- Status card -->
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <div><strong>Online:</strong> <span id="onlineStatus">Checking...</span></div>
+
+      <div class="status-row">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
+
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
-    </section>
+      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
 
-    <!-- Subscription + upgrade request -->
-    <section class="card subscription-card">
-      <h2>💳 Subscription & Upgrades</h2>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <div>Plan: <strong id="currentPlan">Loading</strong></div>
-        <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
-        <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-
-        <div style="margin-left:auto;">
-          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
-          <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
-        </div>
-      </div>
-
-      <div style="margin-top:10px;">
-        <span id="requestStatusArea"></span>
-      </div>
-
-      <div style="margin-top:12px;" class="small-muted">
-        Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
+      <div id="componentsBlock">
+        <h4>Components</h4>
+        <ul id="componentsList" class="components-list">
+          <li class="comp-unknown">No data</li>
+        </ul>
       </div>
     </section>
 
-    <!-- Map -->
+    <section class="card alarm-card">
+      <h2>🔔 Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <p id="alarmStatusText">Loading alarm status...</p>
+    </section>
+
     <section class="card map-card">
-      <h2>🗺 Live Map</h2>
-      <div id="map" style="height:300px;border-radius:8px;">Loading map...</div>
+      <h2>🗼 Live Map</h2>
+      <div id="map">Loading map...</div>
     </section>
 
-    <!-- History -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="small-muted">Recent movements</div>
-        <div>
-          <button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button>
-        </div>
-      </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
 
-    <!-- Admin panel (visible only to admin users) -->
-    <section id="adminPanel" class="card admin-panel" style="display:none;">
-      <h2>🔧 Admin Panel — Upgrade Requests</h2>
-      <div id="adminList">Loading admin data…</div>
-      <hr/>
-      <h3>Recent admin logs</h3>
-      <div id="adminLogs">Loading logs…</div>
-    </section>
   </div>
-
-  <!-- Interstitial -->
-  <div id="interstitial" class="interstitial"><div class="card"><h3>Ad (simulated)</h3><p>Will close in 3s...</p></div></div>
-
-  <!-- Modal for upsell/info -->
-  <div id="modal"><div class="dialog"><div id="modalContent"></div><div style="margin-top:12px;text-align:right;"><button id="modalClose" class="btn btn-ghost">Close</button><button id="modalUpgradeBtn" class="btn btn-primary" style="display:none;">Request Upgrade</button></div></div></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
-  /*****************************************************************
-   * Full dashboard + upgrade request + admin approve/reject
-   * IMPORTANT: Client-side enforcement only — add server-side rules/webhooks for production.
-   *****************************************************************/
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-  // ---------- Firebase config (same as before) ----------
-  const firebaseConfig = {
-    apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-    authDomain: "svms-c0232.firebaseapp.com",
-    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-    projectId: "svms-c0232",
-    storageBucket: "svms-c0232.appspot.com",
-    messagingSenderId: "359201898609",
-    appId: "1:359201898609:web:893ef076207abb06471bd0"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.database();
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const batteryHealthEl = document.getElementById("batteryHealth");
+    const historyEl = document.getElementById("history");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
+    const alarmTriggerEl = document.getElementById("alarmTrigger");
 
-  // ---------- DOM refs ----------
-  const userEmailEl = document.getElementById('userEmail');
-  const planPill = document.getElementById('planPill');
-  const adArea = document.getElementById('adArea');
-  const interstitial = document.getElementById('interstitial');
+    // NEW elements
+    const onlineStatusEl = document.getElementById("onlineStatus");
+    const lastSeenEl = document.getElementById("lastSeen");
+    const componentsListEl = document.getElementById("componentsList");
 
-  const currentPlanEl = document.getElementById('currentPlan');
-  const planExpiryEl = document.getElementById('planExpiry');
-  const vehicleLimitEl = document.getElementById('vehicleLimit');
-  const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
-  const upgradeToGoldBtn = document.getElementById('upgradeToGold');
-  const requestStatusArea = document.getElementById('requestStatusArea');
+    let map, marker;
+    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
+    let uidGlobal = null;
 
-  const historyTbody = document.getElementById('history');
-  const exportCSVBtn = document.getElementById('exportCSVBtn');
-
-  const adminPanel = document.getElementById('adminPanel');
-  const adminList = document.getElementById('adminList');
-  const adminLogs = document.getElementById('adminLogs');
-
-  const modal = document.getElementById('modal');
-  const modalContent = document.getElementById('modalContent');
-  const modalClose = document.getElementById('modalClose');
-  const modalUpgradeBtn = document.getElementById('modalUpgradeBtn');
-
-  let uidGlobal = null;
-  let isAdmin = false;
-  let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false };
-
-  // ---------- Plan policies ----------
-  const PLAN_POLICIES = {
-    basic: { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false },
-    silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true },
-    gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
-  };
-
-  // ---------- small helpers ----------
-  function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
-
-  function applyPlanToUI(udata) {
-    const plan = udata.plan || 'basic';
-    const plan_expiry = udata.plan_expiry || null;
-    const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
-    const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
-
-    localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
-
-    planPill.textContent = plan.toUpperCase();
-    currentPlanEl.textContent = plan.toUpperCase();
-    planExpiryEl.textContent = prettyTS(plan_expiry);
-    vehicleLimitEl.textContent = vehicle_limit;
-    exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
-
-    // Ads render
-    renderAdsForPlan(plan);
-
-    // If there's a pending upgrade_request, show pending UI
-    const req = udata.upgrade_request || null;
-    renderRequestUI(req);
-  }
-
-  function renderAdsForPlan(plan) {
-    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    if (policy.ads === 'no-ads') {
-      adArea.style.display = 'none';
-    } else {
-      adArea.style.display = 'flex';
-      adArea.textContent = policy.ads === 'banner-limited' ? 'Limited banner ad (Silver)' : 'Banner ad (Basic)';
-    }
-  }
-
-  // ---------- Upgrade request UI logic ----------
-  function renderRequestUI(upgradeRequest) {
-    // upgradeRequest: { status: 'pending'|'approved'|'rejected'|null, requestedPlan: 'silver'|'gold', request_time: ISO }
-    if (!upgradeRequest || !upgradeRequest.status) {
-      // normal -> show upgrade buttons
-      requestStatusArea.innerHTML = '';
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      return;
-    }
-
-    const s = upgradeRequest.status;
-    if (s === 'pending') {
-      // hide upgrade buttons; show pending message
-      upgradeToSilverBtn.style.display = 'none';
-      upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
-    } else if (s === 'approved') {
-      upgradeToSilverBtn.style.display = 'none';
-      upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
-    } else if (s === 'rejected') {
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      requestStatusArea.innerHTML = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
-    } else if (s === 'cancelled') {
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      requestStatusArea.innerHTML = `<span class="small-muted">Upgrade request cancelled</span>`;
-    }
-  }
-
-  // ---------- request actions ----------
-  function createUpgradeRequest(uid, desiredPlan) {
-    // writes user's upgrade_request and creates an admin entry at admin/upgrade_requests
-    const now = new Date().toISOString();
-    const req = { status:'pending', requestedPlan:desiredPlan, request_time:now };
-    const updates = {};
-    updates[`users/${uid}/upgrade_request`] = req;
-    const adminKey = `req_${uid}_${Date.now()}`;
-    updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status:'pending', request_time: now };
-    // Do a multi-path update
-    return db.ref().update(updates);
-  }
-
-  function cancelUpgradeRequest(uid) {
-    return db.ref(`users/${uid}/upgrade_request/status`).set('cancelled');
-  }
-
-  // ---------- Admin functions (approve/reject) ----------
-  async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    // adminReqObj: { uid, requestedPlan, status, request_time }
-    const targetUid = adminReqObj.uid;
-    const plan = adminReqObj.requestedPlan || 'silver';
-    const now = new Date();
-    const expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days
-    // Prepare updates:
-    const updates = {};
-    updates[`users/${targetUid}/plan`] = plan;
-    updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
-    updates[`users/${targetUid}/vehicle_limit`] = PLAN_POLICIES[plan].vehicle_limit;
-    updates[`users/${targetUid}/exportCSV`] = true;
-    updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'approved';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, plan, approvedAt: new Date().toISOString(), note:'approved_via_admin_panel' };
-    // update in one go
-    await db.ref().update(updates);
-    // Optionally notify user (push notification / email) - left as integration point
-  }
-
-  async function adminRejectRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    const targetUid = adminReqObj.uid;
-    const updates = {};
-    updates[`users/${targetUid}/upgrade_request/status`] = 'rejected';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'rejected';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, status:'rejected', processedAt: new Date().toISOString(), note:'rejected_via_admin_panel' };
-    await db.ref().update(updates);
-  }
-
-  // ---------- Auto-downgrade (expiry watcher) ----------
-  function checkAndAutoDowngrade(uid, udata) {
-    if (!udata) return;
-    if (!udata.plan || !udata.plan_expiry) return;
-    const expiryMs = Date.parse(udata.plan_expiry);
-    if (isNaN(expiryMs)) return;
-    if (Date.now() >= expiryMs && udata.plan !== 'basic') {
-      // perform downgrade
-      const updates = {
-        [`users/${uid}/plan`]: 'basic',
-        [`users/${uid}/plan_expiry`]: null,
-        [`users/${uid}/vehicle_limit`]: PLAN_POLICIES.basic.vehicle_limit,
-        [`users/${uid}/exportCSV`]: false
-      };
-      db.ref().update(updates).then(() => {
-        const k = `downgrade_${uid}_${Date.now()}`;
-        db.ref(`admin/downgrades/${k}`).set({ uid, old_plan:udata.plan, new_plan:'basic', time:new Date().toISOString(), reason:'expired_auto_downgrade' });
-        // UI updates will be handled by on('value') listeners
-      }).catch(err => console.error('downgrade failed',err));
-    }
-  }
-
-  // ---------- History render (plan enforcement) ----------
-  function renderHistory(historyObj) {
-    historyTbody.innerHTML = '';
-    if (!historyObj) {
-      historyTbody.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
-      return;
-    }
-    const entries = Object.values(historyObj).slice().reverse(); // most recent first
-    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-    const cutoffMs = Date.now() - policy.historyDays * 24*60*60*1000;
-
-    // filter entries that are within window
-    const visible = entries.filter(e => {
-      if (!e.time) return false;
-      const tms = Date.parse(e.time);
-      if (!isNaN(tms)) return tms >= cutoffMs;
-      // fallback for "YYYY-MM-DD HH:MM:SS"
-      const parts = (e.time || '').split(' ');
-      if (parts.length>=2) {
-        const d = parts[0].split('-'), tm = parts[1].split(':');
-        if (d.length===3 && tm.length===3) {
-          const dt = new Date(parseInt(d[0]),parseInt(d[1])-1,parseInt(d[2]),parseInt(tm[0]),parseInt(tm[1]),parseInt(tm[2]));
-          return dt.getTime() >= cutoffMs;
-        }
-      }
-      return false;
-    });
-
-    if (visible.length === 0) {
-      historyTbody.innerHTML = '<tr><td colspan="3">No history available within your plan window.</td></tr>';
-      return;
-    }
-
-    visible.forEach(entry => {
-      const loc = entry.location || '';
-      const time = entry.time || '';
-      const [lat,lng] = (loc.split(',') || [0,0]).map(s=>s.trim());
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${time}</td><td>${loc}</td><td><button class="view-btn">View</button></td>`;
-      tr.querySelector('.view-btn').addEventListener('click', ()=>{
-        const tms = Date.parse(time);
-        if (!isNaN(tms) && tms < cutoffMs) {
-          // older than allowed (shouldn't happen because we filtered) — upsell
-          showModal(`This record is older than your plan allows. Upgrade to see more history.`, true);
-        } else {
-          focusOnMap(parseFloat(lat)||0, parseFloat(lng)||0);
-        }
-      });
-      historyTbody.appendChild(tr);
-    });
-  }
-
-  // ---------- CSV export ----------
-  function exportHistoryCSV(histObj) {
-    if (!localPlan.exportCSV) {
-      showModal('CSV export is not available on your current plan. Request upgrade to Silver or Gold.', true);
-      return;
-    }
-    if (!histObj) { alert('No history'); return; }
-    const rows=[['time','location']];
-    Object.values(histObj).forEach(e=>rows.push([e.time||'',''+(e.location||'')]));
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }
-
-  // ---------- Map helpers (Leaflet) ----------
-  let map, marker;
-  function updateMap(lat,lng,popup){
-    if(!lat||!lng) return;
-    if(!map){ map = L.map('map').setView([lat,lng],14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map); marker = L.marker([lat,lng]).addTo(map); }
-    else { marker.setLatLng([lat,lng]); map.setView([lat,lng],14); }
-    if(popup) marker.bindPopup(popup).openPopup();
-  }
-  function focusOnMap(lat,lng){ updateMap(lat,lng,`📍 ${lat}, ${lng}`); }
-
-  // ---------- modal ----------
-  function showModal(html, showUpgrade=false) {
-    modalContent.innerHTML = html;
-    modal.style.display = 'flex';
-    modalUpgradeBtn.style.display = showUpgrade ? 'inline-block' : 'none';
-  }
-  modalClose.onclick = ()=> modal.style.display='none';
-  modalUpgradeBtn.onclick = ()=> { modal.style.display='none'; /* open upgrade flow if necessary - but we don't autocreate a request here */ };
-
-  // ---------- Auth state and listeners ----------
-  auth.onAuthStateChanged(async (user)=>{
-    if(!user){ window.location.href='login.html'; return; }
-    uidGlobal = user.uid;
-    userEmailEl.textContent = user.email || user.uid;
-
-    // listen to user node for plan & upgrade_request
-    db.ref(`users/${uidGlobal}`).on('value', snap=>{
-      const udata = snap.val() || {};
-      applyPlanToUI(udata);
-      // check downgrade
-      checkAndAutoDowngrade(uidGlobal, udata);
-      // show request status ui
-      renderRequestUI(udata.upgrade_request || null);
-      // set admin flag if present
-      if (udata.admin === true) {
-        isAdmin = true;
-        adminPanel.style.display = 'block';
+    function updateMap(lat, lng, popupText = null) {
+      if (!lat || !lng) return;
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
       } else {
-        isAdmin = false;
-        adminPanel.style.display = 'none';
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
+      if (popupText) marker.bindPopup(popupText).openPopup();
+    }
+
+    function focusOnMap(lat, lng) {
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+    }
+
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
+        return;
+      }
+      const order = Object.keys(obj);
+      if (order.length === 0) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
+        return;
+      }
+      order.forEach(k => {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
+      });
+    }
+
+    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
+    function parseTimestampToMs(ts) {
+      if (!ts || typeof ts !== 'string') return null;
+      // Expect format "YYYY-MM-DD HH:MM:SS"
+      const parts = ts.trim().split(' ');
+      if (parts.length < 2) {
+        // fallback to Date.parse if possible
+        const fallback = Date.parse(ts);
+        return isNaN(fallback) ? null : fallback;
+      }
+      const dateParts = parts[0].split('-');
+      const timeParts = parts[1].split(':');
+      if (dateParts.length < 3 || timeParts.length < 3) return null;
+      const y = parseInt(dateParts[0], 10);
+      const m = parseInt(dateParts[1], 10) - 1;
+      const d = parseInt(dateParts[2], 10);
+      const hh = parseInt(timeParts[0], 10);
+      const mm = parseInt(timeParts[1], 10);
+      const ss = parseInt(timeParts[2], 10);
+      const dt = new Date(y, m, d, hh, mm, ss);
+      return dt.getTime();
+    }
+
+    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
+    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
+      const lastActiveMs = parseTimestampToMs(lastActiveStr);
+      if (!lastActiveMs) {
+        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
+        return !!firebaseOnlineFlag;
+      }
+      const age = Date.now() - lastActiveMs;
+      if (age > ONLINE_TTL_MS) {
+        return false; // treat as offline if last_active too old
+      }
+      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
+    }
+
+    // update the "Online" badge and lastActive text depending on recency
+    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
+      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
+
+      if (isOnline) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
+
+      if (lastActiveStr) {
+        lastActiveEl.textContent = lastActiveStr;
+      } else {
+        lastActiveEl.textContent = "Unknown";
+      }
+
+      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
+    }
+
+    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
+    function startLastActivePoll(uid) {
+      if (!uid) return;
+      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
+      setInterval(() => {
+        currentRef.once('value').then(snap => {
+          const lastActive = snap.val();
+          // Also fetch online flag to decide
+          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
+            const onlineFlag = onlineSnap.val();
+            renderOnlineAndLastActive(onlineFlag, lastActive);
+          });
+        });
+      }, LAST_ACTIVE_POLL_MS);
+    }
+
+    function loadDashboard(uid) {
+      uidGlobal = uid;
+      const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      // current block
+      vehicleRef.child("current").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const { latitude, longitude, status, last_active, battery } = data;
+
+        // display location safely
+        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
+          locationEl.textContent = `${latitude}, ${longitude}`;
+          updateMap(latitude, longitude);
+        } else {
+          locationEl.textContent = "No location";
+        }
+
+        lastActiveEl.textContent = last_active || "Unknown";
+        statusEl.textContent = status || "Unknown";
+        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
+
+        // Now evaluate online display using last_active recency and the firebase online flag
+        vehicleRef.child("online").once("value").then(onlineSnap => {
+          const onlineFlag = onlineSnap.val();
+          renderOnlineAndLastActive(onlineFlag, last_active);
+        });
+      });
+
+      // history block
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
+        historyEl.innerHTML = "";
+        if (history) {
+          // reverse for most recent first
+          const entries = Object.values(history).reverse();
+          entries.forEach(entry => {
+            const loc = entry.location || "";
+            const time = entry.time || "";
+            const [lat, lng] = loc.split(",");
+            const safeLat = parseFloat(lat) || 0;
+            const safeLng = parseFloat(lng) || 0;
+            historyEl.innerHTML += `
+              <tr>
+                <td>${time}</td>
+                <td>${loc}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+              </tr>`;
+          });
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        }
+      });
+
+      // components block
+      vehicleRef.child("components").on("value", (snapshot) => {
+        const comps = snapshot.val();
+        renderComponents(comps);
+      });
+
+      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
+      vehicleRef.child("online").on("value", (snapshot) => {
+        const onlineFlag = snapshot.val();
+        // fetch last_active to make decision
+        vehicleRef.child("current/last_active").once("value").then(snap => {
+          const lastActive = snap.val();
+          renderOnlineAndLastActive(onlineFlag, lastActive);
+        });
+      });
+
+      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        const lastSeenVal = snapshot.val();
+        lastSeenEl.textContent = lastSeenVal || "N/A";
+      });
+
+      // alarm value (toggle UI)
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
+        alarmToggle.checked = (status === "on");
+        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
+      });
+
+      // last_trigger
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
+        if (trigger && trigger.time && trigger.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
+      });
+
+      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
+      vehicleRef.child("current/status").on("value", (snapshot) => {
+        const s = snapshot.val();
+        if (s) statusEl.textContent = s;
+      });
+
+      // allow operator to toggle alarm from web UI
+      alarmToggle.addEventListener("change", () => {
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState).catch(err => {
+          console.error("Failed to set alarm:", err);
+        });
+      });
+
+      // start periodic poll for last_active to ensure "Last Active" updates every 30s
+      startLastActivePoll(uid);
+    }
+
+    // auth state
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+      } else {
+        window.location.href = "login.html";
       }
     });
 
-    // vehicle current & history listeners
-    const vehicleRef = db.ref(`users/${uidGlobal}/vehicle`);
-    vehicleRef.child('current').on('value', snap=>{
-      const d = snap.val() || {};
-      document.getElementById('location').textContent = (d.latitude && d.longitude) ? `${d.latitude}, ${d.longitude}` : 'No location';
-      document.getElementById('lastActive').textContent = d.last_active || 'Unknown';
-      document.getElementById('status').textContent = d.status || 'Unknown';
-      document.getElementById('batteryHealth').textContent = (typeof d.battery !== 'undefined') ? d.battery + '%' : 'N/A';
-      if (d.latitude && d.longitude) updateMap(d.latitude, d.longitude);
-    });
-
-    vehicleRef.child('history').on('value', snap=>{
-      renderHistory(snap.val());
-    });
-
-    // admin panel watchers (only show if isAdmin is set above)
-    db.ref('admin/upgrade_requests').on('value', snap=>{
-      if(!isAdmin) return; // only admins should render
-      const reqs = snap.val() || {};
-      adminList.innerHTML = '<table style="width:100%"><thead><tr><th>Request</th><th>Plan</th><th>When</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
-      const tbody = adminList.querySelector('tbody');
-      tbody.innerHTML = '';
-      Object.entries(reqs).reverse().forEach(([key, val])=>{
-        const tr = document.createElement('tr');
-        const when = val.request_time || '-';
-        const status = val.status || '-';
-        tr.innerHTML = `<td>${val.uid}</td><td>${val.requestedPlan||''}</td><td>${when}</td><td>${status}</td><td></td>`;
-        const actionsTd = tr.querySelector('td:last-child');
-        if (status === 'pending') {
-          const aBtn = document.createElement('button'); aBtn.textContent='Approve'; aBtn.className='btn btn-primary'; aBtn.onclick = ()=> {
-            adminApproveRequest(uidGlobal, user.email||uidGlobal, key, val).then(()=> alert('Approved and user updated.'));
-          };
-          const rBtn = document.createElement('button'); rBtn.textContent='Reject'; rBtn.className='btn btn-danger'; rBtn.style.marginLeft='8px'; rBtn.onclick = ()=> {
-            if (!confirm('Reject this upgrade request?')) return;
-            adminRejectRequest(uidGlobal, user.email||uidGlobal, key, val).then(()=> alert('Rejected.'));
-          };
-          actionsTd.appendChild(aBtn); actionsTd.appendChild(rBtn);
-        } else {
-          actionsTd.textContent = 'Processed';
-        }
-        tbody.appendChild(tr);
-      });
-    });
-
-    // admin logs view
-    db.ref('admin/approvals').limitToLast(50).on('value', snap=>{
-      if(!isAdmin) return;
-      const logs = snap.val() || {};
-      adminLogs.innerHTML = '<ul style="padding-left:16px;margin:0;">' + Object.entries(logs).reverse().map(([k,v])=>`<li style="margin-bottom:6px;"><b>${v.adminName||v.adminUid||'admin'}</b> → ${v.uid} : ${v.plan||v.status} (${v.approvedAt||v.processedAt||v.time||''})</li>`).join('') + '</ul>';
-    });
-
-  });
-
-  // ---------- UI: Upgrade button actions ----------
-  upgradeToSilverBtn.addEventListener('click', ()=> {
-    if (!uidGlobal) return alert('Not logged in');
-    // create upgrade request for silver
-    createUpgradeRequest(uidGlobal, 'silver').then(()=> {
-      upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(err => { console.error(err); alert('Failed to send request'); });
-  });
-
-  upgradeToGoldBtn.addEventListener('click', ()=> {
-    if (!uidGlobal) return alert('Not logged in');
-    createUpgradeRequest(uidGlobal, 'gold').then(()=> {
-      upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(err => { console.error(err); alert('Failed to send request'); });
-  });
-
-  // ---------- Export CSV click ----------
-  exportCSVBtn.addEventListener('click', ()=>{
-    if (!uidGlobal) return;
-    db.ref(`users/${uidGlobal}/vehicle/history`).once('value').then(snap=>{
-      exportHistoryCSV(snap.val());
-    });
-  });
-
-  // ---------- Admin helper functions re-declared here for scope (could be shared) ----------
-  async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    const targetUid = adminReqObj.uid;
-    const plan = adminReqObj.requestedPlan || 'silver';
-    const now = new Date();
-    const expiry = new Date(now.getTime() + (30*24*60*60*1000)); // 30 days
-    const updates = {};
-    updates[`users/${targetUid}/plan`] = plan;
-    updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
-    updates[`users/${targetUid}/vehicle_limit`] = PLAN_POLICIES[plan].vehicle_limit;
-    updates[`users/${targetUid}/exportCSV`] = true;
-    updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'approved';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, plan, approvedAt: new Date().toISOString(), adminNameDisplay:adminName||adminUid };
-    await db.ref().update(updates);
-    alert('User upgraded to ' + plan.toUpperCase());
-  }
-
-  async function adminRejectRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    const targetUid = adminReqObj.uid;
-    const updates = {};
-    updates[`users/${targetUid}/upgrade_request/status`] = 'rejected';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'rejected';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, status:'rejected', processedAt: new Date().toISOString() };
-    await db.ref().update(updates);
-    alert('Request rejected.');
-  }
-
-  // ---------- Auto-downgrade periodic check for all users (optional) ----------
-  // NOTE: running a client-based loop to enumerate all users is not scalable or secure.
-  // For production use Cloud Functions (scheduled) to periodically downgrade expired users.
-  // Here we only check the current logged-in user (see below in their listener).
-  const AUTO_CHECK_INTERVAL_MS = 60*1000;
-  setInterval(()=>{
-    if (!uidGlobal) return;
-    db.ref(`users/${uidGlobal}`).once('value').then(snap=> {
-      const u = snap.val() || {};
-      if (u.plan && u.plan_expiry) checkAndAutoDowngrade(uidGlobal, u);
-    });
-  }, AUTO_CHECK_INTERVAL_MS);
-
-  // ---------- Logout ----------
-  document.getElementById('logoutBtn').onclick = ()=> auth.signOut();
-
-  // ---------- Notes for production ----------
-  /*
-   * - IMPORTANT: Do NOT allow clients to write their own plan/plan_expiry/exportCSV directly.
-   * - Implement server-side payment verification (Razorpay / Stripe) and use webhooks to update
-   *   users/{uid} safely (set plan, plan_expiry, vehicle_limit, exportCSV).
-   * - Add Firebase Realtime Database Rules to prevent privilege escalation by clients:
-   *     e.g., only allow writes to users/{uid}/upgrade_request by the same uid,
-   *           only allow admin nodes to be written by admins (server),
-   *           block clients from writing users/{uid}/plan or users/{uid}/exportCSV.
-   * - Replace simulated ad placeholders with your ad provider (AdMob or web banners) controlled by plan.
-   * - Use Cloud Functions to auto-downgrade users at scale by scanning user records and moving expired plans to basic.
-   */
-
+    // Expose focusOnMap to global scope for inline onclick in generated rows
+    window.focusOnMap = focusOnMap;
   </script>
 </body>
 </html>
