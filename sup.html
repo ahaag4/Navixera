@@ -3,20 +3,18 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Super Admin - SVMS (Realtime DB) - Full</title>
+  <title>Super Admin - SVMS (Realtime DB)</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body{background:#f8f9fa}
-    .navbar{background:#0d6efd}
-    .navbar-brand{color:#fff!important;font-weight:600}
-    .card{border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
-    #map,#historyMap{height:400px;border-radius:8px}
-    .stat-card{text-align:center;padding:18px;background:#fff;border-radius:10px}
-    #debugLog{height:110px;overflow:auto;background:#fff;padding:10px;border-radius:6px;border:1px solid #e6e6e6;font-size:12px}
+    body {background:#f8f9fa}
+    .navbar {background:#0d6efd}
+    .navbar-brand {color:#fff!important;font-weight:600}
+    .card {border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    #map, #historyMap {height:400px;border-radius:8px}
+    .stat-card {text-align:center;padding:18px;background:#fff;border-radius:10px}
+    #debugLog {height:110px;overflow:auto;background:#fff;padding:10px;border-radius:6px;border:1px solid #e6e6e6;font-size:12px}
     .pill-pending{background:#ffd966;color:#4a2900;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
-    .pill-approved{background:#31ffa7;color:#167054;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
-    .pill-rejected{background:#f8d7da;color:#721c24;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
   </style>
 </head>
 <body>
@@ -25,10 +23,14 @@
     <button class="btn btn-light ms-auto" id="logoutBtn">Logout</button>
   </nav>
   <div class="container py-4">
+
+    <!-- Debug log -->
     <div class="mb-3">
       <strong>Debug (visible):</strong>
       <pre id="debugLog">Loading...</pre>
     </div>
+
+    <!-- Stats -->
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalCompanies">0</h3><p>Total Companies</p></div></div>
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="totalVehicles">0</h3><p>Total Vehicles</p></div></div>
@@ -36,13 +38,18 @@
       <div class="col-6 col-md-3"><div class="stat-card"><h3 id="alertsToday">0</h3><p>Alerts Today</p></div></div>
     </div>
 
+    <!-- Live map -->
     <div class="card mb-4"><div class="card-body"><h5>Live Vehicle Locations</h5><div id="map"></div></div></div>
+
+    <!-- Pending approvals -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Pending User Approvals</h5>
         <ul class="list-group" id="pendingUsersList"></ul>
       </div>
     </div>
+
+    <!-- Subscription Plan Requests -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Subscription Plan Upgrade Requests</h5>
@@ -50,23 +57,16 @@
         <div class="small text-muted">Approve/reject users' Silver/Gold upgrade requests.</div>
       </div>
     </div>
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>Ads Management</h5>
-        <div class="row g-2">
-          <!-- Ads upload form omitted for brevity, see previous code for full implementation -->
-        </div>
-        <hr/>
-        <h6>Existing Ads</h6>
-        <div id="adsList"></div>
-      </div>
-    </div>
+
+    <!-- Approved users -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Approved Users</h5>
         <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Name</th><th>Role</th><th>Plan</th><th>Action</th></tr></thead><tbody id="approvedUsersTable"></tbody></table></div>
       </div>
     </div>
+
+    <!-- Movement history -->
     <div class="card mb-4">
       <div class="card-body">
         <h5>Movement History</h5>
@@ -80,23 +80,39 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-  // ...Firebase config as shown above...
+  // ==== Firebase Config ====
+  const firebaseConfig = {
+    apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+    authDomain: "svms-c0232.firebaseapp.com",
+    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+    projectId: "svms-c0232",
+    storageBucket: "svms-c0232.appspot.com",
+    messagingSenderId: "359201898609",
+    appId: "1:359201898609:web:893ef076207abb06471bd0"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
 
-  // Debug and utility helpers...
+  // ==== Debug Log Helper ====
+  const debugEl = document.getElementById('debugLog');
   function logDebug(...args){
     const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ');
     debugEl.textContent = (debugEl.textContent || '') + s + '\n';
     debugEl.scrollTop = debugEl.scrollHeight; console.log(...args);
   }
+
+  // ==== Escape for HTML ====
   function escapeHtml(s){
     if(!s && s !== 0) return '';
-    return String(s).replace(/[&<>"'`=\/]/g, function (c) {return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c];});
+    return String(s).replace(/[&<>"'`=\/]/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c];
+    });
   }
 
-  // ---- ADMIN GUARD ----
+  // ==== AUTH & INITIALIZATION ====
   auth.onAuthStateChanged(async (user) => {
     if (!user) return location.href = 'login.html';
     const snap = await db.ref(`users/${user.uid}`).once('value');
@@ -105,19 +121,93 @@
     if(!isSuperAdmin) return location.href = 'dashboard.html';
     init(user.uid);
   });
-  logoutBtn.onclick = () => auth.signOut().then(()=>location.href='login.html');
+
+  document.getElementById('logoutBtn').onclick = () => auth.signOut().then(()=>location.href='login.html');
 
   function init(adminUid){
-    setupLiveMap(); setupHistoryMap(); loadStats(); loadPendingApprovals(); loadApprovedUsers(); loadUserDropdowns(); loadAds();
-    uploadAdBtn && (uploadAdBtn.onclick = handleUploadAd);
-    loadHistoryBtn && (loadHistoryBtn.onclick = handleLoadHistory);
+    setupLiveMap();
+    setupHistoryMap();
+    loadStats();
+    loadPendingApprovals();
+    loadApprovedUsers();
+    loadUserDropdowns();
     loadPendingSubscriptions();
     logDebug('Initialized for admin: ', adminUid);
   }
 
-  // ---- SUBSCRIPTION PLAN APPROVAL ----
-  const subscriptionPendingList = document.getElementById('subscriptionPendingList');
+  // ==== STATS ====
+  function loadStats(){
+    db.ref('users').once('value').then(snap=>{
+      const users = snap.val()||{};
+      let companiesSet = new Set(), vehicles = 0, deliveries = 0, alerts = 0;
+      for(const uid in users){
+        const u = users[uid];
+        if (u && u.vehicle && u.vehicle.companies) {
+          Object.keys(u.vehicle.companies).forEach(cn => companiesSet.add(cn));
+          Object.values(u.vehicle.companies).forEach(comp => {
+            const vehs = comp.vehicle||{};
+            vehicles += Object.keys(vehs).length;
+            Object.values(vehs).forEach(v => {
+              if (v && v.deliveries) {
+                const d = v.deliveries;
+                deliveries += (typeof d === 'object' && !Array.isArray(d)) ? Object.keys(d).length : (Array.isArray(d) ? d.length : 0);
+              }
+            });
+          });
+        } else if (u && u.vehicles) {
+          vehicles += Object.keys(u.vehicles).length;
+        }
+        if (u && u.vehicle && u.vehicle.last_trigger && u.vehicle.last_trigger.status === 'alert') alerts++;
+      }
+      document.getElementById('totalCompanies').innerText = companiesSet.size;
+      document.getElementById('totalVehicles').innerText = vehicles;
+      document.getElementById('totalDeliveries').innerText = deliveries;
+      document.getElementById('alertsToday').innerText = alerts;
+    });
+  }
+
+  // ==== PENDING USERS ====
+  function loadPendingApprovals(){
+    const list=document.getElementById("pendingUsersList");
+    list.innerHTML="";
+    db.ref("users").once("value", snap=>{
+      const users=snap.val()||{};
+      let found = false;
+      for(const uid in users){
+        const u=users[uid];
+        if((u.role==="company"||u.role==="customer") && u.approved!==true){
+          found = true;
+          const name = u.companyName||u.email||uid;
+          list.innerHTML += `<li class="list-group-item d-flex justify-content-between">
+            ${name} (${u.role})
+            <span>
+              <button class="btn btn-success btn-sm me-1" onclick="approve('${uid}')">Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="reject('${uid}')">Reject</button>
+            </span>
+          </li>`;
+        }
+      }
+      if(!found) list.innerHTML = '<li class="list-group-item text-muted">No pending approvals.</li>';
+    });
+  }
+
+  window.approve = function(uid){
+    db.ref(`users/${uid}`).update({ approved: true })
+      .then(() => { alert("✅ Approved"); loadPendingApprovals(); loadApprovedUsers(); })
+      .catch((err) => { alert("Error approving: " + err.message); console.error("Approve error:", err); });
+  };
+
+  window.reject = function(uid){
+    if(confirm("Delete user?")) {
+      db.ref(`users/${uid}`).remove()
+        .then(() => { alert("❌ Rejected and removed"); loadPendingApprovals(); loadApprovedUsers(); })
+        .catch((err) => { alert("Error rejecting: " + err.message); console.error("Reject error:", err); });
+    }
+  };
+
+  // ==== SUBSCRIPTION APPROVAL PANEL ====
   function loadPendingSubscriptions() {
+    const subscriptionPendingList = document.getElementById('subscriptionPendingList');
     db.ref('users').on('value', snap => {
       const users = snap.val() || {};
       subscriptionPendingList.innerHTML = '';
@@ -184,43 +274,87 @@
       .catch(err => alert('Reject failed: ' + err.message));
   }
 
-  // -- Minimal setup for maps/stats/ads/user approvals/history, as in your previous code
-  // Add your detailed implementations here as needed.
-
-  function setupLiveMap(){try{window.liveMap = L.map('map').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);}catch{}}
-  function setupHistoryMap(){window.historyMap = L.map('historyMap').setView([20,78],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);}
-  function loadStats(){
-    db.ref('users').once('value').then(snap=>{
-      const users = snap.val()||{};
-      let companiesSet = new Set(), vehicles = 0, deliveries = 0, alerts = 0;
+  // ==== Approved Users List ====
+  function loadApprovedUsers(){
+    const tbl=document.getElementById("approvedUsersTable");
+    tbl.innerHTML="";
+    db.ref("users").once("value",snap=>{
+      const users=snap.val()||{};
+      let rows = "";
       for(const uid in users){
-        const u = users[uid];
-        if (u && u.vehicle && u.vehicle.companies) {
-          Object.keys(u.vehicle.companies).forEach(cn => companiesSet.add(cn));
-          Object.values(u.vehicle.companies).forEach(comp => {
-            const vehs = comp.vehicle||{};
-            vehicles += Object.keys(vehs).length;
-            Object.values(vehs).forEach(v => {
-              if (v && v.deliveries) {
-                const d = v.deliveries;
-                deliveries += (typeof d === 'object' && !Array.isArray(d)) ? Object.keys(d).length : (Array.isArray(d) ? d.length : 0);
-              }
-            });
-          });
-        } else if (u && u.vehicles) {
-          vehicles += Object.keys(u.vehicles).length;
+        const u=users[uid];
+        if(u.approved===true && (u.role==="company"||u.role==="customer")){
+          rows += `<tr>
+            <td>${u.companyName||u.email||uid}</td>
+            <td>${u.role}</td>
+            <td>${u.plan||'basic'}</td>
+            <td><button class="btn btn-primary btn-sm" onclick="window.alert('Not implemented: details')">Open</button></td>
+          </tr>`;
         }
-        if (u && u.vehicle && u.vehicle.last_trigger && u.vehicle.last_trigger.status === 'alert') alerts++;
       }
-      totalCompaniesEl.innerText = companiesSet.size;
-      totalVehiclesEl.innerText = vehicles;
-      totalDeliveriesEl.innerText = deliveries;
-      alertsTodayEl.innerText = alerts;
+      tbl.innerHTML=rows || `<tr><td colspan=4 class="text-muted">No approved users found.</td></tr>`;
     });
   }
-  // ...keep/loadPendingApprovals(), approveUser, rejectUser, etc. from your previous code.
+
+  // ==== Movement History Map (simple) ====
+  function setupLiveMap(){ try {
+    window.liveMap = L.map('map').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.liveMap);
+  } catch{}}
+  function setupHistoryMap(){ try {
+    window.historyMap = L.map('historyMap').setView([20,78],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.historyMap);
+  } catch{}}
+
+  // ==== History Dropdown ====
+  function loadUserDropdowns(){
+    db.ref("users").once("value",snap=>{
+      const users=snap.val()||{};
+      const sel=document.getElementById("historyUserSelect");
+      sel.innerHTML='<option value="">Select User</option>';
+      for(const uid in users){
+        if(users[uid].role==="company"||users[uid].role==="customer"){
+          sel.innerHTML+=`<option value="${uid}">${users[uid].companyName||users[uid].email||uid}</option>`;
+        }
+      }
+    });
+  }
+  function handleLoadHistory(){
+    const uid=document.getElementById("historyUserSelect").value;
+    const btn=document.getElementById("deleteHistoryBtn"), historyMap=window.historyMap;
+    // This is a simple fetch & draw (improve as you like)
+    if(!uid){ alert("Select user"); btn.style.display="none"; return; }
+    db.ref(`users/${uid}/vehicle/history`).once("value",snap=>{
+      const history=snap.val()||{}, coords=[];
+      Object.values(history).forEach(h=>{
+        let loc=null;
+        if(typeof h === "string" && h.includes(",")) loc=h;
+        else if(h && h.location) loc=h.location;
+        if(loc){ const [lat,lng]=loc.split(",").map(Number); if(!isNaN(lat)&&!isNaN(lng)) coords.push([lat,lng]); }
+      });
+      if(coords.length===0){ alert("No history"); btn.style.display="none"; return; }
+      if(historyMap){
+        coords.forEach(c=>L.circleMarker(c,{radius:4,color:"red"}).addTo(historyMap));
+        const poly = L.polyline(coords, {color:"blue"}).addTo(historyMap);
+        historyMap.fitBounds(poly.getBounds());
+      }
+      btn.style.display="inline-block";
+      btn.onclick=()=>deleteHistoryByUser(uid);
+    });
+  }
+  function deleteHistoryByUser(uid){
+    if(!confirm("Delete all movement history for this user?")) return;
+    db.ref(`users/${uid}/vehicle/history`).set(null)
+      .then(() => {
+        alert("History deleted.");
+        document.getElementById("deleteHistoryBtn").style.display="none";
+      })
+      .catch((err) => {
+        alert("Error deleting: " + err.message);
+        console.error("History delete error:", err);
+      });
+  }
+
   </script>
 </body>
 </html>
