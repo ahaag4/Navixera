@@ -100,7 +100,7 @@
         <div>Plan: <strong id="currentPlan">Loading</strong></div>
         <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
         <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-        <div style="margin-left:auto;">
+        <div id="upgradeBtns" style="margin-left:auto;">
           <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
           <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
         </div>
@@ -181,6 +181,7 @@
   const currentPlanEl = document.getElementById('currentPlan');
   const planExpiryEl = document.getElementById('planExpiry');
   const vehicleLimitEl = document.getElementById('vehicleLimit');
+  const upgradeBtns = document.getElementById('upgradeBtns');
   const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
   const upgradeToGoldBtn = document.getElementById('upgradeToGold');
   const requestStatusArea = document.getElementById('requestStatusArea');
@@ -203,7 +204,6 @@
     gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
   };
 
-  // --- Ad rotation ---
   let adTimerInt = null, currentAdIndex=0, adsList=[];
   function showAd(ad) {
     adArea.innerHTML = 'Loading...';
@@ -221,6 +221,7 @@
     // Only show if ads enabled for this plan
     if (policy.ads === 'no-ads') { adArea.style.display='none'; return; }
     adArea.style.display = 'flex';
+
     db.ref('admin/ads').once('value').then(snapshot => {
       const adsObj = snapshot.val() || {};
       adsList = Object.values(adsObj).filter(ad =>
@@ -243,7 +244,44 @@
   }
   function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 
-  // --- Plan logic and upgrade UI ---
+  // ---- Upgrade/Subscription UI Logic ---
+  function renderRequestUI(upgradeRequest, currentPlan) {
+    // Default: Hide both
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    let statusMsg = '';
+
+    // GOLD disables all upgrades
+    if (currentPlan === 'gold') {
+      upgradeBtns.style.display = 'none';
+      statusMsg = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
+    } else if (!upgradeRequest || !upgradeRequest.status) {
+      // No request, allow upgrade if not on gold
+      upgradeBtns.style.display = 'block';
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      statusMsg = '';
+    } else if (upgradeRequest.status === 'pending') {
+      upgradeBtns.style.display = 'none';
+      statusMsg = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
+    } else if (upgradeRequest.status === 'approved') {
+      upgradeBtns.style.display = 'none';
+      statusMsg = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
+    } else if (upgradeRequest.status === 'rejected') {
+      // Allow to re-request
+      upgradeBtns.style.display = 'block';
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      statusMsg = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
+    } else if (upgradeRequest.status === 'cancelled') {
+      upgradeBtns.style.display = 'block';
+      upgradeToSilverBtn.style.display = 'inline-block';
+      upgradeToGoldBtn.style.display = 'inline-block';
+      statusMsg = `<span class="small-muted">Upgrade request cancelled</span>`;
+    }
+    requestStatusArea.innerHTML = statusMsg;
+  }
+
   function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
   function applyPlanToUI(udata) {
     const plan = udata.plan || 'basic';
@@ -257,48 +295,6 @@
     renderAdsForPlan(plan);
     renderRequestUI(udata.upgrade_request || null, plan);
   }
-  function renderRequestUI(upgradeRequest, currentPlan) {
-    if (!upgradeRequest || !upgradeRequest.status) {
-      // Blank request, allow upgrade if not already gold
-      if (currentPlan === 'gold') {
-        upgradeToSilverBtn.style.display = 'none';
-        upgradeToGoldBtn.style.display = 'none';
-        requestStatusArea.innerHTML = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
-        return;
-      }
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      requestStatusArea.innerHTML = '';
-      return;
-    }
-    const s = upgradeRequest.status;
-    if (s === 'pending')      { upgradeToSilverBtn.style.display = 'none'; upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
-    } else if (s === 'approved') {
-      upgradeToSilverBtn.style.display = 'none';
-      upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
-    } else if (s === 'rejected') {
-      // Allow to re-request
-      if (currentPlan === 'gold') {
-        upgradeToSilverBtn.style.display = 'none';
-        upgradeToGoldBtn.style.display = 'none';
-        requestStatusArea.innerHTML = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
-      } else {
-        upgradeToSilverBtn.style.display = 'inline-block'; upgradeToGoldBtn.style.display = 'inline-block';
-        requestStatusArea.innerHTML = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
-      }
-    } else if (s === 'cancelled') {
-      if (currentPlan === 'gold') {
-        upgradeToSilverBtn.style.display = 'none';
-        upgradeToGoldBtn.style.display = 'none';
-        requestStatusArea.innerHTML = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
-      } else {
-        upgradeToSilverBtn.style.display = 'inline-block'; upgradeToGoldBtn.style.display = 'inline-block';
-        requestStatusArea.innerHTML = `<span class="small-muted">Upgrade request cancelled</span>`;
-      }
-    }
-  }
   function createUpgradeRequest(uid, desiredPlan) {
     const now = new Date().toISOString();
     const req = { status:'pending', requestedPlan:desiredPlan, request_time:now };
@@ -307,9 +303,6 @@
     const adminKey = `req_${uid}_${Date.now()}`;
     updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status:'pending', request_time: now };
     return db.ref().update(updates);
-  }
-  function cancelUpgradeRequest(uid) {
-    return db.ref(`users/${uid}/upgrade_request/status`).set('cancelled');
   }
 
   async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
