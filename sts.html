@@ -7,69 +7,106 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
-    .dashboard { max-width: 1100px; margin:18px auto; padding:18px; }
-    header { display:flex; align-items:center; gap:12px; justify-content:space-between; background:#343a40; color:#fff; padding:12px 20px; border-radius:10px; }
-    .logo { height:40px; }
-    .card { background:#fff; padding:16px; margin:18px 0; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    h2 { margin:0 0 8px 0; color:#343a40; }
-    .plan-pill { padding:6px 10px; border-radius:8px; background:#f2f2f2; font-weight:700; }
-    .ad-banner { width:100%; min-height:60px; background:#e9ecef; display:flex; align-items:center; justify-content:center; border-radius:8px; margin:15px 0; color:#333; font-weight:700; }
-    .btn { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
-    .btn-primary { background:#007bff; color:#fff; }
-    .btn-warning { background:#ffc107; color:#212529; }
-    .btn-danger { background:#dc3545; color:#fff; }
-    .btn-ghost { background:transparent; border:1px solid #ddd; }
-    .small-muted { color:#6c757d; font-size:13px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
-    .view-btn { background:#007bff; color:#fff; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
-    .admin-panel { margin-top:12px; }
-    .pending-pill { background:#ffd966; color:#4a2900; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .approved-pill { background:#d4edda; color:#155724; padding:6px 10px; border-radius:6px; font-weight:700; }
-    .rejected-pill { background:#f8d7da; color:#721c24; padding:6px 10px; border-radius:6px; font-weight:700; }
-    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
-    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1080px; margin:28px auto; padding:0 24px 36px 24px; }
+    header {
+      background: #222c37;
+      color: #fff;
+      padding: 22px 24px;
+      border-radius: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.075);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .logo { height:48px; }
+    .app-title {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: 0.015em;
+    }
+    .app-desc {
+      font-size: 15px; color:#b3b8c7; margin-top: 2px;
+      font-weight: 500;
+    }
+    .header-right {
+      display: flex; align-items: center; gap: 18px;
+    }
+    .header-email { font-size:15px; color:#e2e6ed; font-weight: 500; }
+    .plan-pill {
+      background: linear-gradient(90deg,#2670ff,#31ffa7);
+      color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.06em;
+      box-shadow: 0 1px 8px rgba(48,154,241,.08); border: none;
+    }
+    .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px; transition: background .23s;}
+    .header-logout:hover { background:#386afa;}
+    .card { background:#fff; padding:22px; margin:20px 0; border-radius:14px; box-shadow:0 2px 15px rgba(40,50,90,.09);}
+    h2 { margin:0 0 10px 0; color:#191f2a; font-size:22px; font-weight:900;}
+    .ad-banner { width:100%; min-height:70px; background:#e9ecef; display:flex; align-items:center; justify-content:center; border-radius:10px; margin:20px 0 22px 0; color:#333; font-weight:700; }
+    #adArea img, #adArea video {border-radius:8px;object-fit:contain;display:block;max-width:100%;height:auto;}
     .switch { position: relative; display: inline-block; width: 60px; height: 30px; vertical-align:middle; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px;}
     .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;}
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
-    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge { padding:6px 14px; border-radius:8px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
     .badge.offline { background:#dc3545; }
-    .components-list { margin-top:10px; list-style:none; padding-left:0; }
-    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
-    .comp-ok { color:#28a745; font-weight:600 }
-    .comp-warn { color:#e67700; font-weight:600 }
-    .comp-bad { color:#c82333; font-weight:600 }
-    .comp-unknown { color:#6c757d; font-weight:600 }
-      /* Ad banner style */
-    #adArea {
-      width: 100%; background: #e9ecef; display: flex; justify-content: center; align-items: center;
-      border-radius: 12px; min-height: 60px; margin: 15px 0; padding: 8px;
+    .pending-pill { background:#ffd966; color:#4a2900; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .approved-pill { background:#31ffa7; color:#167054; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .rejected-pill { background:#f8d7da; color:#721c24; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .components-list { margin-top:11px; list-style:none; padding-left:0; }
+    .components-list li { padding:7px 0; border-bottom:1px dashed #f0f3fa; }
+    .comp-ok { color:#25ad45; font-weight:700;}
+    .comp-warn { color:#e67700; font-weight:700;}
+    .comp-bad { color:#c82333; font-weight:700;}
+    .comp-unknown { color:#6c757d; font-weight:700;}
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th,td { padding:11px; border-bottom:1px solid #f2f5fc; text-align:left; font-size:15px;}
+    .view-btn { background:#2670ff; color:#fff; padding:7px 15px; border-radius:8px; border:none; cursor:pointer; font-size:15px; }
+    .admin-panel { margin-top:12px;}
+    .btn { padding:8px 15px; border-radius:7px; border:none; cursor:pointer; font-size:15px;}
+    .btn-primary { background:#2670ff; color:#fff; font-weight:700;}
+    .btn-warning { background:#ffd966; color:#4a2900; font-weight:700;}
+    .btn-danger { background:#dc3545; color:#fff; font-weight:700;}
+    .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
+    .small-muted { color:#6c757d; font-size:14px; }
+    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
+    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    @media (max-width:600px) {
+      .dashboard {padding:0 7px;}
+      header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
+      .header-left{gap:10px;}
+      .app-title{font-size:18px;}
+      .plan-pill{font-size:13px;}
+      .header-logout{font-size:13px;padding:7px 13px;}
+      .card{padding:13px;}
+      th,td{font-size:14px;}
+      .pending-pill,.approved-pill,.rejected-pill{font-size:13px;}
     }
-    #adArea img, #adArea video {
-      border-radius: 8px; object-fit: contain; display: block;
-      max-width: 100%; height: auto;
-            }
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div class="header-left">
         <img src="assets/logo.png" alt="Logo" class="logo"/>
         <div>
-          <div style="font-size:20px;font-weight:700;">Smart Tracker</div>
-          <div style="font-size:12px;color:#ddd;">Vehicle tracking & fleet dashboard</div>
+          <div class="app-title">Smart Tracker <span style="font-size:15px;font-weight:normal;background:rgba(38,112,255,.1);border-radius:7px;padding:2px 11px;color:#2670ff;margin-left:7px;" id="planPillHeader"></span></div>
+          <div class="app-desc">Vehicle tracking & fleet dashboard</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div id="userEmail" class="small-muted">Loading...</div>
-        <div id="planPill" class="plan-pill">—</div>
-        <button id="logoutBtn" class="btn btn-ghost">Logout</button>
+      <div class="header-right">
+        <span class="header-email" id="userEmail">Loading...</span>
+        <span class="plan-pill" id="planPill">—</span>
+        <button id="logoutBtn" class="header-logout">Logout</button>
       </div>
     </header>
 
@@ -77,7 +114,7 @@
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:2px;">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class='badge offline'>Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
@@ -87,7 +124,7 @@
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
       <div id="componentsBlock">
-        <h4>Components</h4>
+        <h4 style="font-size:16px;border-bottom:1px solid #f3f6ff;">Components</h4>
         <ul id="componentsList" class="components-list">
           <li class="comp-unknown">No data</li>
         </ul>
@@ -100,12 +137,12 @@
         <input type="checkbox" id="alarmToggle">
         <span class="slider round"></span>
       </label>
-      <span id="alarmStatusText" style="margin-left:12px;">Loading alarm status...</span>
+      <span id="alarmStatusText" style="margin-left:14px;">Loading alarm status...</span>
     </section>
 
     <section class="card subscription-card">
       <h2>💳 Subscription & Upgrades</h2>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
         <div>Plan: <strong id="currentPlan">Loading</strong></div>
         <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
         <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
@@ -150,14 +187,22 @@
     </section>
   </div>
 
-  <div id="modal"><div class="dialog"><div id="modalContent"></div><div style="margin-top:12px;text-align:right;"><button id="modalClose" class="btn btn-ghost">Close</button><button id="modalUpgradeBtn" class="btn btn-primary" style="display:none;">Request Upgrade</button></div></div></div>
+  <div id="modal">
+    <div class="dialog">
+      <div id="modalContent"></div>
+      <div style="margin-top:12px;text-align:right;">
+        <button id="modalClose" class="btn btn-ghost">Close</button>
+        <button id="modalUpgradeBtn" class="btn btn-primary" style="display:none;">Request Upgrade</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-  // Firebase config
+  // --- Firebase Config ---
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -171,9 +216,10 @@
   const auth = firebase.auth();
   const db = firebase.database();
 
-  // DOM
+  // --- DOM refs ---
   const userEmailEl = document.getElementById('userEmail');
   const planPill = document.getElementById('planPill');
+  const planPillHeader = document.getElementById('planPillHeader');
   const adArea = document.getElementById('adArea');
   const locationEl = document.getElementById("location");
   const lastActiveEl = document.getElementById("lastActive");
@@ -212,7 +258,7 @@
     silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true },
     gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
   };
-
+  // --- Ads ---
   let adTimerInt = null, currentAdIndex=0, adsList=[];
   function showAd(ad) {
     adArea.innerHTML = 'Loading...';
@@ -227,10 +273,8 @@
   function loadAdsForPlan(plan) {
     if (adTimerInt) clearInterval(adTimerInt);
     const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    // Only show if ads enabled for this plan
-    if (policy.ads === 'no-ads') { adArea.style.display='none'; return; }
+    if (policy.ads === 'no-ads') { adArea.style.display='none'; adArea.innerHTML=''; return; }
     adArea.style.display = 'flex';
-
     db.ref('admin/ads').once('value').then(snapshot => {
       const adsObj = snapshot.val() || {};
       adsList = Object.values(adsObj).filter(ad =>
@@ -253,19 +297,16 @@
   }
   function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 
-  // ---- Upgrade/Subscription UI Logic ---
+  // --- Upgrade/plan logic ---
   function renderRequestUI(upgradeRequest, currentPlan) {
-    // Default: Hide both
     upgradeToSilverBtn.style.display = 'none';
     upgradeToGoldBtn.style.display = 'none';
     let statusMsg = '';
-
-    // GOLD disables all upgrades
+    // Gold disables ALL upgrades (including after upgrade)
     if (currentPlan === 'gold') {
       upgradeBtns.style.display = 'none';
       statusMsg = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
     } else if (!upgradeRequest || !upgradeRequest.status) {
-      // No request, allow upgrade if not on gold
       upgradeBtns.style.display = 'block';
       upgradeToSilverBtn.style.display = 'inline-block';
       upgradeToGoldBtn.style.display = 'inline-block';
@@ -277,7 +318,6 @@
       upgradeBtns.style.display = 'none';
       statusMsg = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
     } else if (upgradeRequest.status === 'rejected') {
-      // Allow to re-request
       upgradeBtns.style.display = 'block';
       upgradeToSilverBtn.style.display = 'inline-block';
       upgradeToGoldBtn.style.display = 'inline-block';
@@ -298,10 +338,12 @@
     const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
     const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
     localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
-    planPill.textContent = plan.toUpperCase(); currentPlanEl.textContent = plan.toUpperCase();
+    planPill.textContent = plan.toUpperCase();
+    currentPlanEl.textContent = plan.toUpperCase();
+    planPillHeader.textContent = plan.toUpperCase();
     planExpiryEl.textContent = prettyTS(plan_expiry); vehicleLimitEl.textContent = vehicle_limit;
     exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
-    renderAdsForPlan(plan);
+    renderAdsForPlan(plan); // This will HIDE ads for Gold
     renderRequestUI(udata.upgrade_request || null, plan);
   }
   function createUpgradeRequest(uid, desiredPlan) {
@@ -313,7 +355,6 @@
     updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status:'pending', request_time: now };
     return db.ref().update(updates);
   }
-
   async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
     const targetUid = adminReqObj.uid;
     const plan = adminReqObj.requestedPlan || 'silver';
@@ -370,7 +411,6 @@
   }
   function focusOnMap(lat,lng) { updateMap(lat,lng,`📍 ${lat}, ${lng}`); }
   window.focusOnMap = focusOnMap;
-
   function renderHistory(historyObj) {
     historyTbody.innerHTML = '';
     if (!historyObj) {
@@ -430,7 +470,6 @@
     a.href=url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
-
   function renderComponents(obj) {
     componentsListEl.innerHTML = "";
     if (!obj || !Object.keys(obj).length) {
