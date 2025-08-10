@@ -7,8 +7,16 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
-    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
     header {
       display: flex;
       justify-content: space-between;
@@ -28,9 +36,15 @@
     }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
-    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
@@ -49,7 +63,11 @@
     }
     .view-btn:hover { background-color: #0056b3; }
     .user-info { display: flex; align-items: center; gap: 10px; }
-    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
