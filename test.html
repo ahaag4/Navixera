@@ -375,4 +375,16 @@
 
     auth.onAuthStateChanged(user => {
       if (user) {
-        loadDashboard(user
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    // Expose focusOnMap to global scope for inline onclick in generated rows
+    window.focusOnMap = focusOnMap;
+  </script>
+</body>
+</html>
