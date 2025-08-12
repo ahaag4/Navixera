@@ -216,7 +216,6 @@
       const fallback = Date.parse(trimmed);
       return isNaN(fallback) ? null : fallback;
     }
-
     function renderHistoryTable(arr) {
       historyEl.innerHTML = "";
       if (!arr || !arr.length) {
@@ -237,11 +236,10 @@
           </tr>`;
       });
     }
-
     function applyFilter() {
       const fromMs = parseDateTimeLocalToMs(filterFrom.value);
       const toMs = parseDateTimeLocalToMs(filterTo.value);
-      const filtered = fullHistory.filter(entry => {
+      const filtered = (fullHistory || []).filter(entry => {
         if (!entry.time || !entry.location) return false;
         const entryMs = parseTimestampToMs(entry.time);
         if (entryMs === null) return false;
@@ -256,12 +254,12 @@
       filterFrom.value = "";
       filterTo.value = "";
       renderHistoryTable(fullHistory);
-      clearRouteLayers();
+      clearRouteLayers(); // Don't plot anything until filtered!
     }
     applyFilterBtn.addEventListener("click", applyFilter);
     resetFilterBtn.addEventListener("click", resetFilter);
 
-    // --- Other dashboard events, listeners, auth, and Firebase (unchanged; same as before) ---
+    // --- Components, alarm, online logic, and user/session setup: unchanged ---
     function renderComponents(obj) { /* ... unchanged ... */ }
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) { /* ... unchanged ... */ }
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) { /* ... unchanged ... */ }
@@ -270,7 +268,6 @@
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
-
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -295,7 +292,7 @@
             .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
         }
         renderHistoryTable(fullHistory);
-        clearRouteLayers(); // <-- do NOT plot by default!
+        clearRouteLayers();
       });
       vehicleRef.child("components").on("value", (snap) => renderComponents(snap.val()));
       vehicleRef.child("online").on("value", (snapshot) => {
@@ -332,7 +329,6 @@
         window.location.href = "login.html";
       }
     });
-
   </script>
 </body>
 </html>
