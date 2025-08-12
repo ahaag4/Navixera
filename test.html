@@ -76,7 +76,6 @@
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
-    /* Added for filter controls */
     .filter-controls { margin-bottom:12px; display:flex; gap:2rem; align-items:center; }
     .filter-controls label { font-weight:600; }
     .filter-controls input[type="datetime-local"] { padding:6px; border-radius:6px; border:1px solid #ccc;}
@@ -132,7 +131,7 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- ADD FILTER CONTROLS JUST HERE -->
+      <!-- Filter controls for range selection -->
       <div class="filter-controls">
         <label>From: <input type="datetime-local" id="dateFrom"></label>
         <label>To: <input type="datetime-local" id="dateTo"></label>
@@ -173,13 +172,15 @@
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
+    const dateFromInput = document.getElementById('dateFrom');
+    const dateToInput = document.getElementById('dateTo');
 
     let map, marker;
     const ONLINE_TTL_MS = 90000;
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
 
-    // --- ADDED FOR PATH TRACING ---
+    // --- ADDITIONS FOR PATH PLOTTING ---
     let movementHistoryRaw = {};
     let pathPolyline = null, startMarker = null, endMarker = null;
     function parseDateTimeLocalToMs(dtLocal) {
@@ -211,8 +212,8 @@
       }
     }
     function filterAndPlotPath() {
-      const fromMs = parseDateTimeLocalToMs(document.getElementById('dateFrom').value);
-      const toMs = parseDateTimeLocalToMs(document.getElementById('dateTo').value);
+      const fromMs = parseDateTimeLocalToMs(dateFromInput.value);
+      const toMs = parseDateTimeLocalToMs(dateToInput.value);
       let filteredEntries = [];
       Object.values(movementHistoryRaw || {}).forEach(entry => {
         if (!entry.time || !entry.location) return;
@@ -232,8 +233,8 @@
       });
       drawMovementPath(pathPoints);
     }
-    document.getElementById('dateFrom').addEventListener("change", filterAndPlotPath);
-    document.getElementById('dateTo').addEventListener("change", filterAndPlotPath);
+    dateFromInput.addEventListener("change", filterAndPlotPath);
+    dateToInput.addEventListener("change", filterAndPlotPath);
 
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
@@ -247,11 +248,9 @@
       }
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
-
     function focusOnMap(lat, lng) {
       updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
-
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -272,7 +271,6 @@
         componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
       });
     }
-
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
       const parts = ts.trim().split(' ');
@@ -292,7 +290,6 @@
       const dt = new Date(y, m, d, hh, mm, ss);
       return dt.getTime();
     }
-
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
       if (!lastActiveMs) return !!firebaseOnlineFlag;
@@ -300,19 +297,11 @@
       if (age > ONLINE_TTL_MS) return false;
       return !!firebaseOnlineFlag;
     }
-
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-
-      if (isOnline) {
-        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-      } else {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-      }
-
+      onlineStatusEl.innerHTML = `<span class="badge ${isOnline ? 'online' : 'offline'}">${isOnline ? 'ONLINE' : 'OFFLINE'}</span>`;
       lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
-
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
@@ -325,11 +314,9 @@
         });
       }, LAST_ACTIVE_POLL_MS);
     }
-
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
-
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -348,7 +335,6 @@
         });
       });
 
-      // PATCHED: Store history for filtering & path plotting
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
