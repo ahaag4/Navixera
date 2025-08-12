@@ -8,67 +8,25 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f9fc;
-    }
-    .dashboard {
-      max-width: 1000px;
-      margin: auto;
-      padding: 20px;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #343a40;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
     .logo { height: 40px; }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
+    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table {
-      width: 100%; border-collapse: collapse; margin-top: 10px;
-    }
-    th, td {
-      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
-    }
-    .switch {
-      position: relative; display: inline-block; width: 60px; height: 30px;
-    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .4s; border-radius: 30px;
-    }
-    .slider:before {
-      position: absolute; content: "";
-      height: 22px; width: 22px; left: 4px; bottom: 4px;
-      background-color: white; transition: .4s; border-radius: 50%;
-    }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
-    .view-btn {
-      background-color: #007bff; color: white; padding: 5px 12px;
-      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
-    }
+    .view-btn { background-color: #007bff; color: white; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
     .view-btn:hover { background-color: #0056b3; }
     .user-info { display: flex; align-items: center; gap: 10px; }
-    #logoutBtn {
-      background: #dc3545; color: white; border: none;
-      padding: 6px 12px; border-radius: 6px; cursor: pointer;
-    }
-    /* small styles for new components/online display */
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -79,6 +37,11 @@
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
+    /* small responsive tweaks */
+    @media (max-width:600px) {
+      header { flex-direction: column; gap:8px; align-items:flex-start; }
+      .view-btn { margin-top:6px; }
+    }
   </style>
 </head>
 <body>
@@ -127,12 +90,14 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Date/Time Filters -->
-      <div style="margin-bottom:10px;">
-        <label>From: <input type="datetime-local" id="fromDate"></label>
-        <label style="margin-left:10px;">To: <input type="datetime-local" id="toDate"></label>
-        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply Filter</button>
+      <!-- Date/time filters -->
+      <div style="margin-bottom: 10px;">
+        <label>From: <input type="datetime-local" id="filterFrom"></label>
+        <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
+        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply</button>
+        <button id="resetFilterBtn" class="view-btn" style="background:#6c757d;margin-left:5px;">Reset</button>
       </div>
+
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
@@ -144,7 +109,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <script>
+    // --------- Firebase init (unchanged) ----------
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -158,6 +125,7 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
+    // --------- DOM refs ----------
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -171,45 +139,73 @@
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
-    let map, marker;
+    const applyFilterBtn = document.getElementById("applyFilterBtn");
+    const resetFilterBtn = document.getElementById("resetFilterBtn");
+
+    // --------- state ----------
+    let map = null;
+    let marker = null;
     let routePolyline = null;
     let startMarker = null;
     let endMarker = null;
-    let fullHistoryData = [];
 
-    const ONLINE_TTL_MS = 90000;
-    const LAST_ACTIVE_POLL_MS = 30000;
+    // fullHistory holds chronological ascending (oldest -> newest)
+    let fullHistory = [];
+
+    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
     let uidGlobal = null;
 
-    function updateMap(lat, lng, popupText = null) {
-      if (!lat || !lng) return;
+    // --------- map helpers ----------
+    function _initMapIfNeeded(lat, lng, zoom = 13) {
       if (!map) {
-        map = L.map('map').setView([lat, lng], 15);
+        map = L.map('map').setView([lat, lng], zoom);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      }
+    }
+
+    function updateMap(lat, lng, popupText = null) {
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
+      if (!marker) {
         marker = L.marker([lat, lng]).addTo(map);
       } else {
         marker.setLatLng([lat, lng]);
-        map.setView([lat, lng], 15);
       }
+      map.setView([lat, lng], 15);
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
 
     function focusOnMap(lat, lng) {
-      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+      if (!lat && lat !== 0) return;
+      if (!lng && lng !== 0) return;
+      if (!map) {
+        // initialize centered on this location
+        updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+        return;
+      }
+      map.setView([lat, lng], 15);
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
+      marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
     }
 
+    // Expose for inline onclick handlers
+    window.focusOnMap = focusOnMap;
+
+    // --------- components render ----------
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
         componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
         return;
       }
-      const order = Object.keys(obj);
-      if (order.length === 0) {
+      const keys = Object.keys(obj);
+      if (keys.length === 0) {
         componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
         return;
       }
-      order.forEach(k => {
+      keys.forEach(k => {
         const v = obj[k];
         let cls = "comp-unknown";
         if (v === "ok" || v === "activity") cls = "comp-ok";
@@ -219,32 +215,41 @@
       });
     }
 
+    // --------- timestamp parsing ----------
+    // Accepts "YYYY-MM-DD HH:MM:SS" and fallback to Date.parse if different
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
-      const parts = ts.trim().split(' ');
-      if (parts.length < 2) {
-        const fallback = Date.parse(ts);
-        return isNaN(fallback) ? null : fallback;
+      const trimmed = ts.trim();
+      // if format contains space between date and time (expected)
+      const parts = trimmed.split(' ');
+      if (parts.length >= 2 && parts[0].includes('-') && parts[1].includes(':')) {
+        const dateParts = parts[0].split('-');
+        const timeParts = parts[1].split(':');
+        if (dateParts.length >= 3 && timeParts.length >= 2) {
+          const y = parseInt(dateParts[0], 10);
+          const m = parseInt(dateParts[1], 10) - 1;
+          const d = parseInt(dateParts[2], 10);
+          const hh = parseInt(timeParts[0], 10) || 0;
+          const mm = parseInt(timeParts[1], 10) || 0;
+          const ss = parseInt(timeParts[2], 10) || 0;
+          const dt = new Date(y, m, d, hh, mm, ss);
+          return dt.getTime();
+        }
       }
-      const dateParts = parts[0].split('-');
-      const timeParts = parts[1].split(':');
-      if (dateParts.length < 3 || timeParts.length < 3) return null;
-      const y = parseInt(dateParts[0], 10);
-      const m = parseInt(dateParts[1], 10) - 1;
-      const d = parseInt(dateParts[2], 10);
-      const hh = parseInt(timeParts[0], 10);
-      const mm = parseInt(timeParts[1], 10);
-      const ss = parseInt(timeParts[2], 10);
-      const dt = new Date(y, m, d, hh, mm, ss);
-      return dt.getTime();
+      const fallback = Date.parse(trimmed); // handles ISO and other formats
+      return isNaN(fallback) ? null : fallback;
     }
 
+    // --------- online logic ----------
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
-      if (!lastActiveMs) return !!firebaseOnlineFlag;
+      if (!lastActiveMs) {
+        // If we don't have a valid last_active, fall back to the firebase flag
+        return !!firebaseOnlineFlag;
+      }
       const age = Date.now() - lastActiveMs;
-      if (age > ONLINE_TTL_MS) return false;
-      return !!firebaseOnlineFlag;
+      // must be recent and flag true
+      return (age <= ONLINE_TTL_MS) && !!firebaseOnlineFlag;
     }
 
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
@@ -266,114 +271,214 @@
       }, LAST_ACTIVE_POLL_MS);
     }
 
-    function applyDateFilter() {
-      const fromVal = document.getElementById("fromDate").value;
-      const toVal = document.getElementById("toDate").value;
-      if (!fromVal || !toVal) {
-        alert("Please select both From and To date/time.");
+    // --------- history rendering & plotting ----------
+    function renderHistoryTableAsc(dataAsc) {
+      // dataAsc is chronological ascending (oldest -> newest).
+      // Table display prefers most-recent-first, so we reverse for rendering rows.
+      const dataForTable = Array.isArray(dataAsc) ? dataAsc.slice().reverse() : [];
+
+      historyEl.innerHTML = "";
+      if (!dataForTable.length) {
+        historyEl.innerHTML = `<tr><td colspan="3">No matching history found.</td></tr>`;
         return;
       }
-      const fromTime = new Date(fromVal).getTime();
-      const toTime = new Date(toVal).getTime();
-      const filtered = fullHistoryData.filter(item => {
-        const itemTime = parseTimestampToMs(item.time);
-        return itemTime && itemTime >= fromTime && itemTime <= toTime;
+      dataForTable.forEach(entry => {
+        const loc = entry.location || "";
+        const time = entry.time || "";
+        const [lat, lng] = (loc + "").split(",");
+        const safeLat = parseFloat(lat) || 0;
+        const safeLng = parseFloat(lng) || 0;
+        historyEl.innerHTML += `
+          <tr>
+            <td>${time}</td>
+            <td>${loc}</td>
+            <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+          </tr>`;
       });
-      if (filtered.length === 0) {
-        alert("No points found for this time range.");
-        return;
-      }
-      if (routePolyline) map.removeLayer(routePolyline);
-      if (startMarker) map.removeLayer(startMarker);
-      if (endMarker) map.removeLayer(endMarker);
-
-      const latlngs = filtered.map(p => [p.lat, p.lng]);
-      routePolyline = L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
-
-      startMarker = L.marker(latlngs[0], { icon: L.icon({
-        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [32, 32]
-      }) }).addTo(map).bindPopup("Start");
-
-      endMarker = L.marker(latlngs[latlngs.length - 1], { icon: L.icon({
-        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', iconSize: [32, 32]
-      }) }).addTo(map).bindPopup("End");
-
-      map.fitBounds(routePolyline.getBounds());
     }
 
+    function clearRouteLayers() {
+      if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
+      if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
+      if (endMarker) { try { map.removeLayer(endMarker); } catch(e){} endMarker = null; }
+    }
+
+    function plotRouteOnMapAsc(dataAsc) {
+      // dataAsc chronological ascending
+      if (!Array.isArray(dataAsc)) return;
+      clearRouteLayers();
+
+      // collect latlngs
+      const latlngs = dataAsc.map(e => {
+        const [lat, lng] = ((e.location || "") + "").split(",");
+        return [parseFloat(lat), parseFloat(lng)];
+      }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+
+      if (!latlngs.length) return;
+
+      // ensure map exists
+      _initMapIfNeeded(latlngs[0][0], latlngs[0][1], 13);
+
+      routePolyline = L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
+      // fit to route with padding
+      try {
+        map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+      } catch (e) {}
+
+      // start = green, end = red
+      startMarker = L.marker(latlngs[0], {
+        icon: L.icon({
+          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        })
+      }).addTo(map).bindPopup("Start");
+
+      endMarker = L.marker(latlngs[latlngs.length - 1], {
+        icon: L.icon({
+          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        })
+      }).addTo(map).bindPopup("End");
+    }
+
+    function applyDateFilter() {
+      const fromVal = document.getElementById("filterFrom").value;
+      const toVal = document.getElementById("filterTo").value;
+      const fromTime = fromVal ? new Date(fromVal).getTime() : null;
+      const toTime = toVal ? new Date(toVal).getTime() : null;
+
+      const filteredAsc = fullHistory.filter(e => {
+        const t = parseTimestampToMs(e.time);
+        if (!t) return false;
+        if (fromTime && t < fromTime) return false;
+        if (toTime && t > toTime) return false;
+        return true;
+      });
+
+      renderHistoryTableAsc(filteredAsc);
+      plotRouteOnMapAsc(filteredAsc);
+    }
+
+    function resetDateFilter() {
+      document.getElementById("filterFrom").value = "";
+      document.getElementById("filterTo").value = "";
+      renderHistoryTableAsc(fullHistory);
+      plotRouteOnMapAsc(fullHistory);
+    }
+
+    applyFilterBtn.addEventListener("click", applyDateFilter);
+    resetFilterBtn.addEventListener("click", resetDateFilter);
+
+    // --------- load dashboard & db listeners ----------
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
+      // current block listener
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         const { latitude, longitude, status, last_active, battery } = data;
-        if (latitude !== undefined && longitude !== undefined) {
+        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
-        } else locationEl.textContent = "No location";
+        } else {
+          locationEl.textContent = "No location";
+        }
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = (battery !== undefined) ? `${battery}%` : "N/A";
-        vehicleRef.child("online").once("value").then(snap => {
-          renderOnlineAndLastActive(snap.val(), last_active);
+        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
+
+        vehicleRef.child("online").once('value').then(onlineSnap => {
+          const onlineFlag = onlineSnap.val();
+          renderOnlineAndLastActive(onlineFlag, last_active);
         });
       });
 
+      // history block: store chronological ascending, render reversed in table
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
-        historyEl.innerHTML = "";
-        fullHistoryData = [];
         if (history) {
-          const entries = Object.values(history).reverse();
-          entries.forEach(entry => {
-            const loc = entry.location || "";
-            const time = entry.time || "";
-            const [lat, lng] = loc.split(",");
-            const safeLat = parseFloat(lat) || 0;
-            const safeLng = parseFloat(lng) || 0;
-            fullHistoryData.push({ time, lat: safeLat, lng: safeLng });
-            historyEl.innerHTML += `
-              <tr>
-                <td>${time}</td>
-                <td>${loc}</td>
-                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
-              </tr>`;
+          // convert to array and sort by parsed timestamp ascending (oldest -> newest)
+          const arr = Object.values(history).map(item => {
+            return {
+              ...(item || {}),
+              _ts: parseTimestampToMs(item && item.time ? item.time : null)
+            };
+          }).filter(x => x._ts !== null).sort((a, b) => a._ts - b._ts);
+
+          fullHistory = arr.map(x => {
+            // remove internal _ts from exposed objects to keep things clean
+            const { _ts, ...rest } = x;
+            return rest;
           });
+
+          // Render table (most recent first) and plot route (chronological)
+          renderHistoryTableAsc(fullHistory);
+          plotRouteOnMapAsc(fullHistory);
         } else {
+          fullHistory = [];
           historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+          clearRouteLayers();
         }
       });
 
-      vehicleRef.child("components").on("value", snap => renderComponents(snap.val()));
-      vehicleRef.child("online").on("value", snap => {
-        vehicleRef.child("current/last_active").once("value").then(s => {
-          renderOnlineAndLastActive(snap.val(), s.val());
+      // components block
+      vehicleRef.child("components").on("value", (snapshot) => {
+        renderComponents(snapshot.val());
+      });
+
+      // online flag + last_active combined listener
+      vehicleRef.child("online").on("value", (snapshot) => {
+        vehicleRef.child("current/last_active").once('value').then(snap => {
+          renderOnlineAndLastActive(snapshot.val(), snap.val());
         });
       });
-      vehicleRef.child("last_seen").on("value", snap => lastSeenEl.textContent = snap.val() || "N/A");
-      vehicleRef.child("alarm").on("value", snap => {
-        const status = snap.val() || "off";
+
+      // last_seen
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        lastSeenEl.textContent = snapshot.val() || "N/A";
+      });
+
+      // alarm value
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
-      vehicleRef.child("last_trigger").on("value", snap => {
-        const trigger = snap.val();
+
+      // last_trigger
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
         if (trigger && trigger.time && trigger.status === "alert") {
           alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
-        } else alarmTriggerEl.textContent = "No triggers";
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
       });
-      vehicleRef.child("current/status").on("value", snap => {
-        if (snap.val()) statusEl.textContent = snap.val();
+
+      // status node listener (current/status)
+      vehicleRef.child("current/status").on("value", (snapshot) => {
+        const s = snapshot.val();
+        if (s) statusEl.textContent = s;
       });
+
+      // allow operator to toggle alarm from web UI
       alarmToggle.addEventListener("change", () => {
-        vehicleRef.child("alarm").set(alarmToggle.checked ? "on" : "off").catch(err => console.error(err));
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState).catch(err => {
+          console.error("Failed to set alarm:", err);
+        });
       });
+
+      // start periodic poll
       startLastActivePoll(uid);
     }
 
-    auth.onAuthStateChanged(user => {
+    // auth state
+    auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
         document.getElementById("userEmail").textContent = user.email;
@@ -382,9 +487,6 @@
         window.location.href = "login.html";
       }
     });
-
-    // Expose focusOnMap to global scope for inline onclick in generated rows
-    window.focusOnMap = focusOnMap;
   </script>
 </body>
 </html>
