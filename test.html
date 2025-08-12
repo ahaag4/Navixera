@@ -8,26 +8,82 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    /* ... your styles as provided ... */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       background: #f7f9fc;
     }
-    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
     .logo { height: 40px; }
-    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px;}
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc;}
-    /* other CSS unchanged */
-    .filter-controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 10px;}
-    .filter-controls label { font-weight: 600; }
-    .filter-controls input[type="datetime-local"] { padding: 6px; border: 1px solid #ccc; border-radius: 6px; width: 180px;}
-    @media (max-width:650px){.filter-controls{flex-direction:column;gap:10px;}.filter-controls input[type="datetime-local"]{width:100%}}
-    /* ... rest of your styles ... */
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+    /* Added for filter controls */
+    .filter-controls { margin-bottom:12px; display:flex; gap:2rem; align-items:center; }
+    .filter-controls label { font-weight:600; }
+    .filter-controls input[type="datetime-local"] { padding:6px; border-radius:6px; border:1px solid #ccc;}
+    @media (max-width:650px){
+      .filter-controls{flex-direction:column;gap:10px;}
+      .filter-controls input[type="datetime-local"]{width:100%;}
+    }
   </style>
 </head>
 <body>
@@ -42,7 +98,6 @@
     </header>
 
     <section class="card status-card">
-      <!-- ... status card unchanged ... -->
       <h2>🔍 Live Status</h2>
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
@@ -75,21 +130,18 @@
       <div id="map">Loading map...</div>
     </section>
 
-    <!--  ADD FILTER CONTROLS (only addition here) -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
+      <!-- ADD FILTER CONTROLS JUST HERE -->
       <div class="filter-controls">
-        <label for="dateFrom">From:</label>
-        <input type="datetime-local" id="dateFrom"/>
-        <label for="dateTo">To:</label>
-        <input type="datetime-local" id="dateTo"/>
+        <label>From: <input type="datetime-local" id="dateFrom"></label>
+        <label>To: <input type="datetime-local" id="dateTo"></label>
       </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
-
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -97,8 +149,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- your entire original dashboard code unchanged ---
-    // (all your firebaseConfig, auth, UI update, etc. as in your posted code above)
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -120,8 +170,6 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
-    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
@@ -131,10 +179,9 @@
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
 
-    // ---- ADDITIONS BEGIN HERE ----
+    // --- ADDED FOR PATH TRACING ---
     let movementHistoryRaw = {};
     let pathPolyline = null, startMarker = null, endMarker = null;
-
     function parseDateTimeLocalToMs(dtLocal) {
       if (!dtLocal) return null;
       return new Date(dtLocal).getTime();
@@ -149,7 +196,7 @@
       if (!map || !Array.isArray(points) || points.length === 0) return;
       if (points.length > 1) {
         pathPolyline = L.polyline(points, { color: 'blue', weight: 5, opacity: 0.8 }).addTo(map);
-        map.fitBounds(pathPolyline.getBounds(), { padding: [40,40] });
+        map.fitBounds(pathPolyline.getBounds(), { padding: [40, 40] });
         startMarker = L.marker(points[0], {
           icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
         }).addTo(map).bindPopup("Start Point").openPopup();
@@ -187,7 +234,6 @@
     }
     document.getElementById('dateFrom').addEventListener("change", filterAndPlotPath);
     document.getElementById('dateTo').addEventListener("change", filterAndPlotPath);
-    // ---- ADDITIONS END ----
 
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
@@ -249,13 +295,9 @@
 
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
-      if (!lastActiveMs) {
-        return !!firebaseOnlineFlag;
-      }
+      if (!lastActiveMs) return !!firebaseOnlineFlag;
       const age = Date.now() - lastActiveMs;
-      if (age > ONLINE_TTL_MS) {
-        return false;
-      }
+      if (age > ONLINE_TTL_MS) return false;
       return !!firebaseOnlineFlag;
     }
 
@@ -268,11 +310,7 @@
         onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
 
-      if (lastActiveStr) {
-        lastActiveEl.textContent = lastActiveStr;
-      } else {
-        lastActiveEl.textContent = "Unknown";
-      }
+      lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
 
     function startLastActivePoll(uid) {
@@ -282,8 +320,7 @@
         currentRef.once('value').then(snap => {
           const lastActive = snap.val();
           db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
-            const onlineFlag = onlineSnap.val();
-            renderOnlineAndLastActive(onlineFlag, lastActive);
+            renderOnlineAndLastActive(onlineSnap.val(), lastActive);
           });
         });
       }, LAST_ACTIVE_POLL_MS);
@@ -307,12 +344,11 @@
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
         vehicleRef.child("online").once("value").then(onlineSnap => {
-          const onlineFlag = onlineSnap.val();
-          renderOnlineAndLastActive(onlineFlag, last_active);
+          renderOnlineAndLastActive(onlineSnap.val(), last_active);
         });
       });
 
-      // --- MOVEMENT HISTORY PATCHED BLOCK ---
+      // PATCHED: Store history for filtering & path plotting
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
@@ -335,8 +371,7 @@
         } else {
           historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
-        // ADDED: Always filter and plot polyline when history loads/updates
-        filterAndPlotPath();
+        filterAndPlotPath(); // <- plot path whenever history loads!
       });
 
       vehicleRef.child("components").on("value", (snapshot) => {
@@ -385,7 +420,7 @@
       });
 
       startLastActivePoll(uid);
-    } // end loadDashboard
+    }
 
     auth.onAuthStateChanged((user) => {
       if (user) {
