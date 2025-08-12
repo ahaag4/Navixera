@@ -8,15 +8,20 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
+    /* Base styling */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       background: #f7f9fc;
+      color: #343a40;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
     .dashboard {
       max-width: 1000px;
       margin: auto;
       padding: 20px;
+      box-sizing: border-box;
     }
     header {
       display: flex;
@@ -26,8 +31,12 @@
       color: white;
       padding: 10px 20px;
       border-radius: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .logo { height: 40px; }
+    h1 { font-weight: 700; margin: 0; font-size: 1.5rem; }
+
     .card {
       background: white;
       padding: 20px;
@@ -35,49 +44,226 @@
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    h2 { margin-top: 0; color: #343a40; }
-    #map { height: 300px; width: 100%; border-radius: 10px; }
+    h2 {
+      margin-top: 0;
+      color: #343a40;
+      font-weight: 700;
+      font-size: 1.4rem;
+    }
+    #map {
+      height: 400px;
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
     table {
-      width: 100%; border-collapse: collapse; margin-top: 10px;
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.9rem;
     }
     th, td {
-      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f3f6f9;
+      font-weight: 600;
     }
     .switch {
-      position: relative; display: inline-block; width: 60px; height: 30px;
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
     }
-    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch input { 
+      opacity: 0; 
+      width: 0; 
+      height: 0; 
+    }
     .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .4s; border-radius: 30px;
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 30px;
     }
     .slider:before {
-      position: absolute; content: "";
-      height: 22px; width: 22px; left: 4px; bottom: 4px;
-      background-color: white; transition: .4s; border-radius: 50%;
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
     }
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
+
     .view-btn {
-      background-color: #007bff; color: white; padding: 5px 12px;
-      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+      background-color: #007bff;
+      color: white;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s ease;
     }
-    .view-btn:hover { background-color: #0056b3; }
-    .user-info { display: flex; align-items: center; gap: 10px; }
+    .view-btn:hover, .view-btn:focus {
+      background-color: #0056b3;
+      outline: none;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     #logoutBtn {
-      background: #dc3545; color: white; border: none;
-      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
     }
-    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
-    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
-    .badge.online { background:#28a745; }
-    .badge.offline { background:#dc3545; }
-    .components-list { margin-top:10px; list-style:none; padding-left:0; }
-    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
-    .comp-ok { color:#28a745; font-weight:600 }
-    .comp-warn { color:#e67700; font-weight:600 }
-    .comp-bad { color:#c82333; font-weight:600 }
-    .comp-unknown { color:#6c757d; font-weight:600 }
+    #logoutBtn:hover, #logoutBtn:focus {
+      background: #b02a37;
+      outline: none;
+    }
+
+    /* Online/offline badges */
+    .status-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .badge {
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #fff;
+      user-select: none;
+    }
+    .badge.online { background: #28a745; }
+    .badge.offline { background: #dc3545; }
+
+    /* Components list */
+    .components-list {
+      margin-top: 10px;
+      list-style: none;
+      padding-left: 0;
+      max-height: 180px;
+      overflow-y: auto;
+      border-top: 1px solid #eee;
+    }
+    .components-list li {
+      padding: 6px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .comp-ok { color: #28a745; font-weight: 600; }
+    .comp-warn { color: #e67700; font-weight: 600; }
+    .comp-bad { color: #c82333; font-weight: 600; }
+    .comp-unknown { color: #6c757d; font-weight: 600; }
+
+    /* Responsive and layout for Filter Controls */
+    .filter-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .filter-controls label {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .filter-controls input[type="datetime-local"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      width: 180px;
+      max-width: 100%;
+      box-sizing: border-box;
+      cursor: pointer;
+      transition: border-color 0.3s ease;
+    }
+    .filter-controls input[type="datetime-local"]:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    #filterHistoryBtn {
+      padding: 8px 18px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      user-select: none;
+    }
+    #filterHistoryBtn:hover, #filterHistoryBtn:focus {
+      background-color: #0056b3;
+      outline: none;
+    }
+
+    /* Table responsiveness */
+    @media (max-width: 650px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+      }
+      tr {
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #ddd;
+      }
+      td {
+        border: none;
+        position: relative;
+        padding-left: 50%;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      td:before {
+        position: absolute;
+        top: 10px;
+        left: 12px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        font-weight: 700;
+        content: attr(data-label);
+        color: #333;
+      }
+      .filter-controls {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .filter-controls input[type="datetime-local"] {
+        width: 100%;
+      }
+      #filterHistoryBtn {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -113,7 +299,7 @@
     <section class="card alarm-card">
       <h2>🔔 Alarm</h2>
       <label class="switch">
-        <input type="checkbox" id="alarmToggle">
+        <input type="checkbox" id="alarmToggle" aria-label="Toggle alarm">
         <span class="slider round"></span>
       </label>
       <p id="alarmStatusText">Loading alarm status...</p>
@@ -121,18 +307,26 @@
 
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
-      <div id="map">Loading map...</div>
+      <div id="map" role="region" aria-label="Live vehicle location map">Loading map...</div>
     </section>
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <div style="margin-bottom: 10px;">
-        <label>From: <input type="datetime-local" id="dateFrom"></label>
-        <label style="margin-left: 10px;">To: <input type="datetime-local" id="dateTo"></label>
-        <button id="filterHistoryBtn" style="margin-left: 10px;">Filter</button>
+      <div class="filter-controls" role="region" aria-label="Filter movement history by date and time">
+        <label for="dateFrom">From:</label>
+        <input type="datetime-local" id="dateFrom" name="dateFrom" aria-required="false" />
+        <label for="dateTo">To:</label>
+        <input type="datetime-local" id="dateTo" name="dateTo" aria-required="false" />
+        <button id="filterHistoryBtn" aria-label="Filter history by date and time">Filter</button>
       </div>
       <table>
-        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">Time</th>
+            <th scope="col">Location</th>
+            <th scope="col">Map</th>
+          </tr>
+        </thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
@@ -169,28 +363,35 @@
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
 
+    const dateFromInput = document.getElementById('dateFrom');
+    const dateToInput = document.getElementById('dateTo');
+    const filterHistoryBtn = document.getElementById('filterHistoryBtn');
+
     let map, marker;
     let pathPolyline = null;
+    let startMarker = null;
+    let endMarker = null;
     let historyData = {};
     const ONLINE_TTL_MS = 90000;
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
 
-    const dateFromInput = document.getElementById('dateFrom');
-    const dateToInput = document.getElementById('dateTo');
-    const filterHistoryBtn = document.getElementById('filterHistoryBtn');
-
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
       if (!map) {
         map = L.map('map').setView([lat, lng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
       } else {
         marker.setLatLng([lat, lng]);
         map.setView([lat, lng], 15);
       }
-      if (popupText) marker.bindPopup(popupText).openPopup();
+      if (popupText) {
+        marker.bindPopup(popupText).openPopup();
+      }
     }
 
     function focusOnMap(lat, lng) {
@@ -203,12 +404,12 @@
         componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
         return;
       }
-      const order = Object.keys(obj);
-      if (order.length === 0) {
+      const keys = Object.keys(obj);
+      if (keys.length === 0) {
         componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
         return;
       }
-      order.forEach(k => {
+      keys.forEach(k => {
         const v = obj[k];
         let cls = "comp-unknown";
         if (v === "ok" || v === "activity") cls = "comp-ok";
@@ -269,13 +470,61 @@
       return new Date(dtLocal).getTime();
     }
 
+    function clearMarkers() {
+      if (startMarker) {
+        map.removeLayer(startMarker);
+        startMarker = null;
+      }
+      if (endMarker) {
+        map.removeLayer(endMarker);
+        endMarker = null;
+      }
+    }
+
     function drawPathOnMap(points) {
-      if (pathPolyline) map.removeLayer(pathPolyline);
+      if (pathPolyline) {
+        map.removeLayer(pathPolyline);
+        pathPolyline = null;
+      }
+      clearMarkers();
+
       if (points.length > 1) {
-        pathPolyline = L.polyline(points, { color: 'red' }).addTo(map);
-        map.fitBounds(pathPolyline.getBounds());
+        pathPolyline = L.polyline(points, { color: 'red', weight: 5, opacity: 0.8, smoothFactor: 1 }).addTo(map);
+        map.fitBounds(pathPolyline.getBounds(), { padding: [50, 50] });
+
+        // Distinct start marker (green)
+        startMarker = L.marker(points[0], {
+          icon: L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+          }),
+          title: "Start Point"
+        }).addTo(map).bindPopup("Start Point").openPopup();
+
+        // Distinct end marker (red)
+        endMarker = L.marker(points[points.length - 1], {
+          icon: L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+          }),
+          title: "End Point"
+        }).addTo(map).bindPopup("End Point");
       } else if (points.length === 1) {
         map.setView(points[0], 15);
+        // Single marker as both start and end
+        startMarker = L.marker(points[0], {
+          icon: L.icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+          }),
+          title: "Location"
+        }).addTo(map).bindPopup("Location").openPopup();
       }
     }
 
@@ -294,21 +543,31 @@
       });
 
       filteredEntries.sort((a, b) => parseTimestampToMs(a.time) - parseTimestampToMs(b.time));
+
       historyEl.innerHTML = "";
       filteredEntries.forEach(entry => {
         const [lat, lng] = entry.location.split(",");
         historyEl.innerHTML += `
           <tr>
-            <td>${entry.time}</td>
-            <td>${entry.location}</td>
-            <td><button class="view-btn" onclick="focusOnMap(${parseFloat(lat)}, ${parseFloat(lng)})">View</button></td>
+            <td data-label="Time">${entry.time}</td>
+            <td data-label="Location">${entry.location}</td>
+            <td data-label="Map"><button class="view-btn" aria-label="View location ${entry.location} on map" onclick="focusOnMap(${parseFloat(lat)}, ${parseFloat(lng)})">View</button></td>
           </tr>`;
       });
+
       if (filteredEntries.length === 0) {
         historyEl.innerHTML = `<tr><td colspan="3">No history found for selected date/time.</td></tr>`;
+        if (pathPolyline) {
+          map.removeLayer(pathPolyline);
+          pathPolyline = null;
+        }
+        clearMarkers();
+        return;
       }
 
-      drawPathOnMap(filteredEntries.map(e => e.location.split(",").map(Number)));
+      // Points array for polyline
+      const pathPoints = filteredEntries.map(e => e.location.split(",").map(Number));
+      drawPathOnMap(pathPoints);
     }
 
     function loadDashboard(uid) {
@@ -319,13 +578,15 @@
         const data = snapshot.val();
         if (!data) return;
         const { latitude, longitude, status, last_active, battery } = data;
-        if (latitude && longitude) {
+        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
-        } else locationEl.textContent = "No location";
+        } else {
+          locationEl.textContent = "No location";
+        }
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = battery !== undefined ? `${battery}%` : "N/A";
+        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
         vehicleRef.child("online").once("value").then(snap => {
           renderOnlineAndLastActive(snap.val(), last_active);
         });
@@ -346,17 +607,22 @@
         });
       });
 
-      vehicleRef.child("last_seen").on("value", (snapshot) => lastSeenEl.textContent = snapshot.val() || "N/A");
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        lastSeenEl.textContent = snapshot.val() || "N/A";
+      });
+
       vehicleRef.child("alarm").on("value", (snap) => {
         const status = snap.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
+
       vehicleRef.child("last_trigger").on("value", (snap) => {
         const t = snap.val();
         alarmTriggerEl.innerHTML = (t && t.time && t.status === "alert") ?
           `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>` : "No triggers";
       });
+
       vehicleRef.child("current/status").on("value", (snap) => {
         if (snap.val()) statusEl.textContent = snap.val();
       });
@@ -366,6 +632,7 @@
       });
 
       filterHistoryBtn.addEventListener("click", filterAndRenderHistory);
+
       startLastActivePoll(uid);
     }
 
