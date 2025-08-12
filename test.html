@@ -6,30 +6,22 @@
   <title>Smart Tracker Dashboard</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; color: #343a40; }
-    .dashboard { max-width: 1000px; margin: auto; padding: 20px; box-sizing: border-box; }
-    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; flex-wrap: wrap; gap: 10px; }
-    .logo { height: 40px; }
-    h1 { font-weight: 700; margin: 0; font-size: 1.5rem; }
-    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    h2 { margin-top: 0; color: #343a40; font-weight: 700; font-size: 1.4rem; }
-    #map { height: 400px; width: 100%; border-radius: 10px; margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-    th { background-color: #f3f6f9; font-weight: 600; }
-    .filter-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 10px; }
-    .filter-controls label { font-weight: 600; font-size: 0.9rem; }
-    .filter-controls input[type="datetime-local"] { padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; width: 180px; max-width: 100%; box-sizing: border-box; cursor: pointer; }
-    .filter-controls input[type="datetime-local"]:focus { border-color: #007bff; outline: none; }
-    @media (max-width: 650px) {
-      table, thead, tbody, th, td, tr { display: block; }
-      thead tr { position: absolute; top: -9999px; left: -9999px; }
-      tr { margin-bottom: 1rem; border-bottom: 1px solid #ddd; }
-      td { border: none; position: relative; padding-left: 50%; white-space: pre-wrap; word-wrap: break-word; }
-      td:before { position: absolute; top: 10px; left: 12px; width: 45%; padding-right: 10px; white-space: nowrap; font-weight: 700; content: attr(data-label); color: #333; }
-      .filter-controls { flex-direction: column; gap: 10px; }
-      .filter-controls input[type="datetime-local"] { width: 100%; }
-    }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; color: #343a40;}
+    .dashboard { max-width: 960px; margin: auto; padding: 20px; box-sizing: border-box;}
+    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px;}
+    .logo { height: 40px;}
+    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);}
+    h2 { margin-top: 0; color: #343a40; font-weight: 700; font-size: 1.3rem;}
+    #map { height: 400px; width: 100%; border-radius: 10px; margin-top: 10px;}
+    .filter-controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 10px;}
+    .filter-controls label { font-weight: 600;}
+    .filter-controls input[type="datetime-local"] { padding: 6px; border: 1px solid #ccc; border-radius: 6px; width: 180px;}
+    @media (max-width:650px){.filter-controls{flex-direction:column;gap:10px;}.filter-controls input[type="datetime-local"]{width:100%}}
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem;}
+    th,td { padding: 9px 10px; border-bottom: 1px solid #eaeaea;}
+    th { background: #f8f9fa; font-weight: 600;}
+    .view-btn { background: #007bff; color: white; border: none; border-radius: 6px; padding: 5px 13px; cursor: pointer;}
+    .view-btn:hover { background: #0056b3;}
   </style>
 </head>
 <body>
@@ -40,23 +32,19 @@
     </header>
     <section class="card map-card">
       <h2>🗼 Live Map</h2>
-      <div id="map" role="region" aria-label="Live vehicle location map">Loading map...</div>
+      <div id="map">Loading map...</div>
     </section>
     <section class="card history-card">
       <h2>📈 Movement History</h2>
       <div class="filter-controls">
         <label for="dateFrom">From:</label>
-        <input type="datetime-local" id="dateFrom" name="dateFrom" />
+        <input type="datetime-local" id="dateFrom"/>
         <label for="dateTo">To:</label>
-        <input type="datetime-local" id="dateTo" name="dateTo" />
+        <input type="datetime-local" id="dateTo"/>
       </div>
       <table>
         <thead>
-          <tr>
-            <th>Time</th>
-            <th>Location</th>
-            <th>Map</th>
-          </tr>
+          <tr><th>Time</th><th>Location</th><th>Map</th></tr>
         </thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
@@ -86,13 +74,14 @@
     let historyData = {};
 
     function ensureMapInitialized(lat, lng) {
-      if (!mapReady && lat && lng) {
+      if (!mapReady && lat && lng && lat !== 0 && lng !== 0) {
         map = L.map('map').setView([lat, lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
         mapReady = true;
       }
     }
+
     function updateMap(lat, lng, popupText = null) {
       ensureMapInitialized(lat, lng);
       if (marker) {
@@ -102,6 +91,7 @@
       }
     }
     function focusOnMap(lat, lng) { updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`); }
+
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
       const parts = ts.trim().split(' ');
@@ -122,22 +112,22 @@
       if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
     }
     function drawPathOnMap(points) {
-      if (!mapReady || !Array.isArray(points)) return;
+      if (!mapReady || !Array.isArray(points) || points.length === 0) return;
       if (pathPolyline) { map.removeLayer(pathPolyline); pathPolyline = null; }
       clearMarkers();
       if (points.length > 1) {
         pathPolyline = L.polyline(points, { color: 'blue', weight: 5, opacity: 0.8 }).addTo(map);
-        map.fitBounds(pathPolyline.getBounds(), { padding: [50, 50] });
+        map.fitBounds(pathPolyline.getBounds(), { padding: [40,40] });
         startMarker = L.marker(points[0], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+            iconSize: [32,32], iconAnchor: [16,32]
           })
         }).addTo(map).bindPopup("Start Point").openPopup();
         endMarker = L.marker(points[points.length-1], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+            iconSize: [32,32], iconAnchor: [16,32]
           })
         }).addTo(map).bindPopup("End Point");
       } else if (points.length === 1) {
@@ -145,7 +135,7 @@
         startMarker = L.marker(points[0], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+            iconSize: [32,32], iconAnchor: [16,32]
           })
         }).addTo(map).bindPopup("Location").openPopup();
       }
@@ -165,11 +155,11 @@
       filteredEntries.sort((a, b) => parseTimestampToMs(a.time) - parseTimestampToMs(b.time));
       historyEl.innerHTML = "";
       filteredEntries.forEach(entry => {
-        const [lat, lng] = entry.location.split(",");
+        const [lat, lng] = entry.location.split(",").map(Number);
         historyEl.innerHTML += `<tr>
           <td data-label="Time">${entry.time}</td>
           <td data-label="Location">${entry.location}</td>
-          <td data-label="Map"><button class="view-btn" onclick="focusOnMap(${parseFloat(lat)}, ${parseFloat(lng)})">View</button></td>
+          <td data-label="Map"><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
         </tr>`;
       });
       if (filteredEntries.length === 0) {
@@ -178,28 +168,28 @@
         clearMarkers();
         return;
       }
-      const pathPoints = filteredEntries.map(e => {
+      const pathPoints = filteredEntries.filter(e => {
+        // Only plot points with valid (non-zero) lat/lng
+        const arr = e.location.split(',').map(Number);
+        return arr[0] !== 0 && arr[1] !== 0;
+      }).map(e => {
         const arr = e.location.split(",").map(Number);
-        return [arr[0], arr[1]]; // Always [latitude, longitude]
+        return [arr[0], arr[1]];
       });
-      // Map initialization fallback if no initial lat/lng
-      if (!mapReady && pathPoints.length && pathPoints[0][0] && pathPoints[0][1]) {
+      if (pathPoints.length) {
         ensureMapInitialized(pathPoints[0][0], pathPoints[0][1]);
+        drawPathOnMap(pathPoints);
       }
-      drawPathOnMap(pathPoints);
     }
-
-    // Listen for changes to filter and update map and table instantly
     dateFromInput.addEventListener("change", filterAndRenderHistory);
     dateToInput.addEventListener("change", filterAndRenderHistory);
 
-    // Listen for Firebase movement history
+    // Change USER_ID below to your Firebase user id!
     db.ref("users/YOUR_USER_ID/vehicle/history").on("value", function(snapshot) {
       historyData = snapshot.val();
       filterAndRenderHistory();
     });
 
-    // Expose map focus to inline "View" buttons
     window.focusOnMap = focusOnMap;
   </script>
 </body>
