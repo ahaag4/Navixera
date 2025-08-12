@@ -8,26 +8,78 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    /* ... your styles as provided ... */
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       background: #f7f9fc;
     }
-    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
     .logo { height: 40px; }
-    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px;}
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc;}
-    /* other CSS unchanged */
-    .filter-controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 10px;}
-    .filter-controls label { font-weight: 600; }
-    .filter-controls input[type="datetime-local"] { padding: 6px; border: 1px solid #ccc; border-radius: 6px; width: 180px;}
-    @media (max-width:650px){.filter-controls{flex-direction:column;gap:10px;}.filter-controls input[type="datetime-local"]{width:100%}}
-    /* ... rest of your styles ... */
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+
   </style>
 </head>
 <body>
@@ -42,17 +94,19 @@
     </header>
 
     <section class="card status-card">
-      <!-- ... status card unchanged ... -->
       <h2>🔍 Live Status</h2>
+
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
+
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
+
       <div id="componentsBlock">
         <h4>Components</h4>
         <ul id="componentsList" class="components-list">
@@ -75,15 +129,8 @@
       <div id="map">Loading map...</div>
     </section>
 
-    <!--  ADD FILTER CONTROLS (only addition here) -->
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <div class="filter-controls">
-        <label for="dateFrom">From:</label>
-        <input type="datetime-local" id="dateFrom"/>
-        <label for="dateTo">To:</label>
-        <input type="datetime-local" id="dateTo"/>
-      </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
@@ -97,8 +144,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- your entire original dashboard code unchanged ---
-    // (all your firebaseConfig, auth, UI update, etc. as in your posted code above)
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -127,67 +172,9 @@
     const componentsListEl = document.getElementById("componentsList");
 
     let map, marker;
-    const ONLINE_TTL_MS = 90000;
-    const LAST_ACTIVE_POLL_MS = 30000;
+    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
     let uidGlobal = null;
-
-    // ---- ADDITIONS BEGIN HERE ----
-    let movementHistoryRaw = {};
-    let pathPolyline = null, startMarker = null, endMarker = null;
-
-    function parseDateTimeLocalToMs(dtLocal) {
-      if (!dtLocal) return null;
-      return new Date(dtLocal).getTime();
-    }
-    function clearPathOnMap() {
-      if (pathPolyline) { map.removeLayer(pathPolyline); pathPolyline = null; }
-      if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-      if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-    }
-    function drawMovementPath(points) {
-      clearPathOnMap();
-      if (!map || !Array.isArray(points) || points.length === 0) return;
-      if (points.length > 1) {
-        pathPolyline = L.polyline(points, { color: 'blue', weight: 5, opacity: 0.8 }).addTo(map);
-        map.fitBounds(pathPolyline.getBounds(), { padding: [40,40] });
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("Start Point").openPopup();
-        endMarker = L.marker(points[points.length-1], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("End Point");
-      } else if (points.length === 1) {
-        map.setView(points[0], 15);
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("Location");
-      }
-    }
-    function filterAndPlotPath() {
-      const fromMs = parseDateTimeLocalToMs(document.getElementById('dateFrom').value);
-      const toMs = parseDateTimeLocalToMs(document.getElementById('dateTo').value);
-      let filteredEntries = [];
-      Object.values(movementHistoryRaw || {}).forEach(entry => {
-        if (!entry.time || !entry.location) return;
-        const entryMs = parseTimestampToMs(entry.time);
-        if (entryMs === null) return;
-        if ((fromMs === null || entryMs >= fromMs) && (toMs === null || entryMs <= toMs)) {
-          filteredEntries.push(entry);
-        }
-      });
-      filteredEntries.sort((a, b) => parseTimestampToMs(a.time) - parseTimestampToMs(b.time));
-      const pathPoints = filteredEntries.filter(e => {
-        const arr = e.location.split(',').map(Number);
-        return arr[0] !== 0 && arr[1] !== 0;
-      }).map(e => {
-        const arr = e.location.split(',').map(Number);
-        return [arr[0], arr[1]];
-      });
-      drawMovementPath(pathPoints);
-    }
-    document.getElementById('dateFrom').addEventListener("change", filterAndPlotPath);
-    document.getElementById('dateTo').addEventListener("change", filterAndPlotPath);
-    // ---- ADDITIONS END ----
 
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
@@ -227,10 +214,13 @@
       });
     }
 
+    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
+      // Expect format "YYYY-MM-DD HH:MM:SS"
       const parts = ts.trim().split(' ');
       if (parts.length < 2) {
+        // fallback to Date.parse if possible
         const fallback = Date.parse(ts);
         return isNaN(fallback) ? null : fallback;
       }
@@ -247,18 +237,21 @@
       return dt.getTime();
     }
 
+    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
       if (!lastActiveMs) {
+        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
         return !!firebaseOnlineFlag;
       }
       const age = Date.now() - lastActiveMs;
       if (age > ONLINE_TTL_MS) {
-        return false;
+        return false; // treat as offline if last_active too old
       }
-      return !!firebaseOnlineFlag;
+      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
     }
 
+    // update the "Online" badge and lastActive text depending on recency
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
 
@@ -273,14 +266,19 @@
       } else {
         lastActiveEl.textContent = "Unknown";
       }
+
+      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
     }
 
+    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
       setInterval(() => {
         currentRef.once('value').then(snap => {
           const lastActive = snap.val();
+          // Also fetch online flag to decide
           db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
             const onlineFlag = onlineSnap.val();
             renderOnlineAndLastActive(onlineFlag, lastActive);
@@ -293,31 +291,38 @@
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
+      // current block
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+
         const { latitude, longitude, status, last_active, battery } = data;
+
+        // display location safely
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
         } else {
           locationEl.textContent = "No location";
         }
+
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
+
+        // Now evaluate online display using last_active recency and the firebase online flag
         vehicleRef.child("online").once("value").then(onlineSnap => {
           const onlineFlag = onlineSnap.val();
           renderOnlineAndLastActive(onlineFlag, last_active);
         });
       });
 
-      // --- MOVEMENT HISTORY PATCHED BLOCK ---
+      // history block
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
-        movementHistoryRaw = history || {};
         if (history) {
+          // reverse for most recent first
           const entries = Object.values(history).reverse();
           entries.forEach(entry => {
             const loc = entry.location || "";
@@ -335,34 +340,38 @@
         } else {
           historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
-        // ADDED: Always filter and plot polyline when history loads/updates
-        filterAndPlotPath();
       });
 
+      // components block
       vehicleRef.child("components").on("value", (snapshot) => {
         const comps = snapshot.val();
         renderComponents(comps);
       });
 
+      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
       vehicleRef.child("online").on("value", (snapshot) => {
         const onlineFlag = snapshot.val();
+        // fetch last_active to make decision
         vehicleRef.child("current/last_active").once("value").then(snap => {
           const lastActive = snap.val();
           renderOnlineAndLastActive(onlineFlag, lastActive);
         });
       });
 
+      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         const lastSeenVal = snapshot.val();
         lastSeenEl.textContent = lastSeenVal || "N/A";
       });
 
+      // alarm value (toggle UI)
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
 
+      // last_trigger
       vehicleRef.child("last_trigger").on("value", (snapshot) => {
         const trigger = snapshot.val();
         if (trigger && trigger.time && trigger.status === "alert") {
@@ -372,11 +381,13 @@
         }
       });
 
+      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
       vehicleRef.child("current/status").on("value", (snapshot) => {
         const s = snapshot.val();
         if (s) statusEl.textContent = s;
       });
 
+      // allow operator to toggle alarm from web UI
       alarmToggle.addEventListener("change", () => {
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState).catch(err => {
@@ -384,9 +395,11 @@
         });
       });
 
+      // start periodic poll for last_active to ensure "Last Active" updates every 30s
       startLastActivePoll(uid);
-    } // end loadDashboard
+    }
 
+    // auth state
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
@@ -397,6 +410,7 @@
       }
     });
 
+    // Expose focusOnMap to global scope for inline onclick in generated rows
     window.focusOnMap = focusOnMap;
   </script>
 </body>
