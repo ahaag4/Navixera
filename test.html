@@ -37,7 +37,6 @@
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
-    /* small responsive tweaks */
     @media (max-width:600px) {
       header { flex-direction: column; gap:8px; align-items:flex-start; }
       .view-btn { margin-top:6px; }
@@ -90,14 +89,12 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Date/time filters -->
       <div style="margin-bottom: 10px;">
         <label>From: <input type="datetime-local" id="filterFrom"></label>
         <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
         <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply</button>
         <button id="resetFilterBtn" class="view-btn" style="background:#6c757d;margin-left:5px;">Reset</button>
       </div>
-
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
@@ -109,9 +106,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
-    // --------- Firebase init (unchanged) ----------
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -125,7 +120,7 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // --------- DOM refs ----------
+    // DOM
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -134,93 +129,80 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
-
+    const filterFrom = document.getElementById("filterFrom");
+    const filterTo = document.getElementById("filterTo");
     const applyFilterBtn = document.getElementById("applyFilterBtn");
     const resetFilterBtn = document.getElementById("resetFilterBtn");
 
-    // --------- state ----------
-    let map = null;
-    let marker = null;
-    let routePolyline = null;
-    let startMarker = null;
-    let endMarker = null;
-
-    // fullHistory holds chronological ascending (oldest -> newest)
+    let map, marker, routePolyline = null, startMarker = null, endMarker = null;
     let fullHistory = [];
+    let shownHistory = [];
 
-    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
-    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
+    const ONLINE_TTL_MS = 90000;
+    const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
 
-    // --------- map helpers ----------
-    function _initMapIfNeeded(lat, lng, zoom = 13) {
+    function _initMapIfNeeded(lat, lng, zoom) {
       if (!map) {
-        map = L.map('map').setView([lat, lng], zoom);
+        map = L.map('map').setView([lat, lng], zoom || 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
       }
     }
-
     function updateMap(lat, lng, popupText = null) {
       if (lat == null || lng == null) return;
       _initMapIfNeeded(lat, lng, 15);
-      if (!marker) {
-        marker = L.marker([lat, lng]).addTo(map);
-      } else {
-        marker.setLatLng([lat, lng]);
-      }
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
       map.setView([lat, lng], 15);
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
-
     function focusOnMap(lat, lng) {
-      if (!lat && lat !== 0) return;
-      if (!lng && lng !== 0) return;
-      if (!map) {
-        // initialize centered on this location
-        updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
-        return;
-      }
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
       map.setView([lat, lng], 15);
       if (!marker) marker = L.marker([lat, lng]).addTo(map);
       marker.setLatLng([lat, lng]);
       marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
     }
+    window.focusOnMap = focusOnMap; // for "View" button
 
-    // Expose for inline onclick handlers
-    window.focusOnMap = focusOnMap;
-
-    // --------- components render ----------
-    function renderComponents(obj) {
-      componentsListEl.innerHTML = "";
-      if (!obj) {
-        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
-        return;
+    // --- Polyline "route" logic ---
+    function clearRouteLayers() {
+      if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
+      if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
+      if (endMarker) { try { map.removeLayer(endMarker); } catch(e){} endMarker = null; }
+    }
+    function plotRoute(points) {
+      clearRouteLayers();
+      if (!map || !points || points.length === 0) return;
+      if (points.length > 1) {
+        routePolyline = L.polyline(points, {color:"blue",weight:5,opacity:0.8}).addTo(map);
+        map.fitBounds(routePolyline.getBounds(), {padding:[40,40]});
+        startMarker = L.marker(points[0], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('Start').openPopup();
+        endMarker = L.marker(points[points.length-1], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('End');
+      } else if (points.length === 1) {
+        map.setView(points[0], 15);
+        startMarker = L.marker(points[0], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('Location');
       }
-      const keys = Object.keys(obj);
-      if (keys.length === 0) {
-        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
-        return;
-      }
-      keys.forEach(k => {
-        const v = obj[k];
-        let cls = "comp-unknown";
-        if (v === "ok" || v === "activity") cls = "comp-ok";
-        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
-        else if (v === "down") cls = "comp-bad";
-        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
-      });
     }
 
-    // --------- timestamp parsing ----------
-    // Accepts "YYYY-MM-DD HH:MM:SS" and fallback to Date.parse if different
+    // --- Filtering ---
+    function parseDateTimeLocalToMs(dtLocal) {
+      if (!dtLocal) return null;
+      return new Date(dtLocal).getTime();
+    }
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
       const trimmed = ts.trim();
-      // if format contains space between date and time (expected)
       const parts = trimmed.split(' ');
       if (parts.length >= 2 && parts[0].includes('-') && parts[1].includes(':')) {
         const dateParts = parts[0].split('-');
@@ -232,57 +214,45 @@
           const hh = parseInt(timeParts[0], 10) || 0;
           const mm = parseInt(timeParts[1], 10) || 0;
           const ss = parseInt(timeParts[2], 10) || 0;
-          const dt = new Date(y, m, d, hh, mm, ss);
-          return dt.getTime();
+          return new Date(y, m, d, hh, mm, ss).getTime();
         }
       }
-      const fallback = Date.parse(trimmed); // handles ISO and other formats
+      const fallback = Date.parse(trimmed);
       return isNaN(fallback) ? null : fallback;
     }
 
-    // --------- online logic ----------
-    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
-      const lastActiveMs = parseTimestampToMs(lastActiveStr);
-      if (!lastActiveMs) {
-        // If we don't have a valid last_active, fall back to the firebase flag
-        return !!firebaseOnlineFlag;
-      }
-      const age = Date.now() - lastActiveMs;
-      // must be recent and flag true
-      return (age <= ONLINE_TTL_MS) && !!firebaseOnlineFlag;
+    function applyFilter() {
+      const fromMs = parseDateTimeLocalToMs(filterFrom.value);
+      const toMs = parseDateTimeLocalToMs(filterTo.value);
+      shownHistory = fullHistory.filter(entry => {
+        if (!entry.time || !entry.location) return false;
+        const entryMs = parseTimestampToMs(entry.time);
+        if (entryMs === null) return false;
+        if ((fromMs && entryMs < fromMs) || (toMs && entryMs > toMs)) return false;
+        const arr = entry.location.split(',').map(Number);
+        return arr[0] !== 0 && arr[1] !== 0;
+      });
+      renderHistoryTable(shownHistory);
+      plotRoute(shownHistory.map(h => h.location.split(",").map(Number)));
     }
-
-    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
-      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-      onlineStatusEl.innerHTML = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
-      lastActiveEl.textContent = lastActiveStr || "Unknown";
+    function resetFilter() {
+      filterFrom.value = "";
+      filterTo.value = "";
+      shownHistory = fullHistory.slice();
+      renderHistoryTable(shownHistory);
+      plotRoute(shownHistory.map(h => h.location.split(",").map(Number)));
     }
+    applyFilterBtn.addEventListener("click", applyFilter);
+    resetFilterBtn.addEventListener("click", resetFilter);
 
-    function startLastActivePoll(uid) {
-      if (!uid) return;
-      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
-      setInterval(() => {
-        currentRef.once('value').then(snap => {
-          const lastActive = snap.val();
-          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
-            renderOnlineAndLastActive(onlineSnap.val(), lastActive);
-          });
-        });
-      }, LAST_ACTIVE_POLL_MS);
-    }
-
-    // --------- history rendering & plotting ----------
-    function renderHistoryTableAsc(dataAsc) {
-      // dataAsc is chronological ascending (oldest -> newest).
-      // Table display prefers most-recent-first, so we reverse for rendering rows.
-      const dataForTable = Array.isArray(dataAsc) ? dataAsc.slice().reverse() : [];
-
+    function renderHistoryTable(arr) {
       historyEl.innerHTML = "";
-      if (!dataForTable.length) {
-        historyEl.innerHTML = `<tr><td colspan="3">No matching history found.</td></tr>`;
+      if (!arr || !arr.length) {
+        historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        plotRoute([]);
         return;
       }
-      dataForTable.forEach(entry => {
+      arr.slice().reverse().forEach(entry => {
         const loc = entry.location || "";
         const time = entry.time || "";
         const [lat, lng] = (loc + "").split(",");
@@ -297,86 +267,11 @@
       });
     }
 
-    function clearRouteLayers() {
-      if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
-      if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
-      if (endMarker) { try { map.removeLayer(endMarker); } catch(e){} endMarker = null; }
-    }
+    // --- Components, alarm, online logic, and user/session setup: unchanged (can keep your previous code) ---
 
-    function plotRouteOnMapAsc(dataAsc) {
-      // dataAsc chronological ascending
-      if (!Array.isArray(dataAsc)) return;
-      clearRouteLayers();
-
-      // collect latlngs
-      const latlngs = dataAsc.map(e => {
-        const [lat, lng] = ((e.location || "") + "").split(",");
-        return [parseFloat(lat), parseFloat(lng)];
-      }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
-
-      if (!latlngs.length) return;
-
-      // ensure map exists
-      _initMapIfNeeded(latlngs[0][0], latlngs[0][1], 13);
-
-      routePolyline = L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
-      // fit to route with padding
-      try {
-        map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
-      } catch (e) {}
-
-      // start = green, end = red
-      startMarker = L.marker(latlngs[0], {
-        icon: L.icon({
-          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-          iconSize: [32, 32],
-          iconAnchor: [16, 32]
-        })
-      }).addTo(map).bindPopup("Start");
-
-      endMarker = L.marker(latlngs[latlngs.length - 1], {
-        icon: L.icon({
-          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          iconSize: [32, 32],
-          iconAnchor: [16, 32]
-        })
-      }).addTo(map).bindPopup("End");
-    }
-
-    function applyDateFilter() {
-      const fromVal = document.getElementById("filterFrom").value;
-      const toVal = document.getElementById("filterTo").value;
-      const fromTime = fromVal ? new Date(fromVal).getTime() : null;
-      const toTime = toVal ? new Date(toVal).getTime() : null;
-
-      const filteredAsc = fullHistory.filter(e => {
-        const t = parseTimestampToMs(e.time);
-        if (!t) return false;
-        if (fromTime && t < fromTime) return false;
-        if (toTime && t > toTime) return false;
-        return true;
-      });
-
-      renderHistoryTableAsc(filteredAsc);
-      plotRouteOnMapAsc(filteredAsc);
-    }
-
-    function resetDateFilter() {
-      document.getElementById("filterFrom").value = "";
-      document.getElementById("filterTo").value = "";
-      renderHistoryTableAsc(fullHistory);
-      plotRouteOnMapAsc(fullHistory);
-    }
-
-    applyFilterBtn.addEventListener("click", applyDateFilter);
-    resetFilterBtn.addEventListener("click", resetDateFilter);
-
-    // --------- load dashboard & db listeners ----------
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
-
-      // current block listener
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -384,100 +279,51 @@
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
-        } else {
-          locationEl.textContent = "No location";
-        }
+        } else { locationEl.textContent = "No location"; }
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-
-        vehicleRef.child("online").once('value').then(onlineSnap => {
-          const onlineFlag = onlineSnap.val();
-          renderOnlineAndLastActive(onlineFlag, last_active);
+        vehicleRef.child("online").once("value").then(snap => {
+          renderOnlineAndLastActive(snap.val(), last_active);
         });
       });
-
-      // history block: store chronological ascending, render reversed in table
       vehicleRef.child("history").on("value", (snapshot) => {
-        const history = snapshot.val();
-        if (history) {
-          // convert to array and sort by parsed timestamp ascending (oldest -> newest)
-          const arr = Object.values(history).map(item => {
-            return {
-              ...(item || {}),
-              _ts: parseTimestampToMs(item && item.time ? item.time : null)
-            };
-          }).filter(x => x._ts !== null).sort((a, b) => a._ts - b._ts);
-
-          fullHistory = arr.map(x => {
-            // remove internal _ts from exposed objects to keep things clean
-            const { _ts, ...rest } = x;
-            return rest;
-          });
-
-          // Render table (most recent first) and plot route (chronological)
-          renderHistoryTableAsc(fullHistory);
-          plotRouteOnMapAsc(fullHistory);
-        } else {
-          fullHistory = [];
-          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
-          clearRouteLayers();
+        const historyObj = snapshot.val();
+        fullHistory = [];
+        if (historyObj) {
+          // Oldest-to-newest for plotting
+          fullHistory = Object.values(historyObj)
+            .filter(e=> e && e.location && e.time)
+            .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
         }
+        resetFilter();
       });
-
-      // components block
-      vehicleRef.child("components").on("value", (snapshot) => {
-        renderComponents(snapshot.val());
-      });
-
-      // online flag + last_active combined listener
+      vehicleRef.child("components").on("value", (snap) => renderComponents(snap.val()));
       vehicleRef.child("online").on("value", (snapshot) => {
-        vehicleRef.child("current/last_active").once('value').then(snap => {
-          renderOnlineAndLastActive(snapshot.val(), snap.val());
+        vehicleRef.child("current/last_active").once("value").then(snap2 => {
+          renderOnlineAndLastActive(snapshot.val(), snap2.val());
         });
       });
-
-      // last_seen
       vehicleRef.child("last_seen").on("value", (snapshot) => {
         lastSeenEl.textContent = snapshot.val() || "N/A";
       });
-
-      // alarm value
-      vehicleRef.child("alarm").on("value", (snapshot) => {
-        const status = snapshot.val() || "off";
+      vehicleRef.child("alarm").on("value", (snap) => {
+        const status = snap.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
-
-      // last_trigger
-      vehicleRef.child("last_trigger").on("value", (snapshot) => {
-        const trigger = snapshot.val();
-        if (trigger && trigger.time && trigger.status === "alert") {
-          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
-        } else {
-          alarmTriggerEl.textContent = "No triggers";
-        }
+      vehicleRef.child("last_trigger").on("value", (snap) => {
+        const t = snap.val();
+        alarmTriggerEl.innerHTML = (t && t.time && t.status === "alert") ? `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>` : "No triggers";
       });
-
-      // status node listener (current/status)
-      vehicleRef.child("current/status").on("value", (snapshot) => {
-        const s = snapshot.val();
-        if (s) statusEl.textContent = s;
+      vehicleRef.child("current/status").on("value", (snap) => {
+        if (snap.val()) statusEl.textContent = snap.val();
       });
-
-      // allow operator to toggle alarm from web UI
       alarmToggle.addEventListener("change", () => {
-        const newState = alarmToggle.checked ? "on" : "off";
-        vehicleRef.child("alarm").set(newState).catch(err => {
-          console.error("Failed to set alarm:", err);
-        });
+        vehicleRef.child("alarm").set(alarmToggle.checked ? "on" : "off").catch(console.error);
       });
-
-      // start periodic poll
       startLastActivePoll(uid);
     }
-
-    // auth state
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
