@@ -68,7 +68,6 @@
       background: #dc3545; color: white; border: none;
       padding: 6px 12px; border-radius: 6px; cursor: pointer;
     }
-    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -79,7 +78,10 @@
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
-
+    @media (max-width:600px) {
+      header { flex-direction: column; gap:8px; align-items:flex-start; }
+      .view-btn { margin-top:6px; }
+    }
   </style>
 </head>
 <body>
@@ -95,18 +97,15 @@
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
-
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
-
       <div id="componentsBlock">
         <h4>Components</h4>
         <ul id="componentsList" class="components-list">
@@ -131,6 +130,7 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
+      <!-- Filter UI -->
       <div style="margin-bottom: 10px;">
         <label>From: <input type="datetime-local" id="filterFrom"></label>
         <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
@@ -142,7 +142,6 @@
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
-
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -163,6 +162,7 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
+    // DOM refs
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -171,8 +171,6 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
-
-    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
@@ -184,28 +182,32 @@
     let map, marker, routePolyline = null, startMarker = null, endMarker = null;
     let fullHistory = [];
 
-    let map, marker;
-    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
-    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
-    let uidGlobal = null;
-
-    function updateMap(lat, lng, popupText = null) {
-      if (!lat || !lng) return;
+    // ---- MAP HELPERS ----
+    function _initMapIfNeeded(lat, lng, zoom = 13) {
       if (!map) {
-        map = L.map('map').setView([lat, lng], 15);
+        map = L.map('map').setView([lat, lng], zoom);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        marker = L.marker([lat, lng]).addTo(map);
-      } else {
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng], 15);
       }
+    }
+    function updateMap(lat, lng, popupText = null) {
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
+      map.setView([lat, lng], 15);
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
-
     function focusOnMap(lat, lng) {
-      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
+      map.setView([lat, lng], 15);
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
+      marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
     }
-    // ---- Polyline "route" logic ----
+    window.focusOnMap = focusOnMap;
+
+    // ---- POLYLINE PLOT HELPERS ----
     function clearRouteLayers() {
       if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
       if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
@@ -231,7 +233,7 @@
       }
     }
 
-    // ---- Filtering ----
+    // ---- FILTERING ----
     function parseDateTimeLocalToMs(dtLocal) {
       if (!dtLocal) return null;
       return new Date(dtLocal).getTime();
@@ -256,6 +258,7 @@
       const fallback = Date.parse(trimmed);
       return isNaN(fallback) ? null : fallback;
     }
+
     function renderHistoryTable(arr) {
       historyEl.innerHTML = "";
       if (!arr || !arr.length) {
@@ -276,6 +279,7 @@
           </tr>`;
       });
     }
+
     function applyFilter() {
       const fromMs = parseDateTimeLocalToMs(filterFrom.value);
       const toMs = parseDateTimeLocalToMs(filterTo.value);
@@ -294,10 +298,13 @@
       filterFrom.value = "";
       filterTo.value = "";
       renderHistoryTable(fullHistory);
-      clearRouteLayers(); // Don't plot anything until filtered!
+      clearRouteLayers(); // Don't plot any path on reset!
     }
     applyFilterBtn.addEventListener("click", applyFilter);
     resetFilterBtn.addEventListener("click", resetFilter);
+
+    // ---- YOUR EXISTING COMPONENTS, ONLINE, ETC. LOGIC UNCHANGED ----
+
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -319,164 +326,87 @@
       });
     }
 
-    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
-    function parseTimestampToMs(ts) {
-      if (!ts || typeof ts !== 'string') return null;
-      // Expect format "YYYY-MM-DD HH:MM:SS"
-      const parts = ts.trim().split(' ');
-      if (parts.length < 2) {
-        // fallback to Date.parse if possible
-        const fallback = Date.parse(ts);
-        return isNaN(fallback) ? null : fallback;
-      }
-      const dateParts = parts[0].split('-');
-      const timeParts = parts[1].split(':');
-      if (dateParts.length < 3 || timeParts.length < 3) return null;
-      const y = parseInt(dateParts[0], 10);
-      const m = parseInt(dateParts[1], 10) - 1;
-      const d = parseInt(dateParts[2], 10);
-      const hh = parseInt(timeParts[0], 10);
-      const mm = parseInt(timeParts[1], 10);
-      const ss = parseInt(timeParts[2], 10);
-      const dt = new Date(y, m, d, hh, mm, ss);
-      return dt.getTime();
-    }
-
-    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
-      if (!lastActiveMs) {
-        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
-        return !!firebaseOnlineFlag;
-      }
+      if (!lastActiveMs) return !!firebaseOnlineFlag;
       const age = Date.now() - lastActiveMs;
-      if (age > ONLINE_TTL_MS) {
-        return false; // treat as offline if last_active too old
-      }
-      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
+      if (age > 90000) return false;
+      return !!firebaseOnlineFlag;
     }
 
-    // update the "Online" badge and lastActive text depending on recency
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-
-      if (isOnline) {
-        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
-      } else {
-        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
-      }
-
-      if (lastActiveStr) {
-        lastActiveEl.textContent = lastActiveStr;
-      } else {
-        lastActiveEl.textContent = "Unknown";
-      }
-
-      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
+      onlineStatusEl.innerHTML = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+      lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
-
-    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
-      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
       setInterval(() => {
         currentRef.once('value').then(snap => {
           const lastActive = snap.val();
-          // Also fetch online flag to decide
           db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
-            const onlineFlag = onlineSnap.val();
-            renderOnlineAndLastActive(onlineFlag, lastActive);
+            renderOnlineAndLastActive(onlineSnap.val(), lastActive);
           });
         });
-      }, LAST_ACTIVE_POLL_MS);
+      }, 30000);
     }
-
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      // current block
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         const { latitude, longitude, status, last_active, battery } = data;
 
-        // display location safely
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
         } else {
           locationEl.textContent = "No location";
         }
-
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-
-        // Now evaluate online display using last_active recency and the firebase online flag
         vehicleRef.child("online").once("value").then(onlineSnap => {
-          const onlineFlag = onlineSnap.val();
-          renderOnlineAndLastActive(onlineFlag, last_active);
+          renderOnlineAndLastActive(onlineSnap.val(), last_active);
         });
       });
 
-      // history block
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
-        historyEl.innerHTML = "";
+        fullHistory = [];
         if (history) {
-          // reverse for most recent first
-          const entries = Object.values(history).reverse();
-          entries.forEach(entry => {
-            const loc = entry.location || "";
-            const time = entry.time || "";
-            const [lat, lng] = loc.split(",");
-            const safeLat = parseFloat(lat) || 0;
-            const safeLng = parseFloat(lng) || 0;
-            historyEl.innerHTML += `
-              <tr>
-                <td>${time}</td>
-                <td>${loc}</td>
-                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
-              </tr>`;
-          });
-        } else {
-          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+          fullHistory = Object.values(history)
+            .filter(e=> e && e.location && e.time)
+            .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
         }
+        renderHistoryTable(fullHistory);
+        clearRouteLayers(); // Route is NOT plotted unless filtered!
       });
 
-      // components block
       vehicleRef.child("components").on("value", (snapshot) => {
-        const comps = snapshot.val();
-        renderComponents(comps);
+        renderComponents(snapshot.val());
       });
 
-      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
       vehicleRef.child("online").on("value", (snapshot) => {
-        const onlineFlag = snapshot.val();
-        // fetch last_active to make decision
         vehicleRef.child("current/last_active").once("value").then(snap => {
-          const lastActive = snap.val();
-          renderOnlineAndLastActive(onlineFlag, lastActive);
+          renderOnlineAndLastActive(snapshot.val(), snap.val());
         });
       });
 
-      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
       vehicleRef.child("last_seen").on("value", (snapshot) => {
-        const lastSeenVal = snapshot.val();
-        lastSeenEl.textContent = lastSeenVal || "N/A";
+        lastSeenEl.textContent = snapshot.val() || "N/A";
       });
 
-      // alarm value (toggle UI)
       vehicleRef.child("alarm").on("value", (snapshot) => {
         const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
 
-      // last_trigger
       vehicleRef.child("last_trigger").on("value", (snapshot) => {
         const trigger = snapshot.val();
         if (trigger && trigger.time && trigger.status === "alert") {
@@ -486,13 +416,11 @@
         }
       });
 
-      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
       vehicleRef.child("current/status").on("value", (snapshot) => {
         const s = snapshot.val();
         if (s) statusEl.textContent = s;
       });
 
-      // allow operator to toggle alarm from web UI
       alarmToggle.addEventListener("change", () => {
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState).catch(err => {
@@ -500,11 +428,9 @@
         });
       });
 
-      // start periodic poll for last_active to ensure "Last Active" updates every 30s
       startLastActivePoll(uid);
     }
 
-    // auth state
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
@@ -515,7 +441,6 @@
       }
     });
 
-    // Expose focusOnMap to global scope for inline onclick in generated rows
     window.focusOnMap = focusOnMap;
   </script>
 </body>
