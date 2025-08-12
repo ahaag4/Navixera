@@ -8,64 +8,25 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f9fc;
-    }
-    .dashboard {
-      max-width: 1000px;
-      margin: auto;
-      padding: 20px;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #343a40;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
     .logo { height: 40px; }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
+    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table {
-      width: 100%; border-collapse: collapse; margin-top: 10px;
-    }
-    th, td {
-      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
-    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
     .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .4s; border-radius: 30px;
-    }
-    .slider:before {
-      position: absolute; content: "";
-      height: 22px; width: 22px; left: 4px; bottom: 4px;
-      background-color: white; transition: .4s; border-radius: 50%;
-    }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
-    .view-btn {
-      background-color: #007bff; color: white; padding: 5px 12px;
-      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
-    }
+    .view-btn { background-color: #007bff; color: white; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
     .view-btn:hover { background-color: #0056b3; }
     .user-info { display: flex; align-items: center; gap: 10px; }
-    #logoutBtn {
-      background: #dc3545; color: white; border: none;
-      padding: 6px 12px; border-radius: 6px; cursor: pointer;
-    }
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -131,7 +92,7 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Filter controls for range selection -->
+      <!-- New date/time filter controls -->
       <div class="filter-controls">
         <label>From: <input type="datetime-local" id="dateFrom"></label>
         <label>To: <input type="datetime-local" id="dateTo"></label>
@@ -180,7 +141,7 @@
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
 
-    // --- ADDITIONS FOR PATH PLOTTING ---
+    // Path plotting additions
     let movementHistoryRaw = {};
     let pathPolyline = null, startMarker = null, endMarker = null;
     function parseDateTimeLocalToMs(dtLocal) {
