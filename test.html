@@ -8,42 +8,77 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial,sans-serif; margin:0; background:#f7f9fc; }
-    .dashboard { max-width:1000px; margin:auto; padding:20px; }
-    header { display:flex; justify-content:space-between; align-items:center; background:#343a40; color:white; padding:10px 20px; border-radius:10px; }
-    .logo { height:40px; }
-    .card { background:white; padding:20px; margin:20px 0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-    h2 { margin-top:0; color:#343a40; }
-    #map { height:300px; width:100%; border-radius:10px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { padding:10px; text-align:left; border-bottom:1px solid #ccc; }
-    .switch { position:relative; display:inline-block; width:60px; height:30px; }
-    .switch input { opacity:0; width:0; height:0; }
-    .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:30px;}
-    .slider:before { position:absolute; content:""; height:22px; width:22px; left:4px; bottom:4px; background-color:white; transition:.4s; border-radius:50%;}
-    input:checked + .slider { background-color:#28a745; }
-    input:checked + .slider:before { transform:translateX(30px); }
-    .view-btn { background-color:#007bff; color:white; padding:5px 12px; border:none; border-radius:6px; cursor:pointer; font-size:14px;}
-    .view-btn:hover { background-color:#0056b3; }
-    .user-info { display:flex; align-items:center; gap:10px; }
-    #logoutBtn { background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;}
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+    .logo { height: 40px; }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
-    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff;}
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
     .badge.offline { background:#dc3545; }
-    .components-list { margin-top:10px; list-style:none; padding-left:0;}
-    .components-list li { padding:6px 0; border-bottom:1px dashed #eee;}
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
     .comp-ok { color:#28a745; font-weight:600 }
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
-    .filter-controls { margin-bottom:12px; display:flex; gap:2rem; align-items:center; }
-    .filter-controls label { font-weight:600; }
-    .filter-controls input[type="datetime-local"] { padding:6px; border-radius:6px; border:1px solid #ccc;}
-    @media (max-width:650px){
-      .filter-controls{flex-direction:column;gap:10px;}
-      .filter-controls input[type="datetime-local"]{width:100%;}
-    }
   </style>
 </head>
 <body>
@@ -56,6 +91,7 @@
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
+
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
       <div class="status-row">
@@ -91,9 +127,11 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <div class="filter-controls">
-        <label>From: <input type="datetime-local" id="dateFrom"></label>
-        <label>To: <input type="datetime-local" id="dateTo"></label>
+      <!-- Date/Time Filters -->
+      <div style="margin-bottom:10px;">
+        <label>From: <input type="datetime-local" id="fromDate"></label>
+        <label style="margin-left:10px;">To: <input type="datetime-local" id="toDate"></label>
+        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply Filter</button>
       </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
@@ -128,74 +166,20 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
+
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
-    const dateFromInput = document.getElementById('dateFrom');
-    const dateToInput = document.getElementById('dateTo');
 
     let map, marker;
+    let routePolyline = null;
+    let startMarker = null;
+    let endMarker = null;
+    let fullHistoryData = [];
+
     const ONLINE_TTL_MS = 90000;
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
-
-    // --- path plotting ---
-    let movementHistoryRaw = {};
-    let pathPolyline = null, startMarker = null, endMarker = null;
-    function parseDateTimeLocalToMs(dtLocal) {
-      if (!dtLocal) return null;
-      return new Date(dtLocal).getTime();
-    }
-    function clearPathOnMap() {
-      if (pathPolyline) { map.removeLayer(pathPolyline); pathPolyline = null; }
-      if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-      if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-    }
-    function drawMovementPath(points) {
-      clearPathOnMap();
-      if (!map || !Array.isArray(points) || points.length === 0) return;
-      if (points.length > 1) {
-        pathPolyline = L.polyline(points, { color: 'blue', weight: 5, opacity: 0.8 }).addTo(map);
-        map.fitBounds(pathPolyline.getBounds(), { padding: [40, 40] });
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("Start Point").openPopup();
-        endMarker = L.marker(points[points.length-1], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("End Point");
-      } else if (points.length === 1) {
-        map.setView(points[0], 15);
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup("Location");
-      }
-    }
-    function filterAndPlotPath() {
-      const fromMs = parseDateTimeLocalToMs(dateFromInput.value);
-      const toMs = parseDateTimeLocalToMs(dateToInput.value);
-      let filteredEntries = [];
-      Object.values(movementHistoryRaw || {}).forEach(entry => {
-        if (!entry.time || !entry.location) return;
-        const entryMs = parseTimestampToMs(entry.time);
-        if (entryMs === null) return;
-        if ((fromMs === null || entryMs >= fromMs) && (toMs === null || entryMs <= toMs)) {
-          filteredEntries.push(entry);
-        }
-      });
-      filteredEntries.sort((a, b) => parseTimestampToMs(a.time) - parseTimestampToMs(b.time));
-      const pathPoints = filteredEntries.filter(e => {
-        const arr = e.location.split(',').map(Number);
-        return arr[0] !== 0 && arr[1] !== 0;
-      }).map(e => {
-        const arr = e.location.split(',').map(Number);
-        return [arr[0], arr[1]];
-      });
-      drawMovementPath(pathPoints);
-      // (Optional: Also update table to show only filtered entries. 
-      // If you want, replace the history table rows here with only filteredEntries)
-    }
-    dateFromInput.addEventListener("change", filterAndPlotPath);
-    dateToInput.addEventListener("change", filterAndPlotPath);
 
     function updateMap(lat, lng, popupText = null) {
       if (!lat || !lng) return;
@@ -209,9 +193,11 @@
       }
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
+
     function focusOnMap(lat, lng) {
       updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
+
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -232,6 +218,7 @@
         componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
       });
     }
+
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
       const parts = ts.trim().split(' ');
@@ -251,6 +238,7 @@
       const dt = new Date(y, m, d, hh, mm, ss);
       return dt.getTime();
     }
+
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
       if (!lastActiveMs) return !!firebaseOnlineFlag;
@@ -258,11 +246,13 @@
       if (age > ONLINE_TTL_MS) return false;
       return !!firebaseOnlineFlag;
     }
+
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
-      onlineStatusEl.innerHTML = `<span class="badge ${isOnline ? 'online' : 'offline'}">${isOnline ? 'ONLINE' : 'OFFLINE'}</span>`;
+      onlineStatusEl.innerHTML = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
       lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
+
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
@@ -275,30 +265,66 @@
         });
       }, LAST_ACTIVE_POLL_MS);
     }
+
+    function applyDateFilter() {
+      const fromVal = document.getElementById("fromDate").value;
+      const toVal = document.getElementById("toDate").value;
+      if (!fromVal || !toVal) {
+        alert("Please select both From and To date/time.");
+        return;
+      }
+      const fromTime = new Date(fromVal).getTime();
+      const toTime = new Date(toVal).getTime();
+      const filtered = fullHistoryData.filter(item => {
+        const itemTime = parseTimestampToMs(item.time);
+        return itemTime && itemTime >= fromTime && itemTime <= toTime;
+      });
+      if (filtered.length === 0) {
+        alert("No points found for this time range.");
+        return;
+      }
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (startMarker) map.removeLayer(startMarker);
+      if (endMarker) map.removeLayer(endMarker);
+
+      const latlngs = filtered.map(p => [p.lat, p.lng]);
+      routePolyline = L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
+
+      startMarker = L.marker(latlngs[0], { icon: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [32, 32]
+      }) }).addTo(map).bindPopup("Start");
+
+      endMarker = L.marker(latlngs[latlngs.length - 1], { icon: L.icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', iconSize: [32, 32]
+      }) }).addTo(map).bindPopup("End");
+
+      map.fitBounds(routePolyline.getBounds());
+    }
+
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         const { latitude, longitude, status, last_active, battery } = data;
-        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
+        if (latitude !== undefined && longitude !== undefined) {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
-        } else {
-          locationEl.textContent = "No location";
-        }
+        } else locationEl.textContent = "No location";
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-        vehicleRef.child("online").once("value").then(onlineSnap => {
-          renderOnlineAndLastActive(onlineSnap.val(), last_active);
+        batteryHealthEl.textContent = (battery !== undefined) ? `${battery}%` : "N/A";
+        vehicleRef.child("online").once("value").then(snap => {
+          renderOnlineAndLastActive(snap.val(), last_active);
         });
       });
+
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         historyEl.innerHTML = "";
-        movementHistoryRaw = history || {};
+        fullHistoryData = [];
         if (history) {
           const entries = Object.values(history).reverse();
           entries.forEach(entry => {
@@ -307,6 +333,7 @@
             const [lat, lng] = loc.split(",");
             const safeLat = parseFloat(lat) || 0;
             const safeLng = parseFloat(lng) || 0;
+            fullHistoryData.push({ time, lat: safeLat, lng: safeLng });
             historyEl.innerHTML += `
               <tr>
                 <td>${time}</td>
@@ -317,58 +344,35 @@
         } else {
           historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
-        filterAndPlotPath(); // <- plot path whenever history loads!
       });
-      vehicleRef.child("components").on("value", (snapshot) => {
-        const comps = snapshot.val();
-        renderComponents(comps);
-      });
-      vehicleRef.child("online").on("value", (snapshot) => {
-        const onlineFlag = snapshot.val();
-        vehicleRef.child("current/last_active").once("value").then(snap => {
-          const lastActive = snap.val();
-          renderOnlineAndLastActive(onlineFlag, lastActive);
+
+      vehicleRef.child("components").on("value", snap => renderComponents(snap.val()));
+      vehicleRef.child("online").on("value", snap => {
+        vehicleRef.child("current/last_active").once("value").then(s => {
+          renderOnlineAndLastActive(snap.val(), s.val());
         });
       });
-      vehicleRef.child("last_seen").on("value", (snapshot) => {
-        const lastSeenVal = snapshot.val();
-        lastSeenEl.textContent = lastSeenVal || "N/A";
-      });
-      vehicleRef.child("alarm").on("value", (snapshot) => {
-        const status = snapshot.val() || "off";
+      vehicleRef.child("last_seen").on("value", snap => lastSeenEl.textContent = snap.val() || "N/A");
+      vehicleRef.child("alarm").on("value", snap => {
+        const status = snap.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
-      vehicleRef.child("last_trigger").on("value", (snapshot) => {
-        const trigger = snapshot.val();
+      vehicleRef.child("last_trigger").on("value", snap => {
+        const trigger = snap.val();
         if (trigger && trigger.time && trigger.status === "alert") {
           alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
-        } else {
-          alarmTriggerEl.textContent = "No triggers";
-        }
+        } else alarmTriggerEl.textContent = "No triggers";
       });
-      vehicleRef.child("current/status").on("value", (snapshot) => {
-        const s = snapshot.val();
-        if (s) statusEl.textContent = s;
+      vehicleRef.child("current/status").on("value", snap => {
+        if (snap.val()) statusEl.textContent = snap.val();
       });
       alarmToggle.addEventListener("change", () => {
-        const newState = alarmToggle.checked ? "on" : "off";
-        vehicleRef.child("alarm").set(newState).catch(err => {
-          console.error("Failed to set alarm:", err);
-        });
+        vehicleRef.child("alarm").set(alarmToggle.checked ? "on" : "off").catch(err => console.error(err));
       });
       startLastActivePoll(uid);
     }
-    auth.onAuthStateChanged((user) => {
+
+    auth.onAuthStateChanged(user => {
       if (user) {
-        loadDashboard(user.uid);
-        document.getElementById("userEmail").textContent = user.email;
-        document.getElementById("logoutBtn").onclick = () => auth.signOut();
-      } else {
-        window.location.href = "login.html";
-      }
-    });
-    window.focusOnMap = focusOnMap;
-  </script>
-</body>
-</html>
+        loadDashboard(user
