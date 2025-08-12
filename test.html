@@ -146,32 +146,37 @@
     const componentsListEl = document.getElementById("componentsList");
     const dateFromInput = document.getElementById('dateFrom');
     const dateToInput = document.getElementById('dateTo');
-    let map, marker;
-    let pathPolyline = null;
-    let startMarker = null;
-    let endMarker = null;
+    let map, marker, mapReady = false;
+    let pathPolyline = null, startMarker = null, endMarker = null;
     let historyData = {};
     const ONLINE_TTL_MS = 90000;
     const LAST_ACTIVE_POLL_MS = 30000;
     let uidGlobal = null;
-    function updateMap(lat, lng, popupText = null) {
-      if (!lat || !lng) return;
-      if (!map) {
+
+    function ensureMapInitialized(lat, lng) {
+      if (!mapReady && lat && lng) {
         map = L.map('map').setView([lat, lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
+          maxZoom: 19
         }).addTo(map);
         marker = L.marker([lat, lng]).addTo(map);
-      } else {
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng], 15);
+        mapReady = true;
       }
-      if (popupText) marker.bindPopup(popupText).openPopup();
     }
+
+    function updateMap(lat, lng, popupText = null) {
+      ensureMapInitialized(lat, lng);
+      if (marker) {
+        marker.setLatLng([lat, lng]);
+        if (popupText) marker.bindPopup(popupText).openPopup();
+      }
+      if (map) map.setView([lat, lng], 15);
+    }
+
     function focusOnMap(lat, lng) {
       updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
     }
+
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -192,6 +197,7 @@
         componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
       });
     }
+
     function parseTimestampToMs(ts) {
       if (!ts || typeof ts !== 'string') return null;
       const parts = ts.trim().split(' ');
@@ -211,17 +217,20 @@
         parseInt(timeParts[2], 10)
       ).getTime();
     }
+
     function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
       const lastActiveMs = parseTimestampToMs(lastActiveStr);
       if (!lastActiveMs) return !!firebaseOnlineFlag;
       const age = Date.now() - lastActiveMs;
       return age <= ONLINE_TTL_MS && !!firebaseOnlineFlag;
     }
+
     function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
       const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
       onlineStatusEl.innerHTML = `<span class="badge ${isOnline ? 'online' : 'offline'}">${isOnline ? 'ONLINE' : 'OFFLINE'}</span>`;
       lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
+
     function startLastActivePoll(uid) {
       if (!uid) return;
       const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
@@ -234,15 +243,19 @@
         });
       }, LAST_ACTIVE_POLL_MS);
     }
+
     function parseDateTimeLocalToMs(dtLocal) {
       if (!dtLocal) return null;
       return new Date(dtLocal).getTime();
     }
+
     function clearMarkers() {
       if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
       if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
     }
+
     function drawPathOnMap(points) {
+      if (!mapReady || !Array.isArray(points)) return;
       if (pathPolyline) { map.removeLayer(pathPolyline); pathPolyline = null; }
       clearMarkers();
       if (points.length > 1) {
@@ -273,6 +286,7 @@
         }).addTo(map).bindPopup("Location").openPopup();
       }
     }
+
     function filterAndRenderHistory() {
       const fromMs = parseDateTimeLocalToMs(dateFromInput.value);
       const toMs = parseDateTimeLocalToMs(dateToInput.value);
@@ -301,9 +315,13 @@
         clearMarkers();
         return;
       }
-      const pathPoints = filteredEntries.map(e => e.location.split(",").map(Number));
+      const pathPoints = filteredEntries.map(e => {
+        const arr = e.location.split(",").map(Number);
+        return [arr[0], arr[1]];
+      });
       drawPathOnMap(pathPoints);
     }
+
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
@@ -313,6 +331,7 @@
         const { latitude, longitude, status, last_active, battery } = data;
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
+          ensureMapInitialized(latitude, longitude);
           updateMap(latitude, longitude);
         } else { locationEl.textContent = "No location"; }
         lastActiveEl.textContent = last_active || "Unknown";
@@ -357,6 +376,7 @@
       dateToInput.addEventListener("change", filterAndRenderHistory);
       startLastActivePoll(uid);
     }
+
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
