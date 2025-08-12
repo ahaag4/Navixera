@@ -8,25 +8,67 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
-    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
     .logo { height: 40px; }
-    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
     h2 { margin-top: 0; color: #343a40; }
     #map { height: 300px; width: 100%; border-radius: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
-    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px; }
-    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
-    .view-btn { background-color: #007bff; color: white; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
     .view-btn:hover { background-color: #0056b3; }
     .user-info { display: flex; align-items: center; gap: 10px; }
-    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    /* small styles for new components/online display */
     .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
     .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
     .badge.online { background:#28a745; }
@@ -37,10 +79,7 @@
     .comp-warn { color:#e67700; font-weight:600 }
     .comp-bad { color:#c82333; font-weight:600 }
     .comp-unknown { color:#6c757d; font-weight:600 }
-    @media (max-width:600px) {
-      header { flex-direction: column; gap:8px; align-items:flex-start; }
-      .view-btn { margin-top:6px; }
-    }
+
   </style>
 </head>
 <body>
@@ -56,15 +95,18 @@
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
+
       <div class="status-row">
         <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
+
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
       <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
       <p><strong>Status:</strong> <span id="status">Loading...</span></p>
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
+
       <div id="componentsBlock">
         <h4>Components</h4>
         <ul id="componentsList" class="components-list">
@@ -100,6 +142,7 @@
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
+
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -120,7 +163,6 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // DOM refs
     const locationEl = document.getElementById("location");
     const lastActiveEl = document.getElementById("lastActive");
     const statusEl = document.getElementById("status");
@@ -129,6 +171,8 @@
     const alarmToggle = document.getElementById("alarmToggle");
     const alarmStatusText = document.getElementById("alarmStatusText");
     const alarmTriggerEl = document.getElementById("alarmTrigger");
+
+    // NEW elements
     const onlineStatusEl = document.getElementById("onlineStatus");
     const lastSeenEl = document.getElementById("lastSeen");
     const componentsListEl = document.getElementById("componentsList");
@@ -140,31 +184,27 @@
     let map, marker, routePolyline = null, startMarker = null, endMarker = null;
     let fullHistory = [];
 
-    // ---- Map helpers ----
-    function _initMapIfNeeded(lat, lng, zoom = 13) {
-      if (!map) {
-        map = L.map('map').setView([lat, lng], zoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      }
-    }
+    let map, marker;
+    const ONLINE_TTL_MS = 90000;        // must match NodeMCU ONLINE_TTL_MS
+    const LAST_ACTIVE_POLL_MS = 30000;  // update every 30 seconds as requested
+    let uidGlobal = null;
+
     function updateMap(lat, lng, popupText = null) {
-      if (lat == null || lng == null) return;
-      _initMapIfNeeded(lat, lng, 15);
-      if (!marker) marker = L.marker([lat, lng]).addTo(map);
-      marker.setLatLng([lat, lng]);
-      map.setView([lat, lng], 15);
+      if (!lat || !lng) return;
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
       if (popupText) marker.bindPopup(popupText).openPopup();
     }
-    function focusOnMap(lat, lng) {
-      if (lat == null || lng == null) return;
-      _initMapIfNeeded(lat, lng, 15);
-      map.setView([lat, lng], 15);
-      if (!marker) marker = L.marker([lat, lng]).addTo(map);
-      marker.setLatLng([lat, lng]);
-      marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
-    }
-    window.focusOnMap = focusOnMap;
 
+    function focusOnMap(lat, lng) {
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+    }
     // ---- Polyline "route" logic ----
     function clearRouteLayers() {
       if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
@@ -258,68 +298,213 @@
     }
     applyFilterBtn.addEventListener("click", applyFilter);
     resetFilterBtn.addEventListener("click", resetFilter);
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
+        return;
+      }
+      const order = Object.keys(obj);
+      if (order.length === 0) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
+        return;
+      }
+      order.forEach(k => {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
+      });
+    }
 
-    // --- Components, alarm, online logic, and user/session setup: unchanged ---
-    function renderComponents(obj) { /* ... unchanged ... */ }
-    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) { /* ... unchanged ... */ }
-    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) { /* ... unchanged ... */ }
-    function startLastActivePoll(uid) { /* ... unchanged ... */ }
+    // parse "YYYY-MM-DD HH:MM:SS" into milliseconds (local timezone)
+    function parseTimestampToMs(ts) {
+      if (!ts || typeof ts !== 'string') return null;
+      // Expect format "YYYY-MM-DD HH:MM:SS"
+      const parts = ts.trim().split(' ');
+      if (parts.length < 2) {
+        // fallback to Date.parse if possible
+        const fallback = Date.parse(ts);
+        return isNaN(fallback) ? null : fallback;
+      }
+      const dateParts = parts[0].split('-');
+      const timeParts = parts[1].split(':');
+      if (dateParts.length < 3 || timeParts.length < 3) return null;
+      const y = parseInt(dateParts[0], 10);
+      const m = parseInt(dateParts[1], 10) - 1;
+      const d = parseInt(dateParts[2], 10);
+      const hh = parseInt(timeParts[0], 10);
+      const mm = parseInt(timeParts[1], 10);
+      const ss = parseInt(timeParts[2], 10);
+      const dt = new Date(y, m, d, hh, mm, ss);
+      return dt.getTime();
+    }
+
+    // Decide whether to display ONLINE or OFFLINE by checking recency of last_active.
+    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
+      const lastActiveMs = parseTimestampToMs(lastActiveStr);
+      if (!lastActiveMs) {
+        // We don't have a valid last_active timestamp — rely on Firebase flag (but still be cautious)
+        return !!firebaseOnlineFlag;
+      }
+      const age = Date.now() - lastActiveMs;
+      if (age > ONLINE_TTL_MS) {
+        return false; // treat as offline if last_active too old
+      }
+      return !!firebaseOnlineFlag; // if recent enough, use firebase flag (true -> online)
+    }
+
+    // update the "Online" badge and lastActive text depending on recency
+    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
+      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
+
+      if (isOnline) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
+      } else {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
+      }
+
+      if (lastActiveStr) {
+        lastActiveEl.textContent = lastActiveStr;
+      } else {
+        lastActiveEl.textContent = "Unknown";
+      }
+
+      // Also set "Status" text (Moving/Stopped/No GPS/Offline) — prefer current/status node but if not available, derive
+    }
+
+    // Poll last_active every 30s to keep UI fresh even if firebase events are delayed
+    function startLastActivePoll(uid) {
+      if (!uid) return;
+      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      // initial fetch already comes from on('value') listener, but ensure periodic refresh:
+      setInterval(() => {
+        currentRef.once('value').then(snap => {
+          const lastActive = snap.val();
+          // Also fetch online flag to decide
+          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
+            const onlineFlag = onlineSnap.val();
+            renderOnlineAndLastActive(onlineFlag, lastActive);
+          });
+        });
+      }, LAST_ACTIVE_POLL_MS);
+    }
 
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      // current block
       vehicleRef.child("current").on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+
         const { latitude, longitude, status, last_active, battery } = data;
+
+        // display location safely
         if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
-        } else { locationEl.textContent = "No location"; }
+        } else {
+          locationEl.textContent = "No location";
+        }
+
         lastActiveEl.textContent = last_active || "Unknown";
         statusEl.textContent = status || "Unknown";
         batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-        vehicleRef.child("online").once("value").then(snap => {
-          renderOnlineAndLastActive(snap.val(), last_active);
+
+        // Now evaluate online display using last_active recency and the firebase online flag
+        vehicleRef.child("online").once("value").then(onlineSnap => {
+          const onlineFlag = onlineSnap.val();
+          renderOnlineAndLastActive(onlineFlag, last_active);
         });
       });
+
+      // history block
       vehicleRef.child("history").on("value", (snapshot) => {
-        const historyObj = snapshot.val();
-        fullHistory = [];
-        if (historyObj) {
-          fullHistory = Object.values(historyObj)
-            .filter(e=> e && e.location && e.time)
-            .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
+        const history = snapshot.val();
+        historyEl.innerHTML = "";
+        if (history) {
+          // reverse for most recent first
+          const entries = Object.values(history).reverse();
+          entries.forEach(entry => {
+            const loc = entry.location || "";
+            const time = entry.time || "";
+            const [lat, lng] = loc.split(",");
+            const safeLat = parseFloat(lat) || 0;
+            const safeLng = parseFloat(lng) || 0;
+            historyEl.innerHTML += `
+              <tr>
+                <td>${time}</td>
+                <td>${loc}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+              </tr>`;
+          });
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
         }
-        renderHistoryTable(fullHistory);
-        clearRouteLayers();
       });
-      vehicleRef.child("components").on("value", (snap) => renderComponents(snap.val()));
+
+      // components block
+      vehicleRef.child("components").on("value", (snapshot) => {
+        const comps = snapshot.val();
+        renderComponents(comps);
+      });
+
+      // online flag listener: BUT we will not blindly trust it — combine with last_active recency
       vehicleRef.child("online").on("value", (snapshot) => {
-        vehicleRef.child("current/last_active").once("value").then(snap2 => {
-          renderOnlineAndLastActive(snapshot.val(), snap2.val());
+        const onlineFlag = snapshot.val();
+        // fetch last_active to make decision
+        vehicleRef.child("current/last_active").once("value").then(snap => {
+          const lastActive = snap.val();
+          renderOnlineAndLastActive(onlineFlag, lastActive);
         });
       });
+
+      // last_seen - only update when DB changes (this will reflect NodeMCU's last_seen)
       vehicleRef.child("last_seen").on("value", (snapshot) => {
-        lastSeenEl.textContent = snapshot.val() || "N/A";
+        const lastSeenVal = snapshot.val();
+        lastSeenEl.textContent = lastSeenVal || "N/A";
       });
-      vehicleRef.child("alarm").on("value", (snap) => {
-        const status = snap.val() || "off";
+
+      // alarm value (toggle UI)
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
         alarmToggle.checked = (status === "on");
         alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
       });
-      vehicleRef.child("last_trigger").on("value", (snap) => {
-        const t = snap.val();
-        alarmTriggerEl.innerHTML = (t && t.time && t.status === "alert") ? `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>` : "No triggers";
+
+      // last_trigger
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
+        if (trigger && trigger.time && trigger.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
       });
-      vehicleRef.child("current/status").on("value", (snap) => {
-        if (snap.val()) statusEl.textContent = snap.val();
+
+      // status node (moving/stopped) listener: if present, display it; otherwise rely on current/status
+      vehicleRef.child("current/status").on("value", (snapshot) => {
+        const s = snapshot.val();
+        if (s) statusEl.textContent = s;
       });
+
+      // allow operator to toggle alarm from web UI
       alarmToggle.addEventListener("change", () => {
-        vehicleRef.child("alarm").set(alarmToggle.checked ? "on" : "off").catch(console.error);
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState).catch(err => {
+          console.error("Failed to set alarm:", err);
+        });
       });
+
+      // start periodic poll for last_active to ensure "Last Active" updates every 30s
       startLastActivePoll(uid);
     }
+
+    // auth state
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadDashboard(user.uid);
@@ -329,6 +514,9 @@
         window.location.href = "login.html";
       }
     });
+
+    // Expose focusOnMap to global scope for inline onclick in generated rows
+    window.focusOnMap = focusOnMap;
   </script>
 </body>
 </html>
