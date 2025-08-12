@@ -43,8 +43,7 @@
     .filter-controls label { font-weight: 600; font-size: 0.9rem; }
     .filter-controls input[type="datetime-local"] { padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; width: 180px; max-width: 100%; box-sizing: border-box; cursor: pointer; }
     .filter-controls input[type="datetime-local"]:focus { border-color: #007bff; outline: none; }
-    #filterHistoryBtn { padding: 8px 18px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background-color 0.3s ease; user-select: none; }
-    #filterHistoryBtn:hover, #filterHistoryBtn:focus { background-color: #0056b3; outline: none; }
+    #filterHistoryBtn { display: none; }
     @media (max-width: 650px) {
       table, thead, tbody, th, td, tr { display: block; }
       thead tr { position: absolute; top: -9999px; left: -9999px; }
@@ -53,7 +52,6 @@
       td:before { position: absolute; top: 10px; left: 12px; width: 45%; padding-right: 10px; white-space: nowrap; font-weight: 700; content: attr(data-label); color: #333; }
       .filter-controls { flex-direction: column; gap: 10px; }
       .filter-controls input[type="datetime-local"] { width: 100%; }
-      #filterHistoryBtn { width: 100%; }
     }
   </style>
 </head>
@@ -242,20 +240,11 @@
       return new Date(dtLocal).getTime();
     }
     function clearMarkers() {
-      if (startMarker) {
-        map.removeLayer(startMarker);
-        startMarker = null;
-      }
-      if (endMarker) {
-        map.removeLayer(endMarker);
-        endMarker = null;
-      }
+      if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+      if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
     }
     function drawPathOnMap(points) {
-      if (pathPolyline) {
-        map.removeLayer(pathPolyline);
-        pathPolyline = null;
-      }
+      if (pathPolyline) { map.removeLayer(pathPolyline); pathPolyline = null; }
       clearMarkers();
       if (points.length > 1) {
         pathPolyline = L.polyline(points, { color: 'blue', weight: 5, opacity: 0.8, smoothFactor: 1 }).addTo(map);
@@ -263,18 +252,14 @@
         startMarker = L.marker(points[0], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
           }),
           title: "Start Point"
         }).addTo(map).bindPopup("Start Point").openPopup();
         endMarker = L.marker(points[points.length - 1], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
           }),
           title: "End Point"
         }).addTo(map).bindPopup("End Point");
@@ -283,9 +268,7 @@
         startMarker = L.marker(points[0], {
           icon: L.icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
           }),
           title: "Location"
         }).addTo(map).bindPopup("Location").openPopup();
@@ -307,12 +290,11 @@
       historyEl.innerHTML = "";
       filteredEntries.forEach(entry => {
         const [lat, lng] = entry.location.split(",");
-        historyEl.innerHTML += `
-          <tr>
-            <td data-label="Time">${entry.time}</td>
-            <td data-label="Location">${entry.location}</td>
-            <td data-label="Map"><button class="view-btn" aria-label="View location ${entry.location} on map" onclick="focusOnMap(${parseFloat(lat)}, ${parseFloat(lng)})">View</button></td>
-          </tr>`;
+        historyEl.innerHTML += `<tr>
+          <td data-label="Time">${entry.time}</td>
+          <td data-label="Location">${entry.location}</td>
+          <td data-label="Map"><button class="view-btn" aria-label="View location ${entry.location} on map" onclick="focusOnMap(${parseFloat(lat)}, ${parseFloat(lng)})">View</button></td>
+        </tr>`;
       });
       if (filteredEntries.length === 0) {
         historyEl.innerHTML = `<tr><td colspan="3">No history found for selected date/time.</td></tr>`;
@@ -371,7 +353,9 @@
       alarmToggle.addEventListener("change", () => {
         vehicleRef.child("alarm").set(alarmToggle.checked ? "on" : "off").catch(console.error);
       });
-      filterHistoryBtn.addEventListener("click", filterAndRenderHistory);
+      // Automatically filter and render whenever date/time filter inputs change:
+      dateFromInput.addEventListener("change", filterAndRenderHistory);
+      dateToInput.addEventListener("change", filterAndRenderHistory);
       startLastActivePoll(uid);
     }
     auth.onAuthStateChanged((user) => {
