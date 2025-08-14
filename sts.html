@@ -6,6 +6,9 @@
   <title>Smart Tracker Dashboard</title>
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <!-- Leaflet.draw & heatmap styles -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f9fc; }
     .dashboard { max-width: 1080px; margin:28px auto; padding:0 24px 36px 24px; }
@@ -63,6 +66,13 @@
     .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
     #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
     #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 12px 0;}
+    .toolbar label { font-size:14px; color:#333; }
+    .toolbar input[type="date"], .toolbar select { padding:6px 8px; border:1px solid #e5e9f2; border-radius:8px; font-size:14px;}
+    .toolbar .inline { display:flex; gap:8px; align-items:center; }
+    .kpi { display:flex; gap:14px; flex-wrap:wrap; margin-top:6px; }
+    .kpi .pill { background:#f4f7ff; border:1px solid #e7ecff; padding:8px 12px; border-radius:10px; font-weight:700; color:#2b3a67; }
+    .hint { font-size:12px; color:#6c757d; }
     @media (max-width:600px) {
       .dashboard {padding:0 7px;}
       header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
@@ -73,6 +83,7 @@
       .card{padding:13px;}
       th,td{font-size:14px;}
       .pending-pill,.approved-pill,.rejected-pill{font-size:13px;}
+      .toolbar {gap:6px;}
     }
   </style>
 </head>
@@ -140,14 +151,57 @@
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
       </div>
     </section>
-
+    
     <section class="card map-card">
       <h2>🗺 Live Map</h2>
+      <!-- Map toolbar (plan gated controls appear dynamically) -->
+      <div class="toolbar" id="mapToolbar" style="display:flex;">
+        <div class="inline" id="mapTypeBlock" style="display:none;">
+          <label>Map:</label>
+          <select id="mapType">
+            <option value="street">Street</option>
+            <option value="satellite">Satellite</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="inline" id="heatToggleBlock" style="display:none;">
+          <label>Heatmap:</label>
+          <label class="switch"><input type="checkbox" id="heatToggle"><span class="slider"></span></label>
+        </div>
+        <div class="inline" id="customIconBlock" style="display:none;">
+          <label>Marker Icon:</label>
+          <input type="file" id="iconUploader" accept="image/*"/>
+          <span class="hint">PNG/JPG, ~32×32 works best</span>
+        </div>
+        <div class="inline" id="geofenceControls" style="display:none;">
+          <button class="btn btn-ghost" id="gfEnableDraw">Add Zone</button>
+          <button class="btn btn-ghost" id="gfSave">Save Zones</button>
+          <button class="btn btn-ghost" id="gfClear">Clear Zones</button>
+          <span class="hint" id="gfHint"></span>
+        </div>
+      </div>
       <div id="map" style="height:300px;border-radius:8px;">Loading map...</div>
+      <div class="kpi">
+        <div class="pill">Distance: <span id="kpiDistance">0.00 km</span></div>
+        <div class="pill">Stops: <span id="kpiStops">0</span></div>
+        <div class="pill">Refresh: <span id="kpiRefresh">—</span></div>
+      </div>
     </section>
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
+      <!-- Date range filter (Silver & Gold) -->
+      <div class="toolbar" id="dateFilterSection" style="display:none;">
+        <div class="inline">
+          <label>From:</label><input type="date" id="startDate"/>
+        </div>
+        <div class="inline">
+          <label>To:</label><input type="date" id="endDate"/>
+        </div>
+        <button class="btn btn-primary" id="applyFilterBtn">Filter</button>
+        <button class="btn btn-ghost" id="clearFilterBtn">Clear</button>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div class="small-muted">Recent movements</div>
         <div>
@@ -179,11 +233,19 @@
     </div>
   </div>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- Leaflet core -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
+  <!-- Leaflet.heat (for heatmap) -->
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <!-- Leaflet.draw (for geofences) -->
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -229,15 +291,39 @@
   const modalUpgradeBtn = document.getElementById('modalUpgradeBtn');
   document.getElementById('logoutBtn').onclick = ()=> auth.signOut();
 
+  const dateFilterSection = document.getElementById('dateFilterSection');
+  const startDateInput = document.getElementById('startDate');
+  const endDateInput = document.getElementById('endDate');
+  const applyFilterBtn = document.getElementById('applyFilterBtn');
+  const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+  const mapTypeBlock = document.getElementById('mapTypeBlock');
+  const mapTypeSelect = document.getElementById('mapType');
+  const heatToggleBlock = document.getElementById('heatToggleBlock');
+  const heatToggle = document.getElementById('heatToggle');
+  const customIconBlock = document.getElementById('customIconBlock');
+  const iconUploader = document.getElementById('iconUploader');
+
+  const geofenceControls = document.getElementById('geofenceControls');
+  const gfEnableDrawBtn = document.getElementById('gfEnableDraw');
+  const gfSaveBtn = document.getElementById('gfSave');
+  const gfClearBtn = document.getElementById('gfClear');
+  const gfHint = document.getElementById('gfHint');
+
+  const kpiDistanceEl = document.getElementById('kpiDistance');
+  const kpiStopsEl = document.getElementById('kpiStops');
+  const kpiRefreshEl = document.getElementById('kpiRefresh');
+
   let uidGlobal = null;
   let isAdmin = false;
   let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false };
 
   const PLAN_POLICIES = {
-    basic: { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false },
-    silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true },
-    gold: { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true }
+    basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0 },
+    silver: { historyDays:7, ads:'banner-limited',     vehicle_limit:3, exportCSV:true,  refreshMs:20000, heatmap:false, mapSwitch:true,  notify:true,  geofences:1 },
+    gold:   { historyDays:90, ads:'no-ads',            vehicle_limit:3, exportCSV:true,  refreshMs:10000, heatmap:true,  mapSwitch:true,  notify:true,  geofences:999 }
   };
+
   let adTimerInt = null, currentAdIndex=0, adsList=[];
   function showAd(ad) {
     adArea.innerHTML = 'Loading...';
@@ -270,11 +356,10 @@
       } else {
         adArea.innerHTML = 'No active ad';
       }
-    }).catch(err => {
-      adArea.innerHTML = 'Ad load error';
-    });
+    }).catch(()=> { adArea.innerHTML = 'Ad load error'; });
   }
   function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
+
   function renderRequestUI(upgradeRequest, currentPlan) {
     upgradeToSilverBtn.style.display = 'none';
     upgradeToGoldBtn.style.display = 'none';
@@ -307,6 +392,7 @@
     requestStatusArea.innerHTML = statusMsg;
   }
   function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
+
   function applyPlanToUI(udata) {
     const plan = udata.plan || 'basic';
     const plan_expiry = udata.plan_expiry || null;
@@ -320,7 +406,23 @@
     exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
     renderAdsForPlan(plan);
     renderRequestUI(udata.upgrade_request || null, plan);
+
+    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+    dateFilterSection.style.display = ['silver','gold'].includes(plan) ? 'flex' : 'none';
+    mapTypeBlock.style.display = policy.mapSwitch ? 'flex' : 'none';
+    heatToggleBlock.style.display = (plan==='gold') ? 'flex' : 'none';
+    customIconBlock.style.display = plan !== 'basic' ? 'flex' : 'none';
+    geofenceControls.style.display = policy.geofences > 0 ? 'flex' : 'none';
+    gfHint.textContent = plan==='silver' ? 'Max 1 zone' : (plan==='gold' ? 'Multiple zones allowed' : '');
+
+    kpiRefreshEl.textContent = (policy.refreshMs/1000) + 's';
+    setRefreshIntervals(policy.refreshMs);
+
+    if (policy.notify && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(()=>{});
+    }
   }
+
   function createUpgradeRequest(uid, desiredPlan) {
     const now = new Date().toISOString();
     const req = { status:'pending', requestedPlan:desiredPlan, request_time:now };
@@ -374,74 +476,348 @@
     }
   }
 
-  let map, marker;
+  let map, liveMarker, baseLayer, baseLayers = {};
+  let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
+  let customMarkerIcon = null;
+
+  function createBaseLayers() {
+    baseLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 });
+    baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 });
+    baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+  }
+
+  function updateBaseLayer(type) {
+    if (!map) return;
+    if (baseLayer) map.removeLayer(baseLayer);
+    baseLayer = baseLayers[type] || baseLayers.street;
+    baseLayer.addTo(map);
+  }
+
   function updateMap(lat, lng, popupText=null) {
     if (!(typeof lat==='number' && typeof lng==='number' && !isNaN(lat) && !isNaN(lng))) return;
     if (!map) {
-      map = L.map('map').setView([lat, lng], 14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      marker = L.marker([lat, lng]).addTo(map);
+      map = L.map('map').setView([lat, lng], 14);
+      createBaseLayers();
+      updateBaseLayer('street');
+      liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
+      setupDrawTools();
     } else {
-      marker.setLatLng([lat, lng]); map.setView([lat, lng], 14);
+      if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
+      liveMarker.setLatLng([lat, lng]);
     }
-    if (popupText) marker.bindPopup(popupText).openPopup();
+    if (popupText) liveMarker.bindPopup(popupText).openPopup();
   }
+
   window.focusOnMap = function(lat, lng) {
     lat = parseFloat(lat); lng = parseFloat(lng);
-    if (!isNaN(lat) && !isNaN(lng)) updateMap(lat, lng, `📍 ${lat}, ${lng}`);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      updateMap(lat, lng, `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      map.setView([lat, lng], 15);
+    }
   }
-  function renderHistory(historyObj) {
+
+  let fullHistory = null;
+  let filteredHistory = null;
+
+  function parseEntry(entry) {
+    const loc = entry.location || '';
+    const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
+    const tms = Date.parse(entry.time || '');
+    return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed==='number'?entry.speed:null };
+  }
+
+  function renderHistoryTable(list) {
     historyTbody.innerHTML = '';
-    if (!historyObj) {
+    if (!list || !list.length) {
       historyTbody.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
       return;
     }
-    const entries = Object.values(historyObj).slice().reverse();
-    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-    const cutoffMs = Date.now() - policy.historyDays * 24*60*60*1000;
-    const visible = entries.filter(e => {
-      if (!e.time) return false;
-      const tms = Date.parse(e.time);
-      if (!isNaN(tms)) return tms >= cutoffMs;
-      const parts = (e.time || '').split(' ');
-      if (parts.length>=2) {
-        const d = parts[0].split('-'), tm = parts[1].split(':');
-        if (d.length===3 && tm.length===3) {
-          const dt = new Date(parseInt(d[0]),parseInt(d[1])-1,parseInt(d[2]),parseInt(tm[0]),parseInt(tm[1]),parseInt(tm[2]));
-          return dt.getTime() >= cutoffMs;
-        }
-      }
-      return false;
-    });
-    if (visible.length === 0) {
-      historyTbody.innerHTML = '<tr><td colspan="3">No history available within your plan window.</td></tr>';
-      return;
-    }
-    visible.forEach(entry => {
-      const loc = entry.location || '';
-      const time = entry.time || '';
-      const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
-      const canFocus = !isNaN(lat) && !isNaN(lng);
+    list.forEach(entry => {
+      const canFocus = !(isNaN(entry.lat) || isNaN(entry.lng));
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${time}</td><td>${loc}</td>
-        <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${lat},${lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
+      tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat)&&isFinite(entry.lng))? (entry.lat+','+entry.lng) : ''}</td>
+        <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${entry.lat},${entry.lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
       historyTbody.appendChild(tr);
     });
   }
-  function exportHistoryCSV(histObj) {
+
+  function haversineKm(a, b) {
+    const R = 6371;
+    const toRad = d => d*Math.PI/180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+
+  function computeKPIs(list) {
+    if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent='0'; return; }
+    let dist = 0;
+    for (let i=1;i<list.length;i++) {
+      const p = list[i-1], q = list[i];
+      if (isFinite(p.lat)&&isFinite(p.lng)&&isFinite(q.lat)&&isFinite(q.lng)) {
+        dist += haversineKm(p,q);
+      }
+    }
+    let stops = 0;
+    const SPEED_KMH_THRESHOLD = 2;
+    const STOP_MS = 5*60*1000;
+    let blockStart = null, lastPoint = null;
+    for (let i=0;i<list.length;i++) {
+      const p = list[i];
+      const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
+                           (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015);
+      if (slowOrStatic) {
+        if (!blockStart) blockStart = p;
+      } else {
+        if (blockStart && p.ts && blockStart.ts && (p.ts - blockStart.ts >= STOP_MS)) stops++;
+        blockStart = null;
+      }
+      lastPoint = p;
+    }
+    if (blockStart && lastPoint && blockStart.ts && lastPoint.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
+    kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
+    kpiStopsEl.textContent = String(stops);
+  }
+
+  function clearRouteLayers() {
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+    if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+  }
+
+  function plotRoute(list) {
+    if (!map || !list || !list.length) return;
+    clearRouteLayers();
+    const coords = list.filter(p => isFinite(p.lat)&&isFinite(p.lng)).map(p => [p.lat, p.lng]);
+    if (!coords.length) return;
+    routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
+    const startIcon = L.icon({ iconUrl:'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconSize:[25,41], iconAnchor:[12,41] });
+    const endIcon = L.icon({ iconUrl:'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', iconSize:[25,41], iconAnchor:[12,41] });
+    startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
+    endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup('End');
+    map.fitBounds(routeLayer.getBounds(), { padding:[20,20] });
+  }
+
+  function updateHeatmap(list) {
+    if (!map) return;
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    if (!list || !list.length || !heatToggle.checked) return;
+    const heatData = list.filter(p=>isFinite(p.lat)&&isFinite(p.lng)).map(p => [p.lat, p.lng, 0.5]);
+    if (heatData.length) heatLayer = L.heatLayer(heatData, { radius: 25 }).addTo(map);
+  }
+
+  function applyDateFilter(list) {
+    const plan = localPlan.plan;
+    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+    const cutoffMs = Date.now() - policy.historyDays * 86400000;
+    const hasDate = startDateInput.value || endDateInput.value;
+    let s = startDateInput.value ? Date.parse(startDateInput.value + 'T00:00:00') : null;
+    let e = endDateInput.value ? Date.parse(endDateInput.value + 'T23:59:59') : null;
+    return (list || []).filter(p => {
+      if (!p.ts) return false;
+      if (p.ts < cutoffMs) return false;
+      if (!hasDate) return true;
+      if (s && p.ts < s) return false;
+      if (e && p.ts > e) return false;
+      return true;
+    });
+  }
+
+  const ONLINE_TTL_MS = 90000;
+  function parseTimestampToMs(ts) {
+    if (!ts) return null;
+    const parts = ts.split(' ');
+    if (parts.length < 2) return null;
+    const [y, m, d] = parts[0].split('-').map(n => parseInt(n));
+    const [hh, mm, ss] = parts[1].split(':').map(n => parseInt(n));
+    return new Date(y, m-1, d, hh, mm, ss).getTime();
+  }
+  function computeOnlineDisplay(flag, lastActiveStr) {
+    const lastActiveMs = parseTimestampToMs(lastActiveStr);
+    if (!lastActiveMs) return !!flag;
+    return (Date.now() - lastActiveMs <= ONLINE_TTL_MS) && !!flag;
+  }
+  function renderOnlineAndLastActive(flag, lastActiveStr) {
+    const isOn = computeOnlineDisplay(flag, lastActiveStr);
+    onlineStatusEl.innerHTML = isOn ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+    lastActiveEl.textContent = lastActiveStr || "Unknown";
+    maybeNotifyStatus(isOn);
+  }
+
+  let lastActivePoller = null;
+  function setRefreshIntervals(ms) {
+    if (lastActivePoller) clearInterval(lastActivePoller);
+    lastActivePoller = setInterval(() => {
+      if (!uidGlobal) return;
+      const ref = db.ref(`users/${uidGlobal}/vehicle`);
+      ref.child("current/last_active").once('value').then(lastSnap => {
+        const lastActive = lastSnap.val();
+        ref.child("online").once('value').then(flagSnap => renderOnlineAndLastActive(flagSnap.val(), lastActive));
+      });
+    }, ms);
+  }
+
+  let lastOnlineState = null;
+  function maybeNotifyStatus(isOnline) {
+    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
+    if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+    if (lastOnlineState === null) { lastOnlineState = isOnline; return; }
+    if (isOnline !== lastOnlineState) {
+      new Notification("Vehicle Status", { body: isOnline ? "Vehicle is ONLINE" : "Vehicle is OFFLINE" });
+      lastOnlineState = isOnline;
+    }
+  }
+  function maybeNotifyBattery(battPercent) {
+    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
+    if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+    if (typeof battPercent === 'number' && battPercent <= 20) {
+      new Notification("Low Battery", { body: `Vehicle battery low (${battPercent}%)` });
+    }
+  }
+
+  let drawControl, drawnItems;
+  let geofenceState = { lastInsideAny: null };
+
+  function setupDrawTools() {
+    if (!map) return;
+    if (drawnItems) return;
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    drawControl = new L.Control.Draw({
+      position: 'topright',
+      draw: {
+        rectangle: true,
+        polygon: true,
+        circle: true,
+        circlemarker: false,
+        marker: false,
+        polyline: false
+      },
+      edit: { featureGroup: drawnItems }
+    });
+  }
+
+  function enableDrawing() {
+    if (!map || !drawControl) return;
+    map.addControl(drawControl);
+  }
+  function disableDrawing() {
+    if (!map || !drawControl) return;
+    map.removeControl(drawControl);
+  }
+
+  function geofenceToJSON(layer) {
+    if (layer instanceof L.Circle) {
+      const c = layer.getLatLng();
+      return { type:'circle', center:[c.lat, c.lng], radius: layer.getRadius() };
+    } else if (layer instanceof L.Polygon) {
+      const latlngs = layer.getLatLngs()[0].map(p => [p.lat, p.lng]);
+      return { type:'polygon', points: latlngs };
+    } else if (layer instanceof L.Rectangle) {
+      const latlngs = layer.getLatLngs()[0].map(p => [p.lat, p.lng]);
+      return { type:'polygon', points: latlngs };
+    }
+    return null;
+  }
+
+  function layerFromJSON(obj) {
+    if (!obj) return null;
+    if (obj.type === 'circle') {
+      return L.circle(obj.center, { radius: obj.radius });
+    }
+    if (obj.type === 'polygon' && Array.isArray(obj.points)) {
+      return L.polygon(obj.points);
+    }
+    return null;
+  }
+
+  async function saveGeofences() {
+    if (!uidGlobal) return;
+    const plan = localPlan.plan;
+    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+    const layers = [];
+    drawnItems.eachLayer(l => {
+      const j = geofenceToJSON(l);
+      if (j) layers.push(j);
+    });
+    if (plan==='silver' && layers.length > policy.geofences) {
+      alert('Silver plan allows only 1 geofence'); return;
+    }
+    await db.ref(`users/${uidGlobal}/geofences`).set(layers);
+    alert('Geofences saved');
+  }
+
+  async function loadGeofences() {
+    if (!uidGlobal || !map) return;
+    const snap = await db.ref(`users/${uidGlobal}/geofences`).once('value');
+    const arr = snap.val() || [];
+    drawnItems.clearLayers();
+    arr.forEach(obj => {
+      const layer = layerFromJSON(obj);
+      if (layer) { drawnItems.addLayer(layer); }
+    });
+  }
+
+  function pointInsideGeofences(lat, lng) {
+    if (!drawnItems) return false;
+    let inside = false;
+    drawnItems.eachLayer(layer => {
+      if (inside) return;
+      if (layer instanceof L.Circle) {
+        const c = layer.getLatLng();
+        inside = map.distance([lat,lng], c) <= layer.getRadius();
+      } else if (layer instanceof L.Polygon) {
+        inside = leafletPipPointInLayer([lat,lng], layer);
+      }
+    });
+    return inside;
+  }
+
+  function leafletPipPointInLayer(point, polygonLayer) {
+    const x = point[1], y = point[0];
+    const poly = polygonLayer.getLatLngs()[0].map(p => [p.lng, p.lat]);
+    let inside = false;
+    for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
+      const xi = poly[i][0], yi = poly[i][1];
+      const xj = poly[j][0], yj = poly[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi)||1e-12) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function exportHistoryCSV(histArray) {
     if (!localPlan.exportCSV) {
       showModal('CSV export is not available on your current plan. Request upgrade to Silver or Gold.', true);
       return;
     }
-    if (!histObj) { alert('No history'); return; }
-    const rows=[['time','location']];
-    Object.values(histObj).forEach(e=>rows.push([e.time||'',''+(e.location||'')]));
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    if (!histArray || !Array.isArray(histArray) || histArray.length === 0) {
+      alert('No history data available to export.');
+      return;
+    }
+    try {
+      const rows = [['time', 'location', 'speed']];
+      histArray.forEach(entry => {
+        const location = (isFinite(entry.lat) && isFinite(entry.lng)) ? `${entry.lat},${entry.lng}` : '';
+        rows.push([entry.time || '', location, entry.speed !== null ? String(entry.speed) : '']);
+      });
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `history_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('Failed to export history. Please try again.');
+    }
   }
+
   function renderComponents(obj) {
     componentsListEl.innerHTML = "";
     if (!obj || !Object.keys(obj).length) {
@@ -457,36 +833,7 @@
       componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
     }
   }
-  function parseTimestampToMs(ts) {
-    if (!ts) return null;
-    const parts = ts.split(' ');
-    if (parts.length < 2) return null;
-    const [y, m, d] = parts[0].split('-').map(n => parseInt(n));
-    const [hh, mm, ss] = parts[1].split(':').map(n => parseInt(n));
-    return new Date(y, m-1, d, hh, mm, ss).getTime();
-  }
-  const ONLINE_TTL_MS = 90000;
-  function computeOnlineDisplay(flag, lastActiveStr) {
-    const lastActiveMs = parseTimestampToMs(lastActiveStr);
-    if (!lastActiveMs) return !!flag;
-    return (Date.now() - lastActiveMs <= ONLINE_TTL_MS) && !!flag;
-  }
-  function renderOnlineAndLastActive(flag, lastActiveStr) {
-    onlineStatusEl.innerHTML = computeOnlineDisplay(flag, lastActiveStr) ?
-      '<span class="badge online">ONLINE</span>' :
-      '<span class="badge offline">OFFLINE</span>';
-    lastActiveEl.textContent = lastActiveStr || "Unknown";
-  }
-  let lastActivePoller = null;
-  function startLastActivePoll(uid) {
-    if (lastActivePoller) clearInterval(lastActivePoller);
-    lastActivePoller = setInterval(() => {
-      db.ref(`users/${uid}/vehicle/current/last_active`).once('value').then(lastSnap => {
-        const lastActive = lastSnap.val();
-        db.ref(`users/${uid}/vehicle/online`).once('value').then(flagSnap => renderOnlineAndLastActive(flagSnap.val(), lastActive));
-      });
-    }, 30000);
-  }
+
   function showModal(html, showUpgrade=false) {
     modalContent.innerHTML = html;
     modal.style.display = 'flex';
@@ -498,24 +845,49 @@
   auth.onAuthStateChanged(async (user)=>{
     if(!user) { window.location.href='login.html'; return; }
     uidGlobal = user.uid; userEmailEl.textContent = user.email || user.uid;
+
     db.ref(`users/${uidGlobal}`).on('value', snap=>{
       const udata = snap.val() || {};
       applyPlanToUI(udata);
       checkAndAutoDowngrade(uidGlobal, udata);
+      if (udata.custom_marker_icon) {
+        customMarkerIcon = L.icon({ iconUrl: udata.custom_marker_icon, iconSize:[32,32], iconAnchor:[16,30] });
+        if (liveMarker) liveMarker.setIcon(customMarkerIcon);
+      }
       if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; }
       else { isAdmin = false; adminPanel.style.display = 'none'; }
     });
+
     const ref = db.ref(`users/${uidGlobal}/vehicle`);
     ref.child("current").on("value", snap => {
       const d = snap.val(); if (!d) return;
       locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
-      if (d.latitude && d.longitude) updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
+      if (d.latitude && d.longitude) {
+        updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
+        const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
+        if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
+        if (geofenceState.lastInsideAny && !inside) {
+          showModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
+          const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
+          if (policy.notify && 'Notification' in window && Notification.permission==='granted') {
+            new Notification('Geofence Alert', { body:'Vehicle left the zone' });
+          }
+        }
+        geofenceState.lastInsideAny = inside;
+      }
       lastActiveEl.textContent = d.last_active || "Unknown";
       statusEl.textContent = d.status || "Unknown";
-      batteryHealthEl.textContent = typeof d.battery !== 'undefined' ? `${d.battery}%` : "N/A";
+      const batt = (typeof d.battery !== 'undefined') ? Number(d.battery) : null;
+      batteryHealthEl.textContent = (batt!==null && !isNaN(batt)) ? `${batt}%` : "N/A";
+      if (batt!==null) maybeNotifyBattery(batt);
       ref.child("online").once('value').then(s => renderOnlineAndLastActive(s.val(), d.last_active));
     });
-    ref.child("history").on("value", snap => renderHistory(snap.val()));
+
+    ref.child("history").on("value", snap => {
+      const raw = snap.val() || null;
+      fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
+      applyHistoryPipeline();
+    });
     ref.child("components").on("value", snap => renderComponents(snap.val()));
     ref.child("online").on("value", snap => {
       ref.child("current/last_active").once("value").then(s2 => renderOnlineAndLastActive(snap.val(), s2.val()));
@@ -535,7 +907,6 @@
     alarmToggle.addEventListener("change", () => {
       ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
     });
-    startLastActivePoll(uidGlobal);
 
     db.ref('admin/upgrade_requests').on('value', snap=>{
       if(!isAdmin) return;
@@ -569,27 +940,74 @@
           `<li style="margin-bottom:6px;"><b>${v.adminName||v.adminUid||'admin'}</b> → ${v.uid} : ${v.plan||v.status} (${v.approvedAt||v.processedAt||v.time||''})</li>`
         ).join('') + '</ul>';
     });
+
+    await loadGeofences();
   });
+
+  function applyHistoryPipeline(plotPolyline = false) {
+    if (!fullHistory) { historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>'; return; }
+    filteredHistory = applyDateFilter(fullHistory);
+    renderHistoryTable(filteredHistory);
+    computeKPIs(filteredHistory);
+    if (plotPolyline) {
+      plotRoute(filteredHistory);
+    } else {
+      clearRouteLayers();
+    }
+    updateHeatmap(filteredHistory);
+  }
+
+  applyFilterBtn.addEventListener('click', () => applyHistoryPipeline(true));
+  clearFilterBtn.addEventListener('click', () => {
+    startDateInput.value=''; endDateInput.value=''; applyHistoryPipeline();
+  });
+  exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
+
+  mapTypeSelect.addEventListener('change', (e) => {
+    updateBaseLayer(e.target.value);
+  });
+
+  heatToggle.addEventListener('change', () => updateHeatmap(filteredHistory));
+
+  iconUploader.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !uidGlobal) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result;
+      await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
+      customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize:[32,32], iconAnchor:[16,30] });
+      if (liveMarker) liveMarker.setIcon(customMarkerIcon);
+      alert('Custom marker icon saved.');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  gfEnableDrawBtn.addEventListener('click', () => {
+    enableDrawing();
+  });
+  gfSaveBtn.addEventListener('click', () => { saveGeofences(); disableDrawing(); });
+  gfClearBtn.addEventListener('click', async () => {
+    if (!uidGlobal) return;
+    drawnItems.clearLayers();
+    await db.ref(`users/${uidGlobal}/geofences`).set([]);
+    alert('Geofences cleared');
+  });
+
   upgradeToSilverBtn.addEventListener('click', ()=> {
     if (!uidGlobal) return alert('Not logged in');
     createUpgradeRequest(uidGlobal, 'silver').then(()=> {
       upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
       requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(err => { alert('Failed to send request'); });
+    }).catch(()=> { alert('Failed to send request'); });
   });
   upgradeToGoldBtn.addEventListener('click', ()=> {
     if (!uidGlobal) return alert('Not logged in');
     createUpgradeRequest(uidGlobal, 'gold').then(()=> {
       upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
       requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(err => { alert('Failed to send request'); });
+    }).catch(()=> { alert('Failed to send request'); });
   });
-  exportCSVBtn.addEventListener('click', ()=>{
-    if (!uidGlobal) return;
-    db.ref(`users/${uidGlobal}/vehicle/history`).once('value').then(snap=>{
-      exportHistoryCSV(snap.val());
-    });
-  });
-  </script>
+</script>
 </body>
 </html>
