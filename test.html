@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <!-- Leaflet.draw & heatmap styles -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <!-- Chart.js for analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f9fc; }
@@ -151,7 +153,7 @@
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
       </div>
     </section>
-    
+
     <section class="card map-card">
       <h2>🗺 Live Map</h2>
       <!-- Map toolbar (plan gated controls appear dynamically) -->
@@ -245,7 +247,7 @@
   <!-- Leaflet.draw (for geofences) -->
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-<script>
+  <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
     authDomain: "svms-c0232.firebaseapp.com",
@@ -316,12 +318,12 @@
 
   let uidGlobal = null;
   let isAdmin = false;
-  let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false };
+  let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV: false };
 
   const PLAN_POLICIES = {
-    basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0 },
-    silver: { historyDays:7, ads:'banner-limited',     vehicle_limit:3, exportCSV:true,  refreshMs:20000, heatmap:false, mapSwitch:true,  notify:true,  geofences:1 },
-    gold:   { historyDays:90, ads:'no-ads',            vehicle_limit:3, exportCSV:true,  refreshMs:10000, heatmap:true,  mapSwitch:true,  notify:true,  geofences:999 }
+    basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV: false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0 },
+    silver: { historyDays:7, ads:'banner-limited',     vehicle_limit:3, exportCSV: true,  refreshMs:20000, heatmap:false, mapSwitch:true,  notify:true,  geofences:1 },
+    gold:   { historyDays:90, ads:'no-ads',            vehicle_limit:3, exportCSV: true,  refreshMs:10000, heatmap:true,  mapSwitch:true,  notify:true,  geofences:999 }
   };
 
   let adTimerInt = null, currentAdIndex=0, adsList=[];
@@ -500,7 +502,7 @@
       createBaseLayers();
       updateBaseLayer('street');
       liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
-      setupDrawTools();
+      setupDrawTools(); // after map init
     } else {
       if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
       liveMarker.setLatLng([lat, lng]);
@@ -516,8 +518,9 @@
     }
   }
 
-  let fullHistory = null;
-  let filteredHistory = null;
+  // ===== History, Filtering, Route, KPIs =====
+  let fullHistory = null;  // raw history from DB
+  let filteredHistory = null; // after plan + date filter
 
   function parseEntry(entry) {
     const loc = entry.location || '';
@@ -949,11 +952,7 @@
     filteredHistory = applyDateFilter(fullHistory);
     renderHistoryTable(filteredHistory);
     computeKPIs(filteredHistory);
-    if (plotPolyline) {
-      plotRoute(filteredHistory);
-    } else {
-      clearRouteLayers();
-    }
+    plotRoute(filteredHistory);
     updateHeatmap(filteredHistory);
   }
 
@@ -974,7 +973,7 @@
     if (!file || !uidGlobal) return;
     const reader = new FileReader();
     reader.onload = async () => {
-      const dataUrl = reader.result;
+      const dataUrl = reader.result; // base64
       await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
       customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize:[32,32], iconAnchor:[16,30] });
       if (liveMarker) liveMarker.setIcon(customMarkerIcon);
@@ -994,6 +993,7 @@
     alert('Geofences cleared');
   });
 
+  // ===== Upgrade buttons (existing) =====
   upgradeToSilverBtn.addEventListener('click', ()=> {
     if (!uidGlobal) return alert('Not logged in');
     createUpgradeRequest(uidGlobal, 'silver').then(()=> {
@@ -1008,6 +1008,12 @@
       requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
     }).catch(()=> { alert('Failed to send request'); });
   });
-</script>
+
+  // ===== Helpers exposed (kept) =====
+  // focusOnMap defined above
+
+  </script>
 </body>
 </html>
+
+All features which you have suggested to me add all to code and give full code in single html. Only add these feature nothing else change or remove.
