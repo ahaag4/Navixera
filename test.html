@@ -6,7 +6,6 @@
   <title>Smart Tracker Dashboard</title>
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <!-- Leaflet.draw & heatmap styles -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 
   <style>
@@ -154,7 +153,6 @@
 
     <section class="card map-card">
       <h2>🗺 Live Map</h2>
-      <!-- Map toolbar (plan gated controls appear dynamically) -->
       <div class="toolbar" id="mapToolbar" style="display:flex;">
         <div class="inline" id="mapTypeBlock" style="display:none;">
           <label>Map:</label>
@@ -190,7 +188,6 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Date range filter (Silver & Gold) -->
       <div class="toolbar" id="dateFilterSection" style="display:none;">
         <div class="inline">
           <label>From:</label><input type="date" id="startDate"/>
@@ -201,7 +198,6 @@
         <button class="btn btn-primary" id="applyFilterBtn">Filter</button>
         <button class="btn btn-ghost" id="clearFilterBtn">Clear</button>
       </div>
-
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div class="small-muted">Recent movements</div>
         <div>
@@ -293,7 +289,6 @@
       const logoutBtn = document.getElementById('logoutBtn');
       logoutBtn.onclick = () => auth.signOut();
 
-      // New UI controls
       const dateFilterSection = document.getElementById('dateFilterSection');
       const startDateInput = document.getElementById('startDate');
       const endDateInput = document.getElementById('endDate');
@@ -317,6 +312,8 @@
       let uidGlobal = null;
       let isAdmin = false;
       let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false };
+      let fullHistory = null;
+      let filteredHistory = null;
 
       const PLAN_POLICIES = {
         basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0 },
@@ -324,7 +321,7 @@
         gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999 }
       };
 
-      // Ads (unchanged except called from plan logic)
+      // Ads
       let adTimerInt = null, currentAdIndex = 0, adsList = [];
       function showAd(ad) {
         adArea.innerHTML = 'Loading...';
@@ -405,23 +402,17 @@
         planPillHeader.textContent = plan.toUpperCase();
         planExpiryEl.textContent = prettyTS(plan_expiry); vehicleLimitEl.textContent = vehicle_limit;
         exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
+        console.log('Export CSV enabled:', exportCSV); // Debug log
         renderAdsForPlan(plan);
         renderRequestUI(udata.upgrade_request || null, plan);
-
-        // Gated UI elements
-        const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
         dateFilterSection.style.display = ['silver','gold'].includes(plan) ? 'flex' : 'none';
         mapTypeBlock.style.display = policy.mapSwitch ? 'flex' : 'none';
         heatToggleBlock.style.display = (plan==='gold') ? 'flex' : 'none';
         customIconBlock.style.display = plan !== 'basic' ? 'flex' : 'none';
         geofenceControls.style.display = policy.geofences > 0 ? 'flex' : 'none';
         gfHint.textContent = plan==='silver' ? 'Max 1 zone' : (plan==='gold' ? 'Multiple zones allowed' : '');
-
-        // Refresh KPI
         kpiRefreshEl.textContent = (policy.refreshMs/1000) + 's';
         setRefreshIntervals(policy.refreshMs);
-
-        // Notifications (ask permission once for eligible plans)
         if (policy.notify && 'Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission().catch(()=>{});
         }
@@ -480,7 +471,6 @@
         }
       }
 
-      // ===== Map & Layers =====
       let map, liveMarker, baseLayer, baseLayers = {};
       let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
       let customMarkerIcon = null;
@@ -505,7 +495,7 @@
           createBaseLayers();
           updateBaseLayer('street');
           liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
-          setupDrawTools(); // after map init
+          setupDrawTools();
         } else {
           if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
           liveMarker.setLatLng([lat, lng]);
@@ -520,10 +510,6 @@
           map.setView([lat, lng], 15);
         }
       }
-
-      // ===== History, Filtering, Route, KPIs =====
-      let fullHistory = null;  // raw history from DB
-      let filteredHistory = null; // after plan + date filter
 
       function parseEntry(entry) {
         const loc = entry.location || '';
@@ -565,7 +551,6 @@
             dist += haversineKm(p,q);
           }
         }
-        // Simple stop detection: consecutive points with speed <2 km/h or unchanged position over >=5 min
         let stops = 0;
         const SPEED_KMH_THRESHOLD = 2;
         const STOP_MS = 5*60*1000;
@@ -573,7 +558,7 @@
         for (let i=0;i<list.length;i++) {
           const p = list[i];
           const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
-                               (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015); // ~15m drift
+                               (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015);
           if (slowOrStatic) {
             if (!blockStart) blockStart = p;
           } else {
@@ -582,9 +567,7 @@
           }
           lastPoint = p;
         }
-        // tail
         if (blockStart && lastPoint && blockStart.ts && lastPoint.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
-
         kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
         kpiStopsEl.textContent = String(stops);
       }
@@ -620,14 +603,12 @@
         const plan = localPlan.plan;
         const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
         const cutoffMs = Date.now() - policy.historyDays * 86400000;
-
         const hasDate = startDateInput.value || endDateInput.value;
         let s = startDateInput.value ? Date.parse(startDateInput.value + 'T00:00:00') : null;
         let e = endDateInput.value ? Date.parse(endDateInput.value + 'T23:59:59') : null;
-
         return (list || []).filter(p => {
           if (!p.ts) return false;
-          if (p.ts < cutoffMs) return false; // plan window
+          if (p.ts < cutoffMs) return false;
           if (!hasDate) return true;
           if (s && p.ts < s) return false;
           if (e && p.ts > e) return false;
@@ -635,7 +616,6 @@
         });
       }
 
-      // ===== Online / Polling / Notifications =====
       const ONLINE_TTL_MS = 90000;
       function parseTimestampToMs(ts) {
         if (!ts) return null;
@@ -688,15 +668,12 @@
         }
       }
 
-      // ===== Geofencing (Leaflet.draw) =====
       let drawControl, drawnItems;
-      let geofenceState = { // for leave alerts
-        lastInsideAny: null
-      };
+      let geofenceState = { lastInsideAny: null };
 
       function setupDrawTools() {
         if (!map) return;
-        if (drawnItems) return; // init once
+        if (drawnItems) return;
         drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
         drawControl = new L.Control.Draw({
@@ -711,12 +688,10 @@
           },
           edit: { featureGroup: drawnItems }
         });
-        // We won't add control by default; we control via buttons & plan
       }
 
       function enableDrawing() {
         if (!map || !drawControl) return;
-        if (!map.hasControl) { /* noop */ }
         map.addControl(drawControl);
       }
       function disableDrawing() {
@@ -791,9 +766,8 @@
         return inside;
       }
 
-      // Point-in-polygon helper for Leaflet polygon
       function leafletPipPointInLayer(point, polygonLayer) {
-        const x = point[1], y = point[0]; // lon, lat
+        const x = point[1], y = point[0];
         const poly = polygonLayer.getLatLngs()[0].map(p => [p.lng, p.lat]);
         let inside = false;
         for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
@@ -805,21 +779,36 @@
         return inside;
       }
 
-      // ===== CSV Export (existing) =====
-      function exportHistoryCSV(histObj) {
+      function exportHistoryCSV(histArray) {
         if (!localPlan.exportCSV) {
           showModal('CSV export is not available on your current plan. Request upgrade to Silver or Gold.', true);
           return;
         }
-        if (!histObj) { alert('No history'); return; }
-        const rows=[['time','location','speed']];
-        Object.values(histObj).forEach(e=>rows.push([e.time||'',''+(e.location||''), (e.speed ?? '')]));
-        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv],{type:'text/csv'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href=url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
-        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        if (!histArray || !Array.isArray(histArray) || histArray.length === 0) {
+          alert('No history data available to export.');
+          return;
+        }
+        try {
+          const rows = [['time', 'location', 'speed']];
+          histArray.forEach(entry => {
+            const location = (isFinite(entry.lat) && isFinite(entry.lng)) ? `${entry.lat},${entry.lng}` : '';
+            rows.push([entry.time || '', location, entry.speed !== null ? String(entry.speed) : '']);
+          });
+          const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `history_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          console.log('CSV export successful');
+        } catch (error) {
+          console.error('CSV export failed:', error);
+          alert('Failed to export history. Please try again.');
+        }
       }
 
       function renderComponents(obj) {
@@ -846,12 +835,10 @@
       modalClose.onclick = ()=> modal.style.display='none';
       modalUpgradeBtn.onclick = ()=> { modal.style.display='none'; };
 
-      // ===== Auth + Realtime bindings =====
       auth.onAuthStateChanged(async (user)=>{
         if(!user) { window.location.href='login.html'; return; }
         uidGlobal = user.uid; userEmailEl.textContent = user.email || user.uid;
 
-        // Plan, ads, admin UI
         db.ref(`users/${uidGlobal}`).on('value', snap=>{
           const udata = snap.val() || {};
           applyPlanToUI(udata);
@@ -864,18 +851,15 @@
           else { isAdmin = false; adminPanel.style.display = 'none'; }
         });
 
-        // Current vehicle state
         const ref = db.ref(`users/${uidGlobal}/vehicle`);
         ref.child("current").on("value", snap => {
           const d = snap.val(); if (!d) return;
           locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
           if (d.latitude && d.longitude) {
             updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
-            // Geofence leave alert
             const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
             if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
             if (geofenceState.lastInsideAny && !inside) {
-              // left zone
               showModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
               const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
               if (policy.notify && 'Notification' in window && Notification.permission==='granted') {
@@ -892,7 +876,6 @@
           ref.child("online").once('value').then(s => renderOnlineAndLastActive(s.val(), d.last_active));
         });
 
-        // History & components
         ref.child("history").on("value", snap => {
           const raw = snap.val() || null;
           fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
@@ -918,7 +901,6 @@
           ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
         });
 
-        // Admin views
         db.ref('admin/upgrade_requests').on('value', snap=>{
           if(!isAdmin) return;
           const reqs = snap.val() || {};
@@ -952,11 +934,9 @@
             ).join('') + '</ul>';
         });
 
-        // Geofences load
         await loadGeofences();
       });
 
-      // ===== History pipeline (plan + date + render + route + heat + KPIs) =====
       function applyHistoryPipeline(plotPolyline = false) {
         if (!fullHistory) { historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>'; clearRouteLayers(); return; }
         filteredHistory = applyDateFilter(fullHistory);
@@ -970,13 +950,14 @@
         }
       }
 
-      // ===== UI Handlers =====
       applyFilterBtn.addEventListener('click', () => applyHistoryPipeline(true));
       clearFilterBtn.addEventListener('click', () => {
         startDateInput.value='';
         endDateInput.value='';
         applyHistoryPipeline(false);
       });
+
+      exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
 
       mapTypeSelect.addEventListener('change', (e) => {
         updateBaseLayer(e.target.value);
@@ -989,7 +970,7 @@
         if (!file || !uidGlobal) return;
         const reader = new FileReader();
         reader.onload = async () => {
-          const dataUrl = reader.result; // base64
+          const dataUrl = reader.result;
           await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
           customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize:[32,32], iconAnchor:[16,30] });
           if (liveMarker) liveMarker.setIcon(customMarkerIcon);
@@ -1009,7 +990,6 @@
         alert('Geofences cleared');
       });
 
-      // ===== Upgrade buttons (existing) =====
       upgradeToSilverBtn.addEventListener('click', ()=> {
         if (!uidGlobal) return alert('Not logged in');
         createUpgradeRequest(uidGlobal, 'silver').then(()=> {
@@ -1024,9 +1004,6 @@
           requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
         }).catch(()=> { alert('Failed to send request'); });
       });
-
-      // ===== Helpers exposed (kept) =====
-      // focusOnMap defined above
     });
   </script>
 </body>
