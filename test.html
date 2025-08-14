@@ -2,113 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Smart Tracker Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Tracker</title>
+  <link rel="stylesheet" href="style.css"/>
   <link rel="icon" href="assets/favicon.ico"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <!-- Leaflet.draw & heatmap styles -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
-
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f9fc; }
-    .dashboard { max-width: 1080px; margin:28px auto; padding:0 24px 36px 24px; }
-    header {
-      background: #222c37;
-      color: #fff;
-      padding: 22px 24px;
-      border-radius: 18px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom: 24px;
-      box-shadow: 0 2px 16px rgba(0,0,0,.075);
-    }
-    .header-left { display: flex; align-items: center; gap: 20px; }
-    .logo { height:48px; }
-    .app-title { font-size: 25px; font-weight: 800; letter-spacing: 0.015em; }
-    .app-desc { font-size: 15px; color:#b3b8c7; margin-top: 2px; font-weight: 500; }
-    .header-right { display: flex; align-items: center; gap: 18px;}
-    .header-email { font-size:15px; color:#e2e6ed; font-weight: 500; }
-    .plan-pill { background: linear-gradient(90deg,#2670ff,#31ffa7); color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.04em; }
-    .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px;}
-    .header-logout:hover { background:#386afa;}
-    .card { background:#fff; padding:22px; margin:20px 0; border-radius:14px; box-shadow:0 2px 15px rgba(40,50,90,.09);}
-    h2 { margin:0 0 10px 0; color:#191f2a; font-size:22px; font-weight:900;}
-    .ad-banner { width:100%; min-height:70px; background:#e9ecef; display:flex; align-items:center; justify-content:center; border-radius:10px; margin:20px 0 22px 0; color:#333; font-weight:700; }
-    #adArea img, #adArea video {border-radius:8px;object-fit:contain;display:block;max-width:100%;height:auto;}
-    .switch { position: relative; display: inline-block; width: 60px; height: 30px; vertical-align:middle; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1000px; margin: auto; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 10px 20px; border-radius: 10px; }
+    .logo { height: 40px; }
+    .card { background: white; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px;}
-    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;}
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(30px); }
-    .badge { padding:6px 14px; border-radius:8px; font-weight:600; font-size:13px; color:#fff; }
-    .badge.online { background:#28a745; }
-    .badge.offline { background:#dc3545; }
-    .pending-pill { background:#ffd966; color:#4a2900; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
-    .approved-pill { background:#31ffa7; color:#167054; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
-    .rejected-pill { background:#f8d7da; color:#721c24; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
-    .small-muted { color:#6c757d; font-size:14px; }
-    .components-list { margin-top:11px; list-style:none; padding-left:0; }
-    .components-list li { padding:7px 0; border-bottom:1px dashed #f0f3fa; }
-    .comp-ok { color:#25ad45; font-weight:700;}
-    .comp-warn { color:#e67700; font-weight:700;}
-    .comp-bad { color:#c82333; font-weight:700;}
-    .comp-unknown { color:#6c757d; font-weight:700;}
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { padding:11px; border-bottom:1px solid #f2f5fc; text-align:left; font-size:15px;}
-    .view-btn { background:#2670ff; color:#fff; padding:7px 15px; border-radius:8px; border:none; cursor:pointer; font-size:15px; }
-    .admin-panel { margin-top:12px;}
-    .btn { padding:8px 15px; border-radius:7px; border:none; cursor:pointer; font-size:15px;}
-    .btn-primary { background:#2670ff; color:#fff; font-weight:700;}
-    .btn-warning { background:#ffd966; color:#4a2900; font-weight:700;}
-    .btn-danger { background:#dc3545; color:#fff; font-weight:700;}
-    .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
-    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
-    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
-    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 12px 0;}
-    .toolbar label { font-size:14px; color:#333; }
-    .toolbar input[type="date"], .toolbar select { padding:6px 8px; border:1px solid #e5e9f2; border-radius:8px; font-size:14px;}
-    .toolbar .inline { display:flex; gap:8px; align-items:center; }
-    .kpi { display:flex; gap:14px; flex-wrap:wrap; margin-top:6px; }
-    .kpi .pill { background:#f4f7ff; border:1px solid #e7ecff; padding:8px 12px; border-radius:10px; font-weight:700; color:#2b3a67; }
-    .hint { font-size:12px; color:#6c757d; }
-    @media (max-width:600px) {
-      .dashboard {padding:0 7px;}
-      header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
-      .header-left{gap:10px;}
-      .app-title{font-size:18px;}
-      .plan-pill{font-size:13px;}
-      .header-logout{font-size:13px;padding:7px 13px;}
-      .card{padding:13px;}
-      th,td{font-size:14px;}
-      .pending-pill,.approved-pill,.rejected-pill{font-size:13px;}
-      .toolbar {gap:6px;}
-    }
+    .view-btn { background-color: #007bff; color: white; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .status-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    .badge { padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; color: #fff; }
+    .badge.online { background: #28a745; }
+    .badge.offline { background: #dc3545; }
+    .components-list { margin-top: 10px; list-style: none; padding-left: 0; }
+    .components-list li { padding: 6px 0; border-bottom: 1px dashed #eee; }
+    .comp-ok { color: #28a745; font-weight: 600; }
+    .comp-warn { color: #e67700; font-weight: 600; }
+    .comp-bad { color: #c82333; font-weight: 600; }
+    .comp-unknown { color: #6c757d; font-weight: 600; }
+    #upgradeModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    #upgradeModal .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
+    #upgradeModal select, #upgradeModal button { margin: 10px 0; padding: 8px; width: 100%; border-radius: 5px; }
+    #upgradeModal button { background: #007bff; color: white; border: none; cursor: pointer; }
+    #upgradeModal button:hover { background: #0056b3; }
+    #upgradeModal .close-btn { background: #dc3545; }
+    #upgradeModal .close-btn:hover { background: #c82333; }
+    .ad-placeholder { background: #e9ecef; padding: 10px; text-align: center; border-radius: 6px; margin: 10px 0; }
+    .map-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .map-controls select, .map-controls button, .map-controls input { padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+    .map-controls button { background: #007bff; color: white; border: none; cursor: pointer; }
+    .map-controls button:hover { background: #0056b3; }
+    .filter-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .filter-controls input, .filter-controls button { padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+    .filter-controls button { background: #007bff; color: white; border: none; cursor: pointer; }
+    .filter-controls button:hover { background: #0056b3; }
+    .export-btn { background: #28a745; color: white; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; }
+    .export-btn:hover { background: #218838; }
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <div class="header-left">
-        <img src="assets/logo.png" alt="Logo" class="logo"/>
-        <div>
-          <div class="app-title">Smart Tracker <span style="font-size:15px;font-weight:normal;background:rgba(38,112,255,.1);border-radius:7px;padding:2px 11px;color:#2670ff;margin-left:7px;" id="planPillHeader"></span></div>
-        </div>
-      </div>
-      <div class="header-right">
-        <span class="header-email" id="userEmail">Loading...</span>
-        <span class="plan-pill" id="planPill">—</span>
-        <button id="logoutBtn" class="header-logout">Logout</button>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Smart Tracker</h1>
+      <div class="user-info">
+        <span id="userEmail">Loading...</span>
+        <span>—</span>
+        <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <div id="adArea" class="ad-banner">Ad placeholder</div>
+    <div class="ad-placeholder">Ad placeholder</div>
 
     <section class="card status-card">
       <h2>🔍 Live Status</h2>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:2px;">
-        <div><strong>Online:</strong> <span id="onlineStatus"><span class='badge offline'>Checking...</span></span></div>
+      <div class="status-row">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
         <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
       </div>
       <p><strong>Location:</strong> <span id="location">Loading...</span></p>
@@ -117,7 +83,7 @@
       <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
       <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
       <div id="componentsBlock">
-        <h4 style="font-size:16px;border-bottom:1px solid #f3f6ff;">Components</h4>
+        <h4>Components</h4>
         <ul id="componentsList" class="components-list">
           <li class="comp-unknown">No data</li>
         </ul>
@@ -130,33 +96,27 @@
         <input type="checkbox" id="alarmToggle">
         <span class="slider round"></span>
       </label>
-      <span id="alarmStatusText" style="margin-left:14px;">Loading alarm status...</span>
+      <p id="alarmStatusText">Loading alarm status...</p>
     </section>
 
     <section class="card subscription-card">
       <h2>💳 Subscription & Upgrades</h2>
-      <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
-        <div>Plan: <strong id="currentPlan">Loading</strong></div>
-        <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
-        <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-        <div id="upgradeBtns" style="margin-left:auto;">
-          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
-          <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
-        </div>
+      <p><strong>Plan:</strong> <span id="subscriptionPlan">Loading</span></p>
+      <p><strong>Expiry:</strong> <span id="subscriptionExpiry">-</span></p>
+      <p><strong>Vehicle limit:</strong> <span id="vehicleLimit">-</span></p>
+      <div>
+        <button id="requestSilverBtn">Request Silver (₹149/mo)</button>
+        <button id="requestGoldBtn">Request Gold (₹249/mo)</button>
       </div>
-      <div style="margin-top:10px;">
-        <span id="requestStatusArea"></span>
-      </div>
-      <div style="margin-top:14px;" class="small-muted">
+      <p style="font-size: 14px; margin-top: 10px;">
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
-      </div>
+      </p>
     </section>
 
-    <section class="card map-card">
+    <section classCHEME-card map-card">
       <h2>🗺 Live Map</h2>
-      <!-- Map toolbar (plan gated controls appear dynamically) -->
-      <div class="toolbar" id="mapToolbar" style="display:flex;">
-        <div class="inline" id="mapTypeBlock" style="display:none;">
+      <div class="map-controls">
+        <div>
           <label>Map:</label>
           <select id="mapType">
             <option value="street">Street</option>
@@ -164,865 +124,531 @@
             <option value="dark">Dark</option>
           </select>
         </div>
-        <div class="inline" id="heatToggleBlock" style="display:none;">
+        <div>
           <label>Heatmap:</label>
-          <label class="switch"><input type="checkbox" id="heatToggle"><span class="slider"></span></label>
+          <input type="checkbox" id="heatmapToggle"/>
         </div>
-        <div class="inline" id="customIconBlock" style="display:none;">
+        <div>
           <label>Marker Icon:</label>
-          <input type="file" id="iconUploader" accept="image/*"/>
-          <span class="hint">PNG/JPG, ~32×32 works best</span>
+          <input type="file" id="markerIcon" accept="image/png,image/jpeg"/>
+          <span>PNG/JPG, ~32×32 works best</span>
         </div>
-        <div class="inline" id="geofenceControls" style="display:none;">
-          <button class="btn btn-ghost" id="gfEnableDraw">Add Zone</button>
-          <button class="btn btn-ghost" id="gfSave">Save Zones</button>
-          <button class="btn btn-ghost" id="gfClear">Clear Zones</button>
-          <span class="hint" id="gfHint"></span>
+        <div>
+          <button id="addZoneBtn">Add Zone</button>
+          <button id="saveZonesBtn">Save Zones</button>
+          <button id="clearZonesBtn">Clear Zones</button>
         </div>
       </div>
-      <div id="map" style="height:300px;border-radius:8px;">Loading map...</div>
-      <div class="kpi">
-        <div class="pill">Distance: <span id="kpiDistance">0.00 km</span></div>
-        <div class="pill">Stops: <span id="kpiStops">0</span></div>
-        <div class="pill">Refresh: <span id="kpiRefresh">—</span></div>
-      </div>
+      <div id="map">Loading map...</div>
+      <p>
+        <strong>Distance:</strong> <span id="distance">0.00 km</span>
+        <strong>Stops:</strong> <span id="stops">0</span>
+        <strong>Refresh:</strong> <span id="refresh">—</span>
+      </p>
     </section>
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Date range filter (Silver & Gold) -->
-      <div class="toolbar" id="dateFilterSection" style="display:none;">
-        <div class="inline">
-          <label>From:</label><input type="date" id="startDate"/>
-        </div>
-        <div class="inline">
-          <label>To:</label><input type="date" id="endDate"/>
-        </div>
-        <button class="btn btn-primary" id="applyFilterBtn">Filter</button>
-        <button class="btn btn-ghost" id="clearFilterBtn">Clear</button>
-      </div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="small-muted">Recent movements</div>
+      <div class="filter-controls">
         <div>
-          <button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button>
+          <label>From:</label>
+          <input type="datetime-local" id="filterFrom"/>
         </div>
+        <div>
+          <label>To:</label>
+          <input type="datetime-local" id="filterTo"/>
+        </div>
+        <button id="filterBtn">Filter</button>
+        <button id="clearFilterBtn">Clear</button>
       </div>
+      <p>Recent movements</p>
+      <p><button class="export-btn" id="exportCsvBtn">Export CSV</button></p>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
     </section>
 
-    <section id="adminPanel" class="card admin-panel" style="display:none;">
+    <section class="card admin-card">
       <h2>🔧 Admin Panel — Upgrade Requests</h2>
-      <div id="adminList">Loading admin data…</div>
-      <hr/>
-      <h3>Recent admin logs</h3>
-      <div id="adminLogs">Loading logs…</div>
+      <p id="adminRequests">Loading admin data…</p>
+      <p>Recent admin logs</p>
+      <p id="adminLogs">Loading logs…</p>
     </section>
   </div>
 
-  <div id="modal">
-    <div class="dialog">
-      <div id="modalContent"></div>
-      <div style="margin-top:12px;text-align:right;">
-        <button id="modalClose" class="btn btn-ghost">Close</button>
-        <button id="modalUpgradeBtn" class="btn btn-primary" style="display:none;">Request Upgrade</button>
-      </div>
+  <div id="upgradeModal">
+    <div class="modal-content">
+      <h3>Request Upgrade</h3>
+      <select id="upgradePlan">
+        <option value="silver">Silver (₹149/mo)</option>
+        <option value="gold">Gold (₹249/mo)</option>
+      </select>
+      <button id="confirmUpgradeBtn">Request Upgrade</button>
+      <button class="close-btn" id="closeModalBtn">Close</button>
     </div>
   </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <!-- Leaflet core -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <!-- Leaflet.heat (for heatmap) -->
-  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-  <!-- Leaflet.draw (for geofences) -->
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
   <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-    authDomain: "svms-c0232.firebaseapp.com",
-    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-    projectId: "svms-c0232",
-    storageBucket: "svms-c0232.appspot.com",
-    messagingSenderId: "359201898609",
-    appId: "1:359201898609:web:893ef076207abb06471bd0"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.database();
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-  const userEmailEl = document.getElementById('userEmail');
-  const planPill = document.getElementById('planPill');
-  const planPillHeader = document.getElementById('planPillHeader');
-  const adArea = document.getElementById('adArea');
-  const locationEl = document.getElementById("location");
-  const lastActiveEl = document.getElementById("lastActive");
-  const statusEl = document.getElementById("status");
-  const batteryHealthEl = document.getElementById("batteryHealth");
-  const historyTbody = document.getElementById("history");
-  const exportCSVBtn = document.getElementById("exportCSVBtn");
-  const alarmToggle = document.getElementById("alarmToggle");
-  const alarmStatusText = document.getElementById("alarmStatusText");
-  const alarmTriggerEl = document.getElementById("alarmTrigger");
-  const onlineStatusEl = document.getElementById("onlineStatus");
-  const lastSeenEl = document.getElementById("lastSeen");
-  const componentsListEl = document.getElementById("componentsList");
-  const currentPlanEl = document.getElementById('currentPlan');
-  const planExpiryEl = document.getElementById('planExpiry');
-  const vehicleLimitEl = document.getElementById('vehicleLimit');
-  const upgradeBtns = document.getElementById('upgradeBtns');
-  const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
-  const upgradeToGoldBtn = document.getElementById('upgradeToGold');
-  const requestStatusArea = document.getElementById('requestStatusArea');
-  const adminPanel = document.getElementById('adminPanel');
-  const adminList = document.getElementById('adminList');
-  const adminLogs = document.getElementById('adminLogs');
-  const modal = document.getElementById('modal');
-  const modalContent = document.getElementById('modalContent');
-  const modalClose = document.getElementById('modalClose');
-  const modalUpgradeBtn = document.getElementById('modalUpgradeBtn');
-  document.getElementById('logoutBtn').onclick = ()=> auth.signOut();
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const batteryHealthEl = document.getElementById("batteryHealth");
+    const historyEl = document.getElementById("history");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
+    const alarmTriggerEl = document.getElementById("alarmTrigger");
+    const onlineStatusEl = document.getElementById("onlineStatus");
+    const lastSeenEl = document.getElementById("lastSeen");
+    const componentsListEl = document.getElementById("componentsList");
+    const subscriptionPlanEl = document.getElementById("subscriptionPlan");
+    const subscriptionExpiryEl = document.getElementById("subscriptionExpiry");
+    const vehicleLimitEl = document.getElementById("vehicleLimit");
+    const adminRequestsEl = document.getElementById("adminRequests");
+    const adminLogsEl = document.getElementById("adminLogs");
+    const requestSilverBtn = document.getElementById("requestSilverBtn");
+    const requestGoldBtn = document.getElementById("requestGoldBtn");
+    const upgradeModal = document.getElementById("upgradeModal");
+    const upgradePlan = document.getElementById("upgradePlan");
+    const confirmUpgradeBtn = document.getElementById("confirmUpgradeBtn");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const mapTypeSelect = document.getElementById("mapType");
+    const heatmapToggle = document.getElementById("heatmapToggle");
+    const markerIconInput = document.getElementById("markerIcon");
+    const addZoneBtn = document.getElementById("addZoneBtn");
+    const saveZonesBtn = document.getElementById("saveZonesBtn");
+    const clearZonesBtn = document.getElementById("clearZonesBtn");
+    const filterFrom = document.getElementById("filterFrom");
+    const filterTo = document.getElementById("filterTo");
+    const filterBtn = document.getElementById("filterBtn");
+    const clearFilterBtn = document.getElementById("clearFilterBtn");
+    const exportCsvBtn = document.getElementById("exportCsvBtn");
+    const distanceEl = document.getElementById("distance");
+    const stopsEl = document.getElementById("stops");
+    const refreshEl = document.getElementById("refresh");
 
-  // New UI controls
-  const dateFilterSection = document.getElementById('dateFilterSection');
-  const startDateInput = document.getElementById('startDate');
-  const endDateInput = document.getElementById('endDate');
-  const applyFilterBtn = document.getElementById('applyFilterBtn');
-  const clearFilterBtn = document.getElementById('clearFilterBtn');
+    let map, marker, heatmapLayer, zones = [], historyData = [];
 
-  const mapTypeBlock = document.getElementById('mapTypeBlock');
-  const mapTypeSelect = document.getElementById('mapType');
-  const heatToggleBlock = document.getElementById('heatToggleBlock');
-  const heatToggle = document.getElementById('heatToggle');
-  const customIconBlock = document.getElementById('customIconBlock');
-  const iconUploader = document.getElementById('iconUploader');
-
-  const geofenceControls = document.getElementById('geofenceControls');
-  const gfEnableDrawBtn = document.getElementById('gfEnableDraw');
-  const gfSaveBtn = document.getElementById('gfSave');
-  const gfClearBtn = document.getElementById('gfClear');
-  const gfHint = document.getElementById('gfHint');
-
-  const kpiDistanceEl = document.getElementById('kpiDistance');
-  const kpiStopsEl = document.getElementById('kpiStops');
-  const kpiRefreshEl = document.getElementById('kpiRefresh');
-
-  let uidGlobal = null;
-  let isAdmin = false;
-  let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false };
-
-  const PLAN_POLICIES = {
-    basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0 },
-    silver: { historyDays:7, ads:'banner-limited',     vehicle_limit:3, exportCSV:true,  refreshMs:20000, heatmap:false, mapSwitch:true,  notify:true,  geofences:1 },
-    gold:   { historyDays:90, ads:'no-ads',            vehicle_limit:3, exportCSV:true,  refreshMs:10000, heatmap:true,  mapSwitch:true,  notify:true,  geofences:999 }
-  };
-
-  // Ads (unchanged except called from plan logic)
-  let adTimerInt = null, currentAdIndex=0, adsList=[];
-  function showAd(ad) {
-    adArea.innerHTML = 'Loading...';
-    if (ad.type === 'banner') {
-      const img = new Image(); img.src = ad.url;
-      img.onload = () => { adArea.innerHTML = ''; adArea.appendChild(img); };
-    } else if (ad.type === 'video') {
-      const v = document.createElement('video'); v.src = ad.url; v.controls = true; v.autoplay = true; v.muted = true;
-      adArea.innerHTML = ''; adArea.appendChild(v);
+    function getISTTime() {
+      return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     }
-  }
-  function loadAdsForPlan(plan) {
-    if (adTimerInt) clearInterval(adTimerInt);
-    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    if (policy.ads === 'no-ads') { adArea.style.display='none'; adArea.innerHTML=''; return; }
-    adArea.style.display = 'flex';
-    db.ref('admin/ads').once('value').then(snapshot => {
-      const adsObj = snapshot.val() || {};
-      adsList = Object.values(adsObj).filter(ad =>
-        ad && ad.active && ad.url &&
-        (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
-      );
-      if (policy.ads==='banner-limited' && adsList.length > 1) { adsList = adsList.slice(0,1); }
-      if (adsList.length) {
-        showAd(adsList[currentAdIndex=0]);
-        adTimerInt = setInterval(() => {
-          currentAdIndex = (currentAdIndex + 1) % adsList.length;
-          showAd(adsList[currentAdIndex]);
-        }, 15000);
+
+    function updateOnlineStatus(isOnline, isStale = false, isError = false) {
+      if (isError) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">ERROR</span>';
+      } else if (isStale) {
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE (Stale)</span>';
+      } else if (isOnline === true) {
+        onlineStatusEl.innerHTML = '<span class="badge online">ONLINE</span>';
       } else {
-        adArea.innerHTML = 'No active ad';
+        onlineStatusEl.innerHTML = '<span class="badge offline">OFFLINE</span>';
       }
-    }).catch(()=> { adArea.innerHTML = 'Ad load error'; });
-  }
-  function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
-
-  function renderRequestUI(upgradeRequest, currentPlan) {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    let statusMsg = '';
-    if (currentPlan === 'gold') {
-      upgradeBtns.style.display = 'none';
-      statusMsg = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
-    } else if (!upgradeRequest || !upgradeRequest.status) {
-      upgradeBtns.style.display = 'block';
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      statusMsg = '';
-    } else if (upgradeRequest.status === 'pending') {
-      upgradeBtns.style.display = 'none';
-      statusMsg = `<span class="pending-pill">Upgrade to ${upgradeRequest.requestedPlan?.toUpperCase() || ''} — PENDING APPROVAL</span>`;
-    } else if (upgradeRequest.status === 'approved') {
-      upgradeBtns.style.display = 'none';
-      statusMsg = `<span class="approved-pill">Upgrade approved — Enjoy your ${upgradeRequest.requestedPlan?.toUpperCase() || ''} plan</span>`;
-    } else if (upgradeRequest.status === 'rejected') {
-      upgradeBtns.style.display = 'block';
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      statusMsg = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
-    } else if (upgradeRequest.status === 'cancelled') {
-      upgradeBtns.style.display = 'block';
-      upgradeToSilverBtn.style.display = 'inline-block';
-      upgradeToGoldBtn.style.display = 'inline-block';
-      statusMsg = `<span class="small-muted">Upgrade request cancelled</span>`;
+      console.log(`[Dashboard] Updated online status: isOnline=${isOnline}, isStale=${isStale}, isError=${isError} at ${getISTTime()}`);
     }
-    requestStatusArea.innerHTML = statusMsg;
-  }
-  function prettyTS(iso) { if(!iso) return '-'; try{ return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
 
-  function applyPlanToUI(udata) {
-    const plan = udata.plan || 'basic';
-    const plan_expiry = udata.plan_expiry || null;
-    const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
-    const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
-    localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
-    planPill.textContent = plan.toUpperCase();
-    currentPlanEl.textContent = plan.toUpperCase();
-    planPillHeader.textContent = plan.toUpperCase();
-    planExpiryEl.textContent = prettyTS(plan_expiry); vehicleLimitEl.textContent = vehicle_limit;
-    exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
-    renderAdsForPlan(plan);
-    renderRequestUI(udata.upgrade_request || null, plan);
-
-    // Gated UI elements
-    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    dateFilterSection.style.display = ['silver','gold'].includes(plan) ? 'flex' : 'none';
-    mapTypeBlock.style.display = policy.mapSwitch ? 'flex' : 'none';
-    heatToggleBlock.style.display = (plan==='gold') ? 'flex' : 'none';
-    customIconBlock.style.display = plan !== 'basic' ? 'flex' : 'none';
-    geofenceControls.style.display = policy.geofences > 0 ? 'flex' : 'none';
-    gfHint.textContent = plan==='silver' ? 'Max 1 zone' : (plan==='gold' ? 'Multiple zones allowed' : '');
-
-    // Refresh KPI
-    kpiRefreshEl.textContent = (policy.refreshMs/1000) + 's';
-    setRefreshIntervals(policy.refreshMs);
-
-    // Notifications (ask permission once for eligible plans)
-    if (policy.notify && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(()=>{});
+    function updateMap(lat, lng, popupText = null) {
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 15);
+      }
+      if (popupText) marker.bindPopup(popupText).openPopup();
     }
-  }
 
-  function createUpgradeRequest(uid, desiredPlan) {
-    const now = new Date().toISOString();
-    const req = { status:'pending', requestedPlan:desiredPlan, request_time:now };
-    const updates = {};
-    updates[`users/${uid}/upgrade_request`] = req;
-    const adminKey = `req_${uid}_${Date.now()}`;
-    updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status:'pending', request_time: now };
-    return db.ref().update(updates);
-  }
-  async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    const targetUid = adminReqObj.uid;
-    const plan = adminReqObj.requestedPlan || 'silver';
-    const now = new Date();
-    const expiry = new Date(now.getTime() + (30*24*60*60*1000));
-    const updates = {};
-    updates[`users/${targetUid}/plan`] = plan;
-    updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
-    updates[`users/${targetUid}/vehicle_limit`] = PLAN_POLICIES[plan].vehicle_limit;
-    updates[`users/${targetUid}/exportCSV`] = true;
-    updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'approved';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, plan, approvedAt: new Date().toISOString(), adminNameDisplay:adminName||adminUid };
-    await db.ref().update(updates);
-    alert('User upgraded to ' + plan.toUpperCase());
-  }
-  async function adminRejectRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-    const targetUid = adminReqObj.uid;
-    const updates = {};
-    updates[`users/${targetUid}/upgrade_request/status`] = 'rejected';
-    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'rejected';
-    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, status:'rejected', processedAt: new Date().toISOString() };
-    await db.ref().update(updates);
-    alert('Request rejected.');
-  }
-  function checkAndAutoDowngrade(uid, udata) {
-    if (!udata || !udata.plan || !udata.plan_expiry) return;
-    const expiryMs = Date.parse(udata.plan_expiry);
-    if (isNaN(expiryMs)) return;
-    if (Date.now() >= expiryMs && udata.plan !== 'basic') {
-      const updates = {
-        [`users/${uid}/plan`]: 'basic',
-        [`users/${uid}/plan_expiry`]: null,
-        [`users/${uid}/vehicle_limit`]: PLAN_POLICIES.basic.vehicle_limit,
-        [`users/${uid}/exportCSV`]: false,
-        [`users/${uid}/upgrade_request/status`]: 'cancelled'
-      };
-      db.ref().update(updates).then(() => {
-        const k = `downgrade_${uid}_${Date.now()}`;
-        db.ref(`admin/downgrades/${k}`).set({ uid, old_plan:udata.plan, new_plan:'basic', time:new Date().toISOString(), reason:'expired_auto_downgrade' });
+    function focusOnMap(lat, lng) {
+      updateMap(lat, lng, `📍 History Location<br>${lat}, ${lng}`);
+    }
+
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
+        return;
+      }
+      const order = Object.keys(obj);
+      if (order.length === 0) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
+        return;
+      }
+      order.forEach(k => {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
       });
     }
-  }
 
-  // ===== Map & Layers =====
-  let map, liveMarker, baseLayer, baseLayers = {};
-  let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
-  let customMarkerIcon = null;
-
-  function createBaseLayers() {
-    baseLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 });
-    baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 });
-    baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
-  }
-
-  function updateBaseLayer(type) {
-    if (!map) return;
-    if (baseLayer) map.removeLayer(baseLayer);
-    baseLayer = baseLayers[type] || baseLayers.street;
-    baseLayer.addTo(map);
-  }
-
-  function updateMap(lat, lng, popupText=null) {
-    if (!(typeof lat==='number' && typeof lng==='number' && !isNaN(lat) && !isNaN(lng))) return;
-    if (!map) {
-      map = L.map('map').setView([lat, lng], 14);
-      createBaseLayers();
-      updateBaseLayer('street');
-      liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
-      setupDrawTools(); // after map init
-    } else {
-      if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
-      liveMarker.setLatLng([lat, lng]);
+    function calculateDistanceAndStops(history) {
+      let distance = 0, stops = 0;
+      const points = history.map(h => ({ lat: parseFloat(h.location.split(",")[0]), lng: parseFloat(h.location.split(",")[1]) }));
+      for (let i = 1; i < points.length; i++) {
+        const lat1 = points[i-1].lat, lon1 = points[i-1].lng, lat2 = points[i].lat, lon2 = points[i].lng;
+        const d = L.latLng(lat1, lon1).distanceTo(L.latLng(lat2, lon2)) / 1000;
+        distance += d;
+        if (d < 0.01) stops++;
+      }
+      distanceEl.textContent = distance.toFixed(2) + " km";
+      stopsEl.textContent = stops;
     }
-    if (popupText) liveMarker.bindPopup(popupText).openPopup();
-  }
 
-  window.focusOnMap = function(lat, lng) {
-    lat = parseFloat(lat); lng = parseFloat(lng);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      updateMap(lat, lng, `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      map.setView([lat, lng], 15);
-    }
-  }
-
-  // ===== History, Filtering, Route, KPIs =====
-  let fullHistory = null;  // raw history from DB
-  let filteredHistory = null; // after plan + date filter
-
-  function parseEntry(entry) {
-    const loc = entry.location || '';
-    const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
-    const tms = Date.parse(entry.time || '');
-    return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed==='number'?entry.speed:null };
-  }
-
-  function renderHistoryTable(list) {
-    historyTbody.innerHTML = '';
-    if (!list || !list.length) {
-      historyTbody.innerHTML = '<tr><td colspan="3">No history found.</td></tr>';
-      return;
-    }
-    list.forEach(entry => {
-      const canFocus = !(isNaN(entry.lat) || isNaN(entry.lng));
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat)&&isFinite(entry.lng))? (entry.lat+','+entry.lng) : ''}</td>
-        <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${entry.lat},${entry.lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
-      historyTbody.appendChild(tr);
-    });
-  }
-
-  function haversineKm(a, b) {
-    const R = 6371;
-    const toRad = d => d*Math.PI/180;
-    const dLat = toRad(b.lat - a.lat);
-    const dLng = toRad(b.lng - a.lng);
-    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
-    return 2*R*Math.asin(Math.sqrt(s));
-  }
-
-  function computeKPIs(list) {
-    if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent='0'; return; }
-    let dist = 0;
-    for (let i=1;i<list.length;i++) {
-      const p = list[i-1], q = list[i];
-      if (isFinite(p.lat)&&isFinite(p.lng)&&isFinite(q.lat)&&isFinite(q.lng)) {
-        dist += haversineKm(p,q);
+    function updateHeatmap(history) {
+      if (heatmapLayer) map.removeLayer(heatmapLayer);
+      if (heatmapToggle.checked) {
+        const points = history.map(h => [parseFloat(h.location.split(",")[0]), parseFloat(h.location.split(",")[1]), 1]);
+        heatmapLayer = L.heatLayer(points, { radius: 25 }).addTo(map);
       }
     }
-    // Simple stop detection: consecutive points with speed <2 km/h or unchanged position over >=5 min
-    let stops = 0;
-    const SPEED_KMH_THRESHOLD = 2;
-    const STOP_MS = 5*60*1000;
-    let blockStart = null, lastPoint = null;
-    for (let i=0;i<list.length;i++) {
-      const p = list[i];
-      const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
-                           (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015); // ~15m drift
-      if (slowOrStatic) {
-        if (!blockStart) blockStart = p;
-      } else {
-        if (blockStart && p.ts && blockStart.ts && (p.ts - blockStart.ts >= STOP_MS)) stops++;
-        blockStart = null;
+
+    function loadDashboard(uid) {
+      const userRef = db.ref(`users/${uid}`);
+      const vehicleRef = userRef.child("vehicle");
+
+      // Initial online status fetch with retries
+      function fetchInitialOnlineStatus(attempt = 1, maxAttempts = 3) {
+        vehicleRef.child("online").get().then((snapshot) => {
+          const on = snapshot.val();
+          updateOnlineStatus(on === true, false, false);
+          console.log(`[Dashboard] Initial online status fetch: ${on} (attempt ${attempt}) at ${getISTTime()}`);
+        }).catch((error) => {
+          console.error(`[Dashboard] Error fetching initial online status (attempt ${attempt}): ${error.message} at ${getISTTime()}`);
+          if (attempt < maxAttempts) {
+            setTimeout(() => fetchInitialOnlineStatus(attempt + 1, maxAttempts), 3000);
+          } else {
+            updateOnlineStatus(false, false, true);
+            console.log(`[Dashboard] Max attempts reached for initial online fetch at ${getISTTime()}`);
+          }
+        });
       }
-      lastPoint = p;
-    }
-    // tail
-    if (blockStart && lastPoint && blockStart.ts && lastPoint.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
+      fetchInitialOnlineStatus();
 
-    kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
-    kpiStopsEl.textContent = String(stops);
-  }
+      // Enhanced online status listener
+      let lastOnlineUpdate = Date.now();
+      const STALE_TIMEOUT = 90000; // 90 seconds, matching NodeMCU ONLINE_TTL_MS
+      const CHECK_INTERVAL = 10000; // Check every 10 seconds
+      let isListenerActive = false;
 
-  function clearRouteLayers() {
-    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-    if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-    if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-  }
+      function setupOnlineListener() {
+        vehicleRef.child("online").off(); // Clear existing listeners
+        vehicleRef.child("online").on(
+          "value",
+          (snapshot) => {
+            const on = snapshot.val();
+            isListenerActive = true;
+            if (on === true) {
+              lastOnlineUpdate = Date.now();
+            }
+            updateOnlineStatus(on === true, false, false);
+            console.log(`[Dashboard] Firebase online update: ${on} at ${getISTTime()}`);
+          },
+          (error) => {
+            isListenerActive = false;
+            console.error(`[Dashboard] Error in online listener: ${error.message} at ${getISTTime()}`);
+            updateOnlineStatus(false, false, true);
+            setTimeout(setupOnlineListener, 3000); // Retry after 3 seconds
+          }
+        );
+      }
+      setupOnlineListener();
 
-  function plotRoute(list) {
-    if (!map || !list || !list.length) return;
-    clearRouteLayers();
-    const coords = list.filter(p => isFinite(p.lat)&&isFinite(p.lng)).map(p => [p.lat, p.lng]);
-    if (!coords.length) return;
-    routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
-    const startIcon = L.icon({ iconUrl:'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconSize:[25,41], iconAnchor:[12,41] });
-    const endIcon = L.icon({ iconUrl:'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', iconSize:[25,41], iconAnchor:[12,41] });
-    startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
-    endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup('End');
-    map.fitBounds(routeLayer.getBounds(), { padding:[20,20] });
-  }
+      // Fallback polling for online status
+      const pollingInterval = setInterval(() => {
+        if (!isListenerActive) {
+          vehicleRef.child("online").get().then((snapshot) => {
+            const on = snapshot.val();
+            updateOnlineStatus(on === true, false, false);
+            console.log(`[Dashboard] Polling online status: ${on} at ${getISTTime()}`);
+          }).catch((error) => {
+            console.error(`[Dashboard] Polling error: ${error.message} at ${getISTTime()}`);
+            updateOnlineStatus(false, false, true);
+          });
+        }
+      }, 15000);
 
-  function updateHeatmap(list) {
-    if (!map) return;
-    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-    if (!list || !list.length || !heatToggle.checked) return;
-    const heatData = list.filter(p=>isFinite(p.lat)&&isFinite(p.lng)).map(p => [p.lat, p.lng, 0.5]);
-    if (heatData.length) heatLayer = L.heatLayer(heatData, { radius: 25 }).addTo(map);
-  }
-
-  function applyDateFilter(list) {
-    const plan = localPlan.plan;
-    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    const cutoffMs = Date.now() - policy.historyDays * 86400000;
-
-    const hasDate = startDateInput.value || endDateInput.value;
-    let s = startDateInput.value ? Date.parse(startDateInput.value + 'T00:00:00') : null;
-    let e = endDateInput.value ? Date.parse(endDateInput.value + 'T23:59:59') : null;
-
-    return (list || []).filter(p => {
-      if (!p.ts) return false;
-      if (p.ts < cutoffMs) return false; // plan window
-      if (!hasDate) return true;
-      if (s && p.ts < s) return false;
-      if (e && p.ts > e) return false;
-      return true;
-    });
-  }
-
-  // ===== Online / Polling / Notifications =====
-  const ONLINE_TTL_MS = 90000;
-  function parseTimestampToMs(ts) {
-    if (!ts) return null;
-    const parts = ts.split(' ');
-    if (parts.length < 2) return null;
-    const [y, m, d] = parts[0].split('-').map(n => parseInt(n));
-    const [hh, mm, ss] = parts[1].split(':').map(n => parseInt(n));
-    return new Date(y, m-1, d, hh, mm, ss).getTime();
-  }
-  function computeOnlineDisplay(flag, lastActiveStr) {
-    const lastActiveMs = parseTimestampToMs(lastActiveStr);
-    if (!lastActiveMs) return !!flag;
-    return (Date.now() - lastActiveMs <= ONLINE_TTL_MS) && !!flag;
-  }
-  function renderOnlineAndLastActive(flag, lastActiveStr) {
-    const isOn = computeOnlineDisplay(flag, lastActiveStr);
-    onlineStatusEl.innerHTML = isOn ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
-    lastActiveEl.textContent = lastActiveStr || "Unknown";
-    maybeNotifyStatus(isOn);
-  }
-
-  let lastActivePoller = null;
-  function setRefreshIntervals(ms) {
-    if (lastActivePoller) clearInterval(lastActivePoller);
-    lastActivePoller = setInterval(() => {
-      if (!uidGlobal) return;
-      const ref = db.ref(`users/${uidGlobal}/vehicle`);
-      ref.child("current/last_active").once('value').then(lastSnap => {
-        const lastActive = lastSnap.val();
-        ref.child("online").once('value').then(flagSnap => renderOnlineAndLastActive(flagSnap.val(), lastActive));
+      // Monitor Firebase connection
+      const connectedRef = db.ref(".info/connected");
+      connectedRef.on("value", (snapshot) => {
+        const isConnected = snapshot.val();
+        console.log(`[Dashboard] Firebase connection state: ${isConnected ? "Connected" : "Disconnected"} at ${getISTTime()}`);
+        if (!isConnected && isListenerActive) {
+          isListenerActive = false;
+          setupOnlineListener();
+        }
       });
-    }, ms);
-  }
 
-  let lastOnlineState = null;
-  function maybeNotifyStatus(isOnline) {
-    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-    if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
-    if (lastOnlineState === null) { lastOnlineState = isOnline; return; }
-    if (isOnline !== lastOnlineState) {
-      new Notification("Vehicle Status", { body: isOnline ? "Vehicle is ONLINE" : "Vehicle is OFFLINE" });
-      lastOnlineState = isOnline;
-    }
-  }
-  function maybeNotifyBattery(battPercent) {
-    const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-    if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
-    if (typeof battPercent === 'number' && battPercent <= 20) {
-      new Notification("Low Battery", { body: `Vehicle battery low (${battPercent}%)` });
-    }
-  }
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        const val = snapshot.val();
+        lastSeenEl.textContent = val || "N/A";
+        console.log(`[Dashboard] Firebase last_seen update: ${val} at ${getISTTime()}`);
+      });
 
-  // ===== Geofencing (Leaflet.draw) =====
-  let drawControl, drawnItems;
-  let geofenceState = { // for leave alerts
-    lastInsideAny: null
-  };
+      vehicleRef.child("current").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        const { latitude, longitude, status, last_active, battery } = data;
+        locationEl.textContent = `${latitude}, ${longitude}`;
+        lastActiveEl.textContent = last_active || "Unknown";
+        statusEl.textContent = status || "Unknown";
+        batteryHealthEl.textContent = battery ? `${battery}%` : "N/A";
+        updateMap(latitude, longitude);
+        refreshEl.textContent = getISTTime();
+      });
 
-  function setupDrawTools() {
-    if (!map) return;
-    if (drawnItems) return; // init once
-    drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
-    drawControl = new L.Control.Draw({
-      position: 'topright',
-      draw: {
-        rectangle: true,
-        polygon: true,
-        circle: true,
-        circlemarker: false,
-        marker: false,
-        polyline: false
-      },
-      edit: { featureGroup: drawnItems }
-    });
-    // We won't add control by default; we control via buttons & plan
-  }
+      vehicleRef.child("components").on("value", (snapshot) => {
+        renderComponents(snapshot.val());
+      });
 
-  function enableDrawing() {
-    if (!map || !drawControl) return;
-    if (!map.hasControl) { /* noop */ }
-    map.addControl(drawControl);
-  }
-  function disableDrawing() {
-    if (!map || !drawControl) return;
-    map.removeControl(drawControl);
-  }
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
+        alarmToggle.checked = (status === "on");
+        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
+      });
 
-  function geofenceToJSON(layer) {
-    if (layer instanceof L.Circle) {
-      const c = layer.getLatLng();
-      return { type:'circle', center:[c.lat, c.lng], radius: layer.getRadius() };
-    } else if (layer instanceof L.Polygon) {
-      const latlngs = layer.getLatLngs()[0].map(p => [p.lat, p.lng]);
-      return { type:'polygon', points: latlngs };
-    } else if (layer instanceof L.Rectangle) {
-      const latlngs = layer.getLatLngs()[0].map(p => [p.lat, p.lng]);
-      return { type:'polygon', points: latlngs };
-    }
-    return null;
-  }
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
+        if (trigger && trigger.time && trigger.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
+      });
 
-  function layerFromJSON(obj) {
-    if (!obj) return null;
-    if (obj.type === 'circle') {
-      return L.circle(obj.center, { radius: obj.radius });
-    }
-    if (obj.type === 'polygon' && Array.isArray(obj.points)) {
-      return L.polygon(obj.points);
-    }
-    return null;
-  }
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
+        historyData = history ? Object.values(history) : [];
+        historyEl.innerHTML = "";
+        if (historyData.length) {
+          historyData.reverse().forEach(entry => {
+            const [lat, lng] = entry.location.split(",");
+            historyEl.innerHTML += `
+              <tr>
+                <td>${entry.time}</td>
+                <td>${entry.location}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+              </tr>`;
+          });
+          calculateDistanceAndStops(historyData);
+          updateHeatmap(historyData);
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        }
+      });
 
-  async function saveGeofences() {
-    if (!uidGlobal) return;
-    const plan = localPlan.plan;
-    const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-    const layers = [];
-    drawnItems.eachLayer(l => {
-      const j = geofenceToJSON(l);
-      if (j) layers.push(j);
-    });
-    if (plan==='silver' && layers.length > policy.geofences) {
-      alert('Silver plan allows only 1 geofence'); return;
-    }
-    await db.ref(`users/${uidGlobal}/geofences`).set(layers);
-    alert('Geofences saved');
-  }
+      userRef.child("subscription").on("value", (snapshot) => {
+        const sub = snapshot.val() || { plan: "Basic", expiry: "-", vehicleLimit: 1 };
+        subscriptionPlanEl.textContent = sub.plan;
+        subscriptionExpiryEl.textContent = sub.expiry;
+        vehicleLimitEl.textContent = sub.vehicleLimit;
+      });
 
-  async function loadGeofences() {
-    if (!uidGlobal || !map) return;
-    const snap = await db.ref(`users/${uidGlobal}/geofences`).once('value');
-    const arr = snap.val() || [];
-    drawnItems.clearLayers();
-    arr.forEach(obj => {
-      const layer = layerFromJSON(obj);
-      if (layer) { drawnItems.addLayer(layer); }
-    });
-  }
+      userRef.child("upgrade_requests").on("value", (snapshot) => {
+        const requests = snapshot.val();
+        adminRequestsEl.innerHTML = requests ? Object.values(requests).map(r => `Plan: ${r.plan}, Time: ${r.time}`).join("<br>") : "No requests";
+      });
 
-  function pointInsideGeofences(lat, lng) {
-    if (!drawnItems) return false;
-    let inside = false;
-    drawnItems.eachLayer(layer => {
-      if (inside) return;
-      if (layer instanceof L.Circle) {
-        const c = layer.getLatLng();
-        inside = map.distance([lat,lng], c) <= layer.getRadius();
-      } else if (layer instanceof L.Polygon) {
-        inside = leafletPipPointInLayer([lat,lng], layer);
-      }
-    });
-    return inside;
-  }
+      userRef.child("admin_logs").on("value", (snapshot) => {
+        const logs = snapshot.val();
+        adminLogsEl.innerHTML = logs ? Object.values(logs).map(l => `Action: ${l.action}, Time: ${l.time}`).join("<br>") : "No logs";
+      });
 
-  // Point-in-polygon helper for Leaflet polygon
-  function leafletPipPointInLayer(point, polygonLayer) {
-    const x = point[1], y = point[0]; // lon, lat
-    const poly = polygonLayer.getLatLngs()[0].map(p => [p.lng, p.lat]);
-    let inside = false;
-    for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
-      const xi = poly[i][0], yi = poly[i][1];
-      const xj = poly[j][0], yj = poly[j][1];
-      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi)||1e-12) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
+      alarmToggle.addEventListener("change", () => {
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState);
+      });
 
-  // ===== CSV Export (existing) =====
-  function exportHistoryCSV(histObj) {
-    if (!localPlan.exportCSV) {
-      showModal('CSV export is not available on your current plan. Request upgrade to Silver or Gold.', true);
-      return;
-    }
-    if (!histObj) { alert('No history'); return; }
-    const rows=[['time','location','speed']];
-    Object.values(histObj).forEach(e=>rows.push([e.time||'',''+(e.location||''), (e.speed ?? '')]));
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download = `history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }
+      requestSilverBtn.addEventListener("click", () => {
+        upgradePlan.value = "silver";
+        upgradeModal.style.display = "flex";
+      });
 
-  function renderComponents(obj) {
-    componentsListEl.innerHTML = "";
-    if (!obj || !Object.keys(obj).length) {
-      componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
-      return;
-    }
-    for (let k in obj) {
-      const v = obj[k];
-      let cls = "comp-unknown";
-      if (v === "ok" || v === "activity") cls = "comp-ok";
-      else if (v === "no_fix" || v === "idle") cls = "comp-warn";
-      else if (v === "down") cls = "comp-bad";
-      componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
-    }
-  }
+      requestGoldBtn.addEventListener("click", () => {
+        upgradePlan.value = "gold";
+        upgradeModal.style.display = "flex";
+      });
 
-  function showModal(html, showUpgrade=false) {
-    modalContent.innerHTML = html;
-    modal.style.display = 'flex';
-    modalUpgradeBtn.style.display = showUpgrade ? 'inline-block' : 'none';
-  }
-  modalClose.onclick = ()=> modal.style.display='none';
-  modalUpgradeBtn.onclick = ()=> { modal.style.display='none'; };
+      confirmUpgradeBtn.addEventListener("click", () => {
+        const plan = upgradePlan.value;
+        userRef.child("upgrade_requests").push({ plan, time: getISTTime() });
+        upgradeModal.style.display = "none";
+      });
 
-  // ===== Auth + Realtime bindings =====
-  auth.onAuthStateChanged(async (user)=>{
-    if(!user) { window.location.href='login.html'; return; }
-    uidGlobal = user.uid; userEmailEl.textContent = user.email || user.uid;
+      closeModalBtn.addEventListener("click", () => {
+        upgradeModal.style.display = "none";
+      });
 
-    // Plan, ads, admin UI
-    db.ref(`users/${uidGlobal}`).on('value', snap=>{
-      const udata = snap.val() || {};
-      applyPlanToUI(udata);
-      checkAndAutoDowngrade(uidGlobal, udata);
-      if (udata.custom_marker_icon) {
-        customMarkerIcon = L.icon({ iconUrl: udata.custom_marker_icon, iconSize:[32,32], iconAnchor:[16,30] });
-        if (liveMarker) liveMarker.setIcon(customMarkerIcon);
-      }
-      if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; }
-      else { isAdmin = false; adminPanel.style.display = 'none'; }
-    });
-
-    // Current vehicle state
-    const ref = db.ref(`users/${uidGlobal}/vehicle`);
-    ref.child("current").on("value", snap => {
-      const d = snap.val(); if (!d) return;
-      locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
-      if (d.latitude && d.longitude) {
-        updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
-        // Geofence leave alert
-        const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
-        if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
-        if (geofenceState.lastInsideAny && !inside) {
-          // left zone
-          showModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
-          const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-          if (policy.notify && 'Notification' in window && Notification.permission==='granted') {
-            new Notification('Geofence Alert', { body:'Vehicle left the zone' });
+      mapTypeSelect.addEventListener("change", () => {
+        const type = mapTypeSelect.value;
+        if (map) {
+          map.eachLayer(layer => {
+            if (layer instanceof L.TileLayer) map.removeLayer(layer);
+          });
+          if (type === "street") {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+          } else if (type === "satellite") {
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+          } else if (type === "dark") {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png').addTo(map);
           }
         }
-        geofenceState.lastInsideAny = inside;
-      }
-      lastActiveEl.textContent = d.last_active || "Unknown";
-      statusEl.textContent = d.status || "Unknown";
-      const batt = (typeof d.battery !== 'undefined') ? Number(d.battery) : null;
-      batteryHealthEl.textContent = (batt!==null && !isNaN(batt)) ? `${batt}%` : "N/A";
-      if (batt!==null) maybeNotifyBattery(batt);
-      ref.child("online").once('value').then(s => renderOnlineAndLastActive(s.val(), d.last_active));
-    });
-
-    // History & components
-    ref.child("history").on("value", snap => {
-      const raw = snap.val() || null;
-      fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
-      applyHistoryPipeline();
-    });
-    ref.child("components").on("value", snap => renderComponents(snap.val()));
-    ref.child("online").on("value", snap => {
-      ref.child("current/last_active").once("value").then(s2 => renderOnlineAndLastActive(snap.val(), s2.val()));
-    });
-    ref.child("last_seen").on("value", s => lastSeenEl.textContent = s.val() || "N/A");
-    ref.child("alarm").on("value", s => {
-      const st = s.val() || "off";
-      alarmToggle.checked = st === "on";
-      alarmStatusText.textContent = `Alarm is ${st.toUpperCase()}`;
-    });
-    ref.child("last_trigger").on("value", s => {
-      const t = s.val();
-      if (t && t.time && t.status === "alert") {
-        alarmTriggerEl.innerHTML = `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>`;
-      } else alarmTriggerEl.textContent = "No triggers";
-    });
-    alarmToggle.addEventListener("change", () => {
-      ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
-    });
-
-    // Admin views
-    db.ref('admin/upgrade_requests').on('value', snap=>{
-      if(!isAdmin) return;
-      const reqs = snap.val() || {};
-      adminList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>When</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
-      const tbody = adminList.querySelector('tbody'); tbody.innerHTML = '';
-      Object.entries(reqs).reverse().forEach(([key, val])=>{
-        const tr = document.createElement('tr');
-        const when = val.request_time || '-';
-        const status = val.status || '-';
-        tr.innerHTML = `<td>${val.uid}</td><td>${val.requestedPlan||''}</td><td>${when}</td><td>${status}</td><td></td>`;
-        const actionsTd = tr.querySelector('td:last-child');
-        if (status === 'pending') {
-          const aBtn = document.createElement('button'); aBtn.textContent='Approve'; aBtn.className='btn btn-primary'; aBtn.onclick = ()=> {
-            adminApproveRequest(uidGlobal, user.email||uidGlobal, key, val);
-          };
-          const rBtn = document.createElement('button'); rBtn.textContent='Reject'; rBtn.className='btn btn-danger'; rBtn.style.marginLeft='8px'; rBtn.onclick = ()=> {
-            if (!confirm('Reject this upgrade request?')) return;
-            adminRejectRequest(uidGlobal, user.email||uidGlobal, key, val);
-          };
-          actionsTd.appendChild(aBtn); actionsTd.appendChild(rBtn);
-        } else { actionsTd.textContent = 'Processed'; }
-        tbody.appendChild(tr);
       });
+
+      heatmapToggle.addEventListener("change", () => updateHeatmap(historyData));
+
+      markerIconInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file && marker) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            marker.setIcon(L.icon({ iconUrl: reader.result, iconSize: [32, 32] }));
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      addZoneBtn.addEventListener("click", () => {
+        const center = map.getCenter();
+        const zone = L.circle(center, { radius: 1000, color: '#ff7800' }).addTo(map);
+        zones.push(zone);
+      });
+
+      saveZonesBtn.addEventListener("click", () => {
+        const zoneData = zones.map(z => ({
+          center: z.getLatLng(),
+          radius: z.getRadius()
+        }));
+        userRef.child("zones").set(zoneData);
+      });
+
+      clearZonesBtn.addEventListener("click", () => {
+        zones.forEach(z => map.removeLayer(z));
+        zones = [];
+        userRef.child("zones").remove();
+      });
+
+      filterBtn.addEventListener("click", () => {
+        const from = new Date(filterFrom.value).getTime();
+        const to = new Date(filterTo.value).getTime();
+        const filtered = historyData.filter(h => {
+          const time = new Date(h.time).getTime();
+          return time >= from && time <= to;
+        });
+        historyEl.innerHTML = "";
+        if (filtered.length) {
+          filtered.reverse().forEach(entry => {
+            const [lat, lng] = entry.location.split(",");
+            historyEl.innerHTML += `
+              <tr>
+                <td>${entry.time}</td>
+                <td>${entry.location}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+              </tr>`;
+          });
+          calculateDistanceAndStops(filtered);
+          updateHeatmap(filtered);
+        } else {
+          historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        }
+      });
+
+      clearFilterBtn.addEventListener("click", () => {
+        filterFrom.value = "";
+        filterTo.value = "";
+        historyEl.innerHTML = "";
+        if (historyData.length) {
+          historyData.reverse().forEach(entry => {
+            const [lat, lng] = entry.location.split(",");
+            historyEl.innerHTML += `
+              <tr>
+                <td>${entry.time}</td>
+                <td>${entry.location}</td>
+                <td><button class="view-btn" onclick="focusOnMap(${lat}, ${lng})">View</button></td>
+              </tr>`;
+          });
+          calculateDistanceAndStops(historyData);
+          updateHeatmap(historyData);
+        }
+      });
+
+      exportCsvBtn.addEventListener("click", () => {
+        const csv = "Time,Location\n" + historyData.map(h => `"${h.time}","${h.location}"`).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "history.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      // Fallback for initial loading state
+      setTimeout(() => {
+        if (onlineStatusEl.innerHTML.includes("Checking")) {
+          updateOnlineStatus(false, false, false);
+          console.log(`[Dashboard] Initial online status timeout: set to OFFLINE at ${getISTTime()}`);
+        }
+      }, 10000);
+
+      // Check for stale online status
+      const staleCheckInterval = setInterval(() => {
+        const timeSinceUpdate = Date.now() - lastOnlineUpdate;
+        if (timeSinceUpdate > STALE_TIMEOUT && isListenerActive) {
+          updateOnlineStatus(false, true, false);
+          console.log(`[Dashboard] Status marked as OFFLINE (Stale) after ${timeSinceUpdate}ms at ${getISTTime()}`);
+        }
+      }, CHECK_INTERVAL);
+
+      // Clean up listeners and intervals on logout
+      document.getElementById("logoutBtn").onclick = () => {
+        clearInterval(staleCheckInterval);
+        clearInterval(pollingInterval);
+        vehicleRef.child("online").off();
+        vehicleRef.child("current").off();
+        vehicleRef.child("history").off();
+        vehicleRef.child("components").off();
+        vehicleRef.child("last_seen").off();
+        vehicleRef.child("alarm").off();
+        vehicleRef.child("last_trigger").off();
+        userRef.child("subscription").off();
+        userRef.child("upgrade_requests").off();
+        userRef.child("admin_logs").off();
+        connectedRef.off();
+        auth.signOut();
+      };
+    }
+
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+      } else {
+        window.location.href = "login.html";
+      }
     });
-    db.ref('admin/approvals').limitToLast(50).on('value', snap=>{
-      if(!isAdmin) return;
-      const logs = snap.val() || {};
-      adminLogs.innerHTML = '<ul style="padding-left:16px;margin:0;">' +
-        Object.entries(logs).reverse().map(([k,v])=>
-          `<li style="margin-bottom:6px;"><b>${v.adminName||v.adminUid||'admin'}</b> → ${v.uid} : ${v.plan||v.status} (${v.approvedAt||v.processedAt||v.time||''})</li>`
-        ).join('') + '</ul>';
-    });
-
-    // Geofences load
-    await loadGeofences();
-  });
-
-  // ===== History pipeline (plan + date + render + route + heat + KPIs) =====
-  function applyHistoryPipeline() {
-    if (!fullHistory) { historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>'; return; }
-    filteredHistory = applyDateFilter(fullHistory);
-    renderHistoryTable(filteredHistory);
-    computeKPIs(filteredHistory);
-    plotRoute(filteredHistory);
-    updateHeatmap(filteredHistory);
-  }
-
-  // ===== UI Handlers =====
-  applyFilterBtn.addEventListener('click', () => applyHistoryPipeline());
-  clearFilterBtn.addEventListener('click', () => {
-    startDateInput.value=''; endDateInput.value=''; applyHistoryPipeline();
-  });
-
-  mapTypeSelect.addEventListener('change', (e) => {
-    updateBaseLayer(e.target.value);
-  });
-
-  heatToggle.addEventListener('change', () => updateHeatmap(filteredHistory));
-
-  iconUploader.addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file || !uidGlobal) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result; // base64
-      await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
-      customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize:[32,32], iconAnchor:[16,30] });
-      if (liveMarker) liveMarker.setIcon(customMarkerIcon);
-      alert('Custom marker icon saved.');
-    };
-    reader.readAsDataURL(file);
-  });
-
-  gfEnableDrawBtn.addEventListener('click', () => {
-    enableDrawing();
-  });
-  gfSaveBtn.addEventListener('click', () => { saveGeofences(); disableDrawing(); });
-  gfClearBtn.addEventListener('click', async () => {
-    if (!uidGlobal) return;
-    drawnItems.clearLayers();
-    await db.ref(`users/${uidGlobal}/geofences`).set([]);
-    alert('Geofences cleared');
-  });
-
-  // ===== Upgrade buttons (existing) =====
-  upgradeToSilverBtn.addEventListener('click', ()=> {
-    if (!uidGlobal) return alert('Not logged in');
-    createUpgradeRequest(uidGlobal, 'silver').then(()=> {
-      upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(()=> { alert('Failed to send request'); });
-  });
-  upgradeToGoldBtn.addEventListener('click', ()=> {
-    if (!uidGlobal) return alert('Not logged in');
-    createUpgradeRequest(uidGlobal, 'gold').then(()=> {
-      upgradeToSilverBtn.style.display='none'; upgradeToGoldBtn.style.display='none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(()=> { alert('Failed to send request'); });
-  });
-
-  // ===== Helpers exposed (kept) =====
-  // focusOnMap defined above
-
   </script>
 </body>
 </html>
