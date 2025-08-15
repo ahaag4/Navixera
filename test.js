@@ -75,11 +75,14 @@ const fleetMessage = document.getElementById('fleetMessage');
 const addVehicleBtn = document.getElementById('addVehicleBtn');
 const fleetList = document.getElementById('fleetList');
 const currencyLoading = document.getElementById('currencyLoading');
+const currencyError = document.getElementById('currencyError');
 const silverPriceEl = document.getElementById('silverPrice');
 const goldPriceEl = document.getElementById('goldPrice');
 const exportPriceEl = document.getElementById('exportPrice');
 const analyticsPriceEl = document.getElementById('analyticsPrice');
 const fleetPriceEl = document.getElementById('fleetPrice');
+const currencySelector = document.getElementById('currencySelector');
+const currentCurrencyEl = document.getElementById('currentCurrency');
 
 let uidGlobal = null;
 let isAdmin = false;
@@ -90,6 +93,9 @@ let userCurrency = 'USD';
 let currencySymbol = '$';
 let exchangeRates = {};
 let lastExchangeRateFetch = null;
+let adsList = [];
+let currentAdIndex = 0;
+let adTimerInt = null;
 
 const PLAN_POLICIES = {
   basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
@@ -109,32 +115,35 @@ const CURRENCY_MAP = {
   'US': { currency: 'USD', symbol: '$' },
   'IN': { currency: 'INR', symbol: '₹' },
   'GB': { currency: 'GBP', symbol: '£' },
-  'EU': { currency: 'EUR', symbol: '€' },
+  'FR': { currency: 'EUR', symbol: '€' },
+  'DE': { currency: 'EUR', symbol: '€' },
+  'IT': { currency: 'EUR', symbol: '€' },
+  'ES': { currency: 'EUR', symbol: '€' },
   'AU': { currency: 'AUD', symbol: 'A$' },
-  // Add more country-to-currency mappings as needed
   'default': { currency: 'USD', symbol: '$' }
 };
 
-// Function to detect user's country
+// Currency detection and conversion functions
 async function detectUserCountry() {
   try {
     currencyLoading.style.display = 'block';
+    currencyError.style.display = 'none';
     const response = await fetch('https://ipapi.co/json/');
     const data = await response.json();
     return data.country_code || 'default';
   } catch (error) {
     console.error('Failed to detect country:', error);
+    currencyError.style.display = 'block';
     return 'default';
   } finally {
     currencyLoading.style.display = 'none';
   }
 }
 
-// Function to fetch exchange rates
 async function fetchExchangeRates() {
   const now = Date.now();
   if (lastExchangeRateFetch && (now - lastExchangeRateFetch < 24 * 60 * 60 * 1000)) {
-    return exchangeRates; // Use cached rates if less than 24 hours old
+    return exchangeRates;
   }
   try {
     const apiKey = 'YOUR_EXCHANGERATE_API_KEY'; // Replace with your API key
@@ -146,27 +155,37 @@ async function fetchExchangeRates() {
       return exchangeRates;
     } else {
       console.error('Exchange rate API error:', data);
+      currencyError.style.display = 'block';
       return {};
     }
   } catch (error) {
     console.error('Failed to fetch exchange rates:', error);
+    currencyError.style.display = 'block';
     return {};
   }
 }
 
-// Function to convert price to user's currency
 function convertPrice(amount, currency) {
-  if (currency === 'USD' || !exchangeRates[currency]) return amount;
+  if (currency === 'USD' || !exchangeRates[currency]) return amount.toFixed(2);
   return (amount * exchangeRates[currency]).toFixed(2);
 }
 
-// Function to update UI with converted prices
 function updatePricesUI() {
+  currentCurrencyEl.textContent = userCurrency;
+  currencySelector.value = userCurrency;
   silverPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.silver, userCurrency)}`;
   goldPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.gold, userCurrency)}`;
   exportPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.export, userCurrency)}`;
   analyticsPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.analytics, userCurrency)}`;
   fleetPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.fleet, userCurrency)}`;
+}
+
+function handleCurrencyChange(event) {
+  const newCurrency = event.target.value;
+  const currencyInfo = Object.values(CURRENCY_MAP).find(c => c.currency === newCurrency) || CURRENCY_MAP['default'];
+  userCurrency = currencyInfo.currency;
+  currencySymbol = currencyInfo.symbol;
+  updatePricesUI();
 }
 
 async function initializeCurrency() {
@@ -178,6 +197,7 @@ async function initializeCurrency() {
   updatePricesUI();
 }
 
+// Ad handling
 function showAd(ad) {
   adArea.innerHTML = 'Loading...';
   if (ad.type === 'banner') {
@@ -195,14 +215,10 @@ function loadAdsForPlan(plan) {
   if (policy.ads === 'no-ads') { adArea.style.display='none'; adArea.innerHTML=''; return; }
   adArea.style.display = 'flex';
   db.ref('admin/ads').once('value').then(snapshot => {
-    const adsObj = snapshot.val() || {};
-    adsList = Object.values(adsObj).filter(ad =>
-      ad && ad.active && ad.url &&
-      (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
-    );
-    if (policy.ads==='banner-limited' && adsList.length > 1) { adsList = adsList.slice(0,1); }
+    adsList = Object.values(snapshot.val() || {}).filter(ad => ad && ad.active && ad.url && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer'));
+    if (policy.ads === 'banner-limited' && adsList.length > 1) { adsList = adsList.slice(0, 1); }
     if (adsList.length) {
-      showAd(adsList[currentAdIndex=0]);
+      showAd(adsList[currentAdIndex = 0]);
       adTimerInt = setInterval(() => {
         currentAdIndex = (currentAdIndex + 1) % adsList.length;
         showAd(adsList[currentAdIndex]);
@@ -210,18 +226,13 @@ function loadAdsForPlan(plan) {
     } else {
       adArea.innerHTML = 'No active ad';
     }
-  }).catch(()=> { adArea.innerHTML = 'Ad load error'; });
+  }).catch(() => { adArea.innerHTML = 'Ad load error'; });
 }
 
-function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
-
+// Utility functions
 function prettyTS(iso) {
   if (!iso) return '-';
-  try {
-    return new Date(iso).toLocaleString();
-  } catch (e) {
-    return iso;
-  }
+  try { return new Date(iso).toLocaleString(); } catch (e) { return iso; }
 }
 
 function isPurchaseValid(purchase) {
@@ -264,7 +275,7 @@ function renderRequestUI(upgradeRequest, currentPlan) {
 function applyPlanToUI(udata) {
   const plan = udata.plan || 'basic';
   const plan_expiry = udata.plan_expiry || null;
-  const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
+  const vehicle_limit = udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit;
   const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
   const analytics = PLAN_POLICIES[plan].analytics || (udata.purchases?.analytics && isPurchaseValid(udata.purchases.analytics));
   const fleet = PLAN_POLICIES[plan].fleet || (udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet));
@@ -277,7 +288,9 @@ function applyPlanToUI(udata) {
   vehicleLimitEl.textContent = vehicle_limit;
   exportCSVBtn.style.display = exportCSV || (udata.purchases?.export && isPurchaseValid(udata.purchases.export)) ? 'inline-block' : 'none';
   buyExportBtn.style.display = (!exportCSV && !(udata.purchases?.export && isPurchaseValid(udata.purchases.export))) ? 'inline-block' : 'none';
-  renderAdsForPlan(plan);
+  buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
+  buyFleetBtn.style.display = (!fleet && plan !== 'gold') ? 'inline-block' : 'none';
+  loadAdsForPlan(plan);
 
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
   dateFilterSection.style.display = ['silver', 'gold'].includes(plan) ? 'flex' : 'none';
@@ -286,17 +299,11 @@ function applyPlanToUI(udata) {
   customIconBlock.style.display = plan !== 'basic' ? 'flex' : 'none';
   geofenceControls.style.display = policy.geofences > 0 ? 'flex' : 'none';
   gfHint.textContent = plan === 'silver' ? 'Max 1 zone' : (plan === 'gold' ? 'Multiple zones allowed' : '');
-
   analyticsSection.style.display = analytics ? 'block' : 'none';
-  buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
   analyticsMessage.textContent = analytics ? 'Speed trend analytics' : 'Analytics unavailable';
-  if (analytics && fullHistory) renderAnalyticsChart(fullHistory);
-
   fleetSection.style.display = fleet ? 'block' : 'none';
   addVehicleBtn.style.display = fleet ? 'inline-block' : 'none';
-  buyFleetBtn.style.display = (!fleet && plan !== 'gold') ? 'inline-block' : 'none';
   fleetMessage.textContent = fleet ? 'Manage your vehicles' : 'Fleet management unavailable';
-
   kpiRefreshEl.textContent = (policy.refreshMs / 1000) + 's';
   setRefreshIntervals(policy.refreshMs);
 
@@ -306,7 +313,7 @@ function applyPlanToUI(udata) {
 
   renderRequestUI(udata.upgrade_request || null, plan);
   if (isAdmin) renderPendingPayments();
-  updatePricesUI(); // Update prices after plan is applied
+  updatePricesUI();
 }
 
 function createUpgradeRequest(uid, desiredPlan) {
@@ -406,16 +413,16 @@ function updateBaseLayer(type) {
   baseLayer.addTo(map);
 }
 
-function updateMap(lat, lng, popupText=null) {
-  if (!(typeof lat==='number' && typeof lng==='number' && !isNaN(lat) && !isNaN(lng))) return;
+function updateMap(lat, lng, popupText = null) {
+  if (!(typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng))) return;
   if (!map) {
     map = L.map('map').setView([lat, lng], 14);
     createBaseLayers();
     updateBaseLayer('street');
-    liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
+    liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
     setupDrawTools();
   } else {
-    if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
+    if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
     liveMarker.setLatLng([lat, lng]);
   }
   if (popupText) liveMarker.bindPopup(popupText).openPopup();
@@ -434,9 +441,9 @@ let filteredHistory = null;
 
 function parseEntry(entry) {
   const loc = entry.location || '';
-  const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
+  const [lat, lng] = (loc.split(',') || []).map(s => parseFloat(s.trim()));
   const tms = Date.parse(entry.time || '');
-  return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed==='number'?entry.speed:null };
+  return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed === 'number' ? entry.speed : null };
 }
 
 function renderHistoryTable(list) {
@@ -448,38 +455,38 @@ function renderHistoryTable(list) {
   list.forEach(entry => {
     const canFocus = !(isNaN(entry.lat) || isNaN(entry.lng));
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat)&&isFinite(entry.lng))? (entry.lat+','+entry.lng) : ''}</td>
-      <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${entry.lat},${entry.lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
+    tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat) && isFinite(entry.lng)) ? (entry.lat + ',' + entry.lng) : ''}</td>
+      <td><button class="view-btn"${canFocus ? ` onclick="focusOnMap(${entry.lat},${entry.lng})"` : ' disabled style="opacity:.65;"'}>View</button></td>`;
     historyTbody.appendChild(tr);
   });
 }
 
 function haversineKm(a, b) {
   const R = 6371;
-  const toRad = d => d*Math.PI/180;
+  const toRad = d => d * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.sqrt(s));
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
 }
 
 function computeKPIs(list) {
-  if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent='0'; return; }
+  if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent = '0'; return; }
   let dist = 0;
-  for (let i=1;i<list.length;i++) {
-    const p = list[i-1], q = list[i];
-    if (isFinite(p.lat)&&isFinite(p.lng)&&isFinite(q.lat)&&isFinite(q.lng)) {
-      dist += haversineKm(p,q);
+  for (let i = 1; i < list.length; i++) {
+    const p = list[i - 1], q = list[i];
+    if (isFinite(p.lat) && isFinite(p.lng) && isFinite(q.lat) && isFinite(q.lng)) {
+      dist += haversineKm(p, q);
     }
   }
   let stops = 0;
   const SPEED_KMH_THRESHOLD = 2;
-  const STOP_MS = 5*60*1000;
+  const STOP_MS = 5 * 60 * 1000;
   let blockStart = null, lastPoint = null;
-  for (let i=0;i<list.length;i++) {
+  for (let i = 0; i < list.length; i++) {
     const p = list[i];
     const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
-                         (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015);
+                         (lastPoint && p.ts && lastPoint.ts && haversineKm(p, lastPoint) < 0.015);
     if (slowOrStatic) {
       if (!blockStart) blockStart = p;
     } else {
@@ -537,6 +544,14 @@ function applyDateFilter(list) {
   });
 }
 
+function applyHistoryPipeline() {
+  filteredHistory = applyDateFilter(fullHistory);
+  renderHistoryTable(filteredHistory);
+  computeKPIs(filteredHistory);
+  plotRoute(filteredHistory);
+  updateHeatmap(filteredHistory);
+}
+
 function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
@@ -548,7 +563,7 @@ function buyFeatureWithUPI(feature, amount) {
     const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
     db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
     db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
-    alert(`UPI payment initiated for ${feature}. Awaiting admin approval.`);
+    alert(`UPI payment initiated for ${feature} (${currencySymbol}${convertedAmount}). Awaiting admin approval.`);
     modal.style.display = 'none';
   } catch (error) {
     console.error(`Failed to initiate UPI payment for ${feature}:`, error);
@@ -573,11 +588,11 @@ async function buyFeatureWithStripe(feature, amount) {
       alert(error.message);
     } else if (paymentIntent.status === 'requires_confirmation') {
       const paymentId = paymentIntent.id;
-      const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 1000)).toISOString();
+      const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
       const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
       await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
       await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
-      alert(`Payment initiated for ${feature}. Awaiting admin approval.`);
+      alert(`Payment initiated for ${feature} (${currencySymbol}${convertedAmount}). Awaiting admin approval.`);
       modal.style.display = 'none';
     }
   } catch (error) {
@@ -590,8 +605,8 @@ function showPurchaseModal(feature, amount) {
   currentFeature = feature;
   currentAmount = amount;
   const convertedAmount = convertPrice(amount, userCurrency);
-  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: ${currencySymbol}${convertedAmount}</p><p>Choose payment method:</p>`;
-  modalPayUPI.style.display = userCurrency === 'INR' ? 'inline-block' : 'none'; // Show UPI only for INR
+  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: ${currencySymbol}${convertedAmount} ${userCurrency}</p><p>Choose payment method:</p>`;
+  modalPayUPI.style.display = userCurrency === 'INR' ? 'inline-block' : 'none';
   modalPayStripe.style.display = 'inline-block';
   modal.style.display = 'flex';
 }
@@ -616,7 +631,7 @@ function computeOnlineDisplay(flag, lastActiveStr) {
 function renderOnlineAndLastActive(flag, lastActiveStr) {
   const isOn = computeOnlineDisplay(flag, lastActiveStr);
   onlineStatusEl.innerHTML = isOn ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
-  lastActiveEl.textContent = lastActiveStr || "Unknown";
+  lastSeenEl.textContent = lastActiveStr || "Unknown";
   maybeNotifyStatus(isOn);
 }
 
@@ -662,14 +677,7 @@ function setupDrawTools() {
   map.addLayer(drawnItems);
   drawControl = new L.Control.Draw({
     position: 'topright',
-    draw: {
-      rectangle: true,
-      polygon: true,
-      circle: true,
-      circlemarker: false,
-      marker: false,
-      polyline: false
-    },
+    draw: { rectangle: true, polygon: true, circle: true, circlemarker: false, marker: false, polyline: false },
     edit: { featureGroup: drawnItems }
   });
 }
@@ -894,173 +902,160 @@ async function renderPendingPayments() {
   });
 }
 
+async function renderAdminPanel() {
+  if (!isAdmin) return;
+  const snap = await db.ref('admin/upgrade_requests').once('value');
+  const requests = snap.val() || {};
+  adminList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+  const tbody = adminList.querySelector('tbody');
+  tbody.innerHTML = '';
+  Object.entries(requests).reverse().forEach(([key, val]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${val.uid}</td><td>${val.requestedPlan}</td><td>${val.status}</td><td></td>`;
+    const actionsTd = tr.querySelector('td:last-child');
+    if (val.status === 'pending') {
+      const aBtn = document.createElement('button');
+      aBtn.textContent = 'Approve';
+      aBtn.className = 'btn btn-primary';
+      aBtn.onclick = () => adminApproveRequest(uidGlobal, userEmailEl.textContent, key, val);
+      const rBtn = document.createElement('button');
+      rBtn.textContent = 'Reject';
+      rBtn.className = 'btn btn-danger';
+      rBtn.style.marginLeft = '8px';
+      rBtn.onclick = () => {
+        if (!confirm('Reject this request?')) return;
+        adminRejectRequest(uidGlobal, userEmailEl.textContent, key, val);
+      };
+      actionsTd.appendChild(aBtn);
+      actionsTd.appendChild(rBtn);
+    } else {
+      actionsTd.textContent = 'Processed';
+    }
+    tbody.appendChild(tr);
+  });
+
+  const logSnap = await db.ref('admin/approvals').once('value');
+  const logs = logSnap.val() || {};
+  adminLogs.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Admin</th><th>Time</th></tr></thead><tbody></tbody></table>';
+  const logTbody = adminLogs.querySelector('tbody');
+  logTbody.innerHTML = '';
+  Object.values(logs).reverse().slice(0, 10).forEach(log => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${log.uid}</td><td>${log.plan || '-'}</td><td>${log.status || 'approved'}</td><td>${log.adminNameDisplay}</td><td>${prettyTS(log.approvedAt || log.processedAt)}</td>`;
+    logTbody.appendChild(tr);
+  });
+}
+
+// Event listeners
+logoutBtn.onclick = () => auth.signOut();
 modalClose.onclick = () => modal.style.display = 'none';
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
+currencySelector.onchange = handleCurrencyChange;
+upgradeToSilverBtn.onclick = () => createUpgradeRequest(uidGlobal, 'silver').then(() => alert('Silver upgrade requested. Awaiting admin approval.'));
+upgradeToGoldBtn.onclick = () => createUpgradeRequest(uidGlobal, 'gold').then(() => alert('Gold upgrade requested. Awaiting admin approval.'));
+buyExportBtn.onclick = () => showPurchaseModal('export', BASE_PRICES.export);
+buyAnalyticsBtn.onclick = () => showPurchaseModal('analytics', BASE_PRICES.analytics);
+buyFleetBtn.onclick = () => showPurchaseModal('fleet', BASE_PRICES.fleet);
+applyFilterBtn.onclick = () => applyHistoryPipeline();
+clearFilterBtn.onclick = () => { startDateInput.value = ''; endDateInput.value = ''; applyHistoryPipeline(); };
+mapTypeSelect.onchange = (e) => updateBaseLayer(e.target.value);
+heatToggle.onchange = () => applyHistoryPipeline();
+gfEnableDrawBtn.onclick = () => enableDrawing();
+gfSaveBtn.onclick = () => saveGeofences();
+gfClearBtn.onclick = () => { drawnItems.clearLayers(); saveGeofences(); };
+exportCSVBtn.onclick = () => exportHistoryCSV(filteredHistory);
+addVehicleBtn.onclick = () => addVehicle();
+iconUploader.onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file || !['image/png', 'image/jpeg'].includes(file.type)) { alert('Please upload a PNG or JPG image'); return; }
+  try {
+    const url = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
+    await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(url);
+    customMarkerIcon = L.icon({ iconUrl: url, iconSize: [32, 32], iconAnchor: [16, 30] });
+    if (liveMarker) liveMarker.setIcon(customMarkerIcon);
+    alert('Custom icon uploaded');
+  } catch (error) {
+    console.error('Icon upload failed:', error);
+    alert('Failed to upload icon');
+  }
+};
+alarmToggle.onchange = () => {
+  if (!uidGlobal) return;
+  const isChecked = alarmToggle.checked;
+  db.ref(`users/${uidGlobal}/vehicle/alarm`).set(isChecked ? 'on' : 'off');
+  alarmStatusText.textContent = isChecked ? 'Alarm ON' : 'Alarm OFF';
+};
 
+// Main initialization
 let udata = null;
 auth.onAuthStateChanged(async (user) => {
-  if (!user) { window.location.href = 'login.html'; return; }
+  if (!user) {
+    window.location.href = 'login.html';
+    return;
+  }
   uidGlobal = user.uid;
-  userEmailEl.textContent = user.email || user.uid;
-
-  // Initialize currency detection and conversion
+  userEmailEl.textContent = user.email || 'user@domain.com';
   await initializeCurrency();
-
-  db.ref(`users/${uidGlobal}`).on('value', snap => {
-    udata = snap.val() || {};
+  const userRef = db.ref(`users/${user.uid}`);
+  userRef.on('value', async (snapshot) => {
+    udata = snapshot.val() || {};
+    checkAndAutoDowngrade(user.uid, udata);
     applyPlanToUI(udata);
-    checkAndAutoDowngrade(uidGlobal, udata);
-    if (udata.custom_marker_icon) {
-      customMarkerIcon = L.icon({ iconUrl: udata.custom_marker_icon, iconSize: [32, 32], iconAnchor: [16, 30] });
+    isAdmin = !!udata.isAdmin;
+    adminPanel.style.display = isAdmin ? 'block' : 'none';
+    adminPanelPayments.style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) renderAdminPanel();
+    const vRef = userRef.child('vehicle');
+    vRef.child('current').on('value', snap => {
+      const d = snap.val() || {};
+      const loc = d.location || '';
+      const [lat, lng] = loc.split(',').map(s => parseFloat(s.trim()));
+      locationEl.textContent = loc || '-';
+      lastActiveEl.textContent = d.last_active || '-';
+      statusEl.textContent = d.status || '-';
+      batteryHealthEl.textContent = typeof d.battery === 'number' ? d.battery + '%' : '-';
+      renderOnlineAndLastActive(d.online, d.last_active);
+      maybeNotifyBattery(d.battery);
+      renderComponents(d.components || {});
+      updateMap(lat, lng);
+      if (isFinite(lat) && isFinite(lng) && drawnItems && geofenceState.lastInsideAny !== null) {
+        const inside = pointInsideGeofences(lat, lng);
+        if (inside !== geofenceState.lastInsideAny && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification(inside ? "Vehicle entered geofence" : "Vehicle exited geofence");
+        }
+        geofenceState.lastInsideAny = inside;
+      }
+    });
+    vRef.child('alarm').on('value', snap => {
+      const alarm = snap.val();
+      alarmToggle.checked = alarm === 'on';
+      alarmStatusText.textContent = alarm === 'on' ? 'Alarm ON' : 'Alarm OFF';
+    });
+    vRef.child('alarm_trigger').on('value', snap => {
+      alarmTriggerEl.textContent = prettyTS(snap.val()) || 'No triggers';
+    });
+    vRef.child('history').on('value', snap => {
+      const hist = snap.val() || {};
+      fullHistory = Object.values(hist).map(parseEntry).filter(p => p.time && p.ts).sort((a, b) => b.ts - a.ts);
+      applyHistoryPipeline();
+      if (localPlan.analytics || (udata.purchases?.analytics && isPurchaseValid(udata.purchases.analytics))) {
+        renderAnalyticsChart(filteredHistory);
+      }
+    });
+    const iconSnap = await userRef.child('custom_marker_icon').once('value');
+    const iconUrl = iconSnap.val();
+    if (iconUrl) {
+      customMarkerIcon = L.icon({ iconUrl, iconSize: [32, 32], iconAnchor: [16, 30] });
       if (liveMarker) liveMarker.setIcon(customMarkerIcon);
     }
-    if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; adminPanelPayments.style.display = 'block'; }
-    else { isAdmin = false; adminPanel.style.display = 'none'; adminPanelPayments.style.display = 'none'; }
-    if (udata.purchases?.fleet || localPlan.fleet) renderFleetList();
-  });
-
-  const ref = db.ref(`users/${uidGlobal}/vehicle`);
-  ref.child("current").on("value", snap => {
-    const d = snap.val();
-    if (!d) return;
-    locationEl.textContent = d.latitude && d.longitude ? `${d.latitude}, ${d.longitude}` : "No location";
-    if (d.latitude && d.longitude) {
-      updateMap(parseFloat(d.latitude), parseFloat(d.longitude));
-      const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
-      if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
-      if (geofenceState.lastInsideAny && !inside) {
-        modalContent.innerHTML = '<b>Geofence Alert:</b> Vehicle left the zone.';
-        modalPayUPI.style.display = 'none';
-        modalPayStripe.style.display = 'none';
-        modal.style.display = 'flex';
-        const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
-        if (policy.notify && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification('Geofence Alert', { body: 'Vehicle left the zone' });
-        }
-      }
-      geofenceState.lastInsideAny = inside;
+    await loadGeofences();
+    if (localPlan.fleet || (udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet))) {
+      await renderFleetList();
     }
-    lastActiveEl.textContent = d.last_active || "Unknown";
-    statusEl.textContent = d.status || "Unknown";
-    const batt = (typeof d.battery !== 'undefined') ? Number(d.battery) : null;
-    batteryHealthEl.textContent = (batt !== null && !isNaN(batt)) ? `${batt}%` : "N/A";
-    if (batt !== null) maybeNotifyBattery(batt);
-    ref.child("online").once('value').then(s => renderOnlineAndLastActive(s.val(), d.last_active));
-  });
-
-  ref.child("history").on("value", snap => {
-    const raw = snap.val() || null;
-    fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
-    applyHistoryPipeline();
-    if (localPlan.analytics) renderAnalyticsChart(fullHistory);
-  });
-
-  ref.child("components").on("value", snap => renderComponents(snap.val()));
-  ref.child("online").on("value", snap => {
-    ref.child("current/last_active").once("value").then(s2 => renderOnlineAndLastActive(snap.val(), s2.val()));
-  });
-  ref.child("last_seen").on("value", s => lastSeenEl.textContent = s.val() || "N/A");
-  ref.child("alarm").on("value", s => {
-    const st = s.val() || "off";
-    alarmToggle.checked = st === "on";
-    alarmStatusText.textContent = `Alarm is ${st.toUpperCase()}`;
-  });
-  ref.child("last_trigger").on("value", s => {
-    const t = s.val();
-    if (t && t.time && t.status === "alert") {
-      alarmTriggerEl.innerHTML = `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>`;
-    } else alarmTriggerEl.textContent = "No triggers";
-  });
-  alarmToggle.addEventListener("change", () => {
-    ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
-  });
-
-  db.ref('admin/upgrade_requests').on('value', snap => {
-    if (!isAdmin) return;
-    const reqs = snap.val() || {};
-    adminList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>When</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
-    const tbody = adminList.querySelector('tbody');
-    tbody.innerHTML = '';
-    Object.entries(reqs).reverse().forEach(([key, val]) => {
-      const tr = document.createElement('tr');
-      const when = val.request_time || '-';
-      const status = val.status || '-';
-      tr.innerHTML = `<td>${val.uid}</td><td>${val.requestedPlan || ''}</td><td>${when}</td><td>${status}</td><td></td>`;
-      const actionsTd = tr.querySelector('td:last-child');
-      if (status === 'pending') {
-        const aBtn = document.createElement('button');
-        aBtn.textContent = 'Approve';
-        aBtn.className = 'btn btn-primary';
-        aBtn.onclick = () => {
-          adminApproveRequest(uidGlobal, user.email || uidGlobal, key, val);
-        };
-        const rBtn = document.createElement('button');
-        rBtn.textContent = 'Reject';
-        rBtn.className = 'btn btn-danger';
-        rBtn.style.marginLeft = '8px';
-        rBtn.onclick = () => {
-          if (!confirm('Reject this upgrade request?')) return;
-          
-exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
-buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 2));
-buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 5));
-buyFleetBtn.addEventListener('click', () => showPurchaseModal('fleet', 30));
-addVehicleBtn.addEventListener('click', addVehicle);
-
-mapTypeSelect.addEventListener('change', (e) => {
-  updateBaseLayer(e.target.value);
-});
-
-heatToggle.addEventListener('change', () => updateHeatmap(filteredHistory));
-
-iconUploader.addEventListener('change', async (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (!file || !uidGlobal) return;
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const dataUrl = reader.result;
-    await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
-    customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize: [32, 32], iconAnchor: [16, 30] });
-    if (liveMarker) liveMarker.setIcon(customMarkerIcon);
-    alert('Custom marker icon saved.');
-  };
-  reader.readAsDataURL(file);
-});
-
-gfEnableDrawBtn.addEventListener('click', () => {
-  enableDrawing();
-});
-gfSaveBtn.addEventListener('click', () => { saveGeofences(); disableDrawing(); });
-gfClearBtn.addEventListener('click', async () => {
-  if (!uidGlobal) return;
-  drawnItems.clearLayers();
-  await db.ref(`users/${uidGlobal}/geofences`).set([]);
-  alert('Geofences cleared');
-});
-
-upgradeToSilverBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'silver').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-upgradeToGoldBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'gold').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-
-logoutBtn.addEventListener('click', () => {
-  auth.signOut().then(() => {
-    window.location.href = 'login.html';
-  }).catch(error => {
-    console.error('Logout failed:', error);
-    alert('Failed to logout. Please try again.');
   });
 });
