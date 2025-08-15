@@ -74,12 +74,22 @@ const fleetSection = document.getElementById('fleetSection');
 const fleetMessage = document.getElementById('fleetMessage');
 const addVehicleBtn = document.getElementById('addVehicleBtn');
 const fleetList = document.getElementById('fleetList');
+const currencyLoading = document.getElementById('currencyLoading');
+const silverPriceEl = document.getElementById('silverPrice');
+const goldPriceEl = document.getElementById('goldPrice');
+const exportPriceEl = document.getElementById('exportPrice');
+const analyticsPriceEl = document.getElementById('analyticsPrice');
+const fleetPriceEl = document.getElementById('fleetPrice');
 
 let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
 let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false, analytics:false, fleet:false };
+let userCurrency = 'USD';
+let currencySymbol = '$';
+let exchangeRates = {};
+let lastExchangeRateFetch = null;
 
 const PLAN_POLICIES = {
   basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
@@ -87,7 +97,86 @@ const PLAN_POLICIES = {
   gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
 };
 
-let adTimerInt = null, currentAdIndex=0, adsList=[];
+const BASE_PRICES = {
+  silver: 149,
+  gold: 249,
+  export: 2,
+  analytics: 5,
+  fleet: 30
+};
+
+const CURRENCY_MAP = {
+  'US': { currency: 'USD', symbol: '$' },
+  'IN': { currency: 'INR', symbol: '₹' },
+  'GB': { currency: 'GBP', symbol: '£' },
+  'EU': { currency: 'EUR', symbol: '€' },
+  'AU': { currency: 'AUD', symbol: 'A$' },
+  // Add more country-to-currency mappings as needed
+  'default': { currency: 'USD', symbol: '$' }
+};
+
+// Function to detect user's country
+async function detectUserCountry() {
+  try {
+    currencyLoading.style.display = 'block';
+    const response = await fetch('https://ipapi.co/json/');
+    const data = await response.json();
+    return data.country_code || 'default';
+  } catch (error) {
+    console.error('Failed to detect country:', error);
+    return 'default';
+  } finally {
+    currencyLoading.style.display = 'none';
+  }
+}
+
+// Function to fetch exchange rates
+async function fetchExchangeRates() {
+  const now = Date.now();
+  if (lastExchangeRateFetch && (now - lastExchangeRateFetch < 24 * 60 * 60 * 1000)) {
+    return exchangeRates; // Use cached rates if less than 24 hours old
+  }
+  try {
+    const apiKey = 'YOUR_EXCHANGERATE_API_KEY'; // Replace with your API key
+    const response = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`);
+    const data = await response.json();
+    if (data.result === 'success') {
+      exchangeRates = data.conversion_rates;
+      lastExchangeRateFetch = now;
+      return exchangeRates;
+    } else {
+      console.error('Exchange rate API error:', data);
+      return {};
+    }
+  } catch (error) {
+    console.error('Failed to fetch exchange rates:', error);
+    return {};
+  }
+}
+
+// Function to convert price to user's currency
+function convertPrice(amount, currency) {
+  if (currency === 'USD' || !exchangeRates[currency]) return amount;
+  return (amount * exchangeRates[currency]).toFixed(2);
+}
+
+// Function to update UI with converted prices
+function updatePricesUI() {
+  silverPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.silver, userCurrency)}`;
+  goldPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.gold, userCurrency)}`;
+  exportPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.export, userCurrency)}`;
+  analyticsPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.analytics, userCurrency)}`;
+  fleetPriceEl.textContent = `${currencySymbol}${convertPrice(BASE_PRICES.fleet, userCurrency)}`;
+}
+
+async function initializeCurrency() {
+  const country = await detectUserCountry();
+  const currencyInfo = CURRENCY_MAP[country] || CURRENCY_MAP['default'];
+  userCurrency = currencyInfo.currency;
+  currencySymbol = currencyInfo.symbol;
+  await fetchExchangeRates();
+  updatePricesUI();
+}
 
 function showAd(ad) {
   adArea.innerHTML = 'Loading...';
@@ -217,6 +306,7 @@ function applyPlanToUI(udata) {
 
   renderRequestUI(udata.upgrade_request || null, plan);
   if (isAdmin) renderPendingPayments();
+  updatePricesUI(); // Update prices after plan is applied
 }
 
 function createUpgradeRequest(uid, desiredPlan) {
@@ -398,7 +488,7 @@ function computeKPIs(list) {
     }
     lastPoint = p;
   }
-  if (blockStart && lastPoint && blockStart.ts && lastPoint.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
+  if (blockStart && lastPoint && lastPoint.ts && blockStart.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
   kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
   kpiStopsEl.textContent = String(stops);
 }
@@ -450,11 +540,12 @@ function applyDateFilter(list) {
 function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
-    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${amount}&cu=USD`;
+    const convertedAmount = convertPrice(amount, userCurrency);
+    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${convertedAmount}&cu=${userCurrency}`;
     window.open(upiLink);
     const paymentId = `upi_${uidGlobal}_${Date.now()}`;
     const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-    const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
+    const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
     db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
     db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
     alert(`UPI payment initiated for ${feature}. Awaiting admin approval.`);
@@ -468,10 +559,11 @@ function buyFeatureWithUPI(feature, amount) {
 async function buyFeatureWithStripe(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
+    const convertedAmount = convertPrice(amount, userCurrency);
     const response = await fetch('http://localhost:3000/create-payment-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Math.round(amount * 100), currency: 'usd', feature, uid: uidGlobal })
+      body: JSON.stringify({ amount: Math.round(convertedAmount * 100), currency: userCurrency.toLowerCase(), feature, uid: uidGlobal })
     });
     const { clientSecret } = await response.json();
     const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
@@ -481,8 +573,8 @@ async function buyFeatureWithStripe(feature, amount) {
       alert(error.message);
     } else if (paymentIntent.status === 'requires_confirmation') {
       const paymentId = paymentIntent.id;
-      const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-      const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
+      const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 1000)).toISOString();
+      const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
       await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
       await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
       alert(`Payment initiated for ${feature}. Awaiting admin approval.`);
@@ -497,8 +589,9 @@ async function buyFeatureWithStripe(feature, amount) {
 function showPurchaseModal(feature, amount) {
   currentFeature = feature;
   currentAmount = amount;
-  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: $${amount}</p><p>Choose payment method:</p>`;
-  modalPayUPI.style.display = 'inline-block';
+  const convertedAmount = convertPrice(amount, userCurrency);
+  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: ${currencySymbol}${convertedAmount}</p><p>Choose payment method:</p>`;
+  modalPayUPI.style.display = userCurrency === 'INR' ? 'inline-block' : 'none'; // Show UPI only for INR
   modalPayStripe.style.display = 'inline-block';
   modal.style.display = 'flex';
 }
@@ -661,7 +754,7 @@ function pointInsideGeofences(lat, lng) {
 
 function exportHistoryCSV(histArray) {
   if (!localPlan.exportCSV && !(udata && udata.purchases?.export && isPurchaseValid(udata.purchases.export))) {
-    showPurchaseModal('export', 2);
+    showPurchaseModal('export', BASE_PRICES.export);
     return;
   }
   if (!histArray || !Array.isArray(histArray) || histArray.length === 0) {
@@ -772,12 +865,12 @@ async function renderPendingPayments() {
   if (!isAdmin) return;
   const snap = await db.ref('admin/payments').once('value');
   const payments = snap.val() || {};
-  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Currency</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
   const tbody = paymentList.querySelector('tbody');
   tbody.innerHTML = '';
   Object.entries(payments).reverse().forEach(([key, val]) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>$${val.amount}</td><td>${val.status}</td><td></td>`;
+    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>${val.currency} ${val.amount}</td><td>${val.currency}</td><td>${val.status}</td><td></td>`;
     const actionsTd = tr.querySelector('td:last-child');
     if (val.status === 'pending') {
       const aBtn = document.createElement('button');
@@ -811,6 +904,9 @@ auth.onAuthStateChanged(async (user) => {
   uidGlobal = user.uid;
   userEmailEl.textContent = user.email || user.uid;
 
+  // Initialize currency detection and conversion
+  await initializeCurrency();
+
   db.ref(`users/${uidGlobal}`).on('value', snap => {
     udata = snap.val() || {};
     applyPlanToUI(udata);
@@ -834,7 +930,10 @@ auth.onAuthStateChanged(async (user) => {
       const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
       if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
       if (geofenceState.lastInsideAny && !inside) {
-        showPurchaseModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
+        modalContent.innerHTML = '<b>Geofence Alert:</b> Vehicle left the zone.';
+        modalPayUPI.style.display = 'none';
+        modalPayStripe.style.display = 'none';
+        modal.style.display = 'flex';
         const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
         if (policy.notify && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('Geofence Alert', { body: 'Vehicle left the zone' });
@@ -902,50 +1001,7 @@ auth.onAuthStateChanged(async (user) => {
         rBtn.style.marginLeft = '8px';
         rBtn.onclick = () => {
           if (!confirm('Reject this upgrade request?')) return;
-          adminRejectRequest(uidGlobal, user.email || uidGlobal, key, val);
-        };
-        actionsTd.appendChild(aBtn);
-        actionsTd.appendChild(rBtn);
-      } else {
-        actionsTd.textContent = 'Processed';
-      }
-      tbody.appendChild(tr);
-    });
-  });
-
-  db.ref('admin/approvals').limitToLast(50).on('value', snap => {
-    if (!isAdmin) return;
-    const logs = snap.val() || {};
-    adminLogs.innerHTML = '<ul style="padding-left:16px;margin:0;">' +
-      Object.entries(logs).reverse().map(([k, v]) =>
-        `<li style="margin-bottom:6px;"><b>${v.adminName || v.adminUid || 'admin'}</b> → ${v.uid} : ${v.plan || v.status} (${v.approvedAt || v.processedAt || v.time || ''})</li>`
-      ).join('') + '</ul>';
-  });
-
-  await loadGeofences();
-  await renderFleetList();
-});
-
-function applyHistoryPipeline(plotPolyline = false) {
-  if (!fullHistory) {
-    historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
-    return;
-  }
-  filteredHistory = applyDateFilter(fullHistory);
-  renderHistoryTable(filteredHistory);
-  computeKPIs(filteredHistory);
-  if (plotPolyline) plotRoute(filteredHistory);
-  updateHeatmap(filteredHistory);
-  if (localPlan.analytics) renderAnalyticsChart(filteredHistory);
-}
-
-applyFilterBtn.addEventListener('click', () => applyHistoryPipeline(true));
-clearFilterBtn.addEventListener('click', () => {
-  startDateInput.value = '';
-  endDateInput.value = '';
-  applyHistoryPipeline();
-});
-
+          
 exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
 buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 2));
 buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 5));
