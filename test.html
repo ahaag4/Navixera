@@ -79,6 +79,7 @@
     .analytics-card canvas { max-width: 100%; height: 300px; margin-top: 10px; }
     .fleet-card ul { list-style: none; padding: 0; }
     .fleet-card ul li { padding: 8px 0; border-bottom: 1px solid #f2f5fc; }
+    .currency-loading { display: none; color: #6c757d; font-size: 14px; margin-top: 10px; }
     @media (max-width:600px) {
       .dashboard {padding:0 7px;}
       header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
@@ -147,11 +148,11 @@
         <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
         <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
         <div id="upgradeBtns" style="margin-left:auto;">
-          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
-          <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
-          <button id="buyExportBtn" class="btn btn-primary" style="display:none;">Buy Export ($2)</button>
-          <button id="buyAnalyticsBtn" class="btn btn-primary" style="display:none;">Buy Analytics ($5)</button>
-          <button id="buyFleetBtn" class="btn btn-primary" style="display:none;">Buy Fleet ($30)</button>
+          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (<span id="silverPrice">149</span>)</button>
+          <button id="upgradeToGold" class="btn btn-primary">Request Gold (<span id="goldPrice">249</span>)</button>
+          <button id="buyExportBtn" class="btn btn-primary" style="display:none;">Buy Export (<span id="exportPrice">2</span>)</button>
+          <button id="buyAnalyticsBtn" class="btn btn-primary" style="display:none;">Buy Analytics (<span id="analyticsPrice">5</span>)</button>
+          <button id="buyFleetBtn" class="btn btn-primary" style="display:none;">Buy Fleet (<span id="fleetPrice">30</span>)</button>
         </div>
       </div>
       <div style="margin-top:10px;">
@@ -160,6 +161,7 @@
       <div style="margin-top:14px;" class="small-muted">
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
       </div>
+      <div id="currencyLoading" class="currency-loading">Detecting currency...</div>
     </section>
 
     <section class="card map-card">
@@ -276,6 +278,6 @@
     <!-- Stripe -->
     <script src="https://js.stripe.com/v3/"></script>
     <!-- Main script -->
-    <script src="test.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
