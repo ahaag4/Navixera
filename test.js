@@ -1,4 +1,10 @@
 
+// Ensure required libraries are loaded
+if (!window.L || !window.Chart) {
+  alert('Error: Leaflet or Chart.js not loaded. Please include them in your HTML.');
+  throw new Error('Missing dependencies: Leaflet or Chart.js');
+}
+
 // Firebase and Stripe initialization
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -87,7 +93,7 @@ const analyticsPriceEl = document.getElementById('analyticsPrice');
 const fleetPriceEl = document.getElementById('fleetPrice');
 const currencySelector = document.getElementById('currencySelector');
 const currentCurrencyEl = document.getElementById('currentCurrency');
-const paymentStatusArea = document.getElementById('paymentStatusArea'); // New element for payment status
+const paymentStatusArea = document.getElementById('paymentStatusArea');
 
 // Global variables
 let uidGlobal = null;
@@ -139,6 +145,7 @@ async function detectUserCountry() {
     currencyError.style.display = 'none';
     const response = await fetch('https://ipapi.co/json/');
     const data = await response.json();
+    console.log('Country detection:', data);
     return data.country_code || 'default';
   } catch (error) {
     console.error('Failed to detect country:', error);
@@ -161,6 +168,7 @@ async function fetchExchangeRates() {
     if (data.result === 'success') {
       exchangeRates = data.conversion_rates;
       lastExchangeRateFetch = now;
+      console.log('Exchange rates fetched:', exchangeRates);
       return exchangeRates;
     } else {
       console.error('Exchange rate API error:', data);
@@ -206,27 +214,33 @@ async function initializeCurrency() {
   updatePricesUI();
 }
 
-// Admin notification via FCM
+// Admin notification via FCM or fallback
 async function sendAdminNotification(message) {
-  if (!messaging || !isAdmin) return;
-  try {
-    const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' }); // Replace with your VAPID key
-    await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'key=YOUR_FCM_SERVER_KEY', // Replace with your FCM server key
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: token,
-        notification: {
-          title: 'New User Request',
-          body: message
-        }
-      })
-    });
-  } catch (error) {
-    console.error('Failed to send admin notification:', error);
+  if (messaging && isAdmin) {
+    try {
+      const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' }); // Replace with your VAPID key
+      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'key=YOUR_FCM_SERVER_KEY', // Replace with your FCM server key
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to: token,
+          notification: {
+            title: 'New User Request',
+            body: message
+          }
+        })
+      });
+      console.log('Admin notification sent:', response.status);
+    } catch (error) {
+      console.error('Failed to send FCM notification:', error);
+      alert(`Admin notification (fallback): ${message}`);
+    }
+  } else {
+    console.warn('FCM not supported or user not admin, using alert fallback');
+    alert(`Admin notification (fallback): ${message}`);
   }
 }
 
@@ -236,6 +250,7 @@ function showAd(ad) {
   if (ad.type === 'banner') {
     const img = new Image(); img.src = ad.url;
     img.onload = () => { adArea.innerHTML = ''; adArea.appendChild(img); };
+    img.onerror = () => { adArea.innerHTML = 'Ad failed to load'; };
   } else if (ad.type === 'video') {
     const v = document.createElement('video'); v.src = ad.url; v.controls = true; v.autoplay = true; v.muted = true;
     adArea.innerHTML = ''; adArea.appendChild(v);
@@ -259,7 +274,10 @@ function loadAdsForPlan(plan) {
     } else {
       adArea.innerHTML = 'No active ad';
     }
-  }).catch(() => { adArea.innerHTML = 'Ad load error'; });
+  }).catch(error => {
+    console.error('Ad load error:', error);
+    adArea.innerHTML = 'Ad load error';
+  });
 }
 
 // Utility functions
@@ -306,6 +324,10 @@ function renderRequestUI(upgradeRequest, currentPlan) {
 }
 
 function renderPaymentStatus(purchasesPending) {
+  if (!paymentStatusArea) {
+    console.error('paymentStatusArea element not found in DOM');
+    return;
+  }
   if (!purchasesPending) {
     paymentStatusArea.innerHTML = '';
     return;
@@ -315,7 +337,7 @@ function renderPaymentStatus(purchasesPending) {
     paymentStatusArea.innerHTML = '';
     return;
   }
-  paymentStatusArea.innerHTML = pending.map(([id, p]) => `<span class="pending-pill">Payment for ${p.feature} (${currencySymbol}${p.amount}) — PENDING</span>`).join('<br>');
+  paymentStatusArea.innerHTML = pending.map(([id, p]) => `<span class="pending-pill">Payment for ${p.feature} (${currencySymbol}${p.amount}, ID: ${p.transaction_id || id}) — PENDING</span>`).join('<br>');
 }
 
 function applyPlanToUI(udata) {
@@ -354,7 +376,7 @@ function applyPlanToUI(udata) {
   setRefreshIntervals(policy.refreshMs);
 
   if (policy.notify && 'Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().catch(() => console.error('Notification permission request failed'));
   }
 
   renderRequestUI(udata.upgrade_request || null, plan);
@@ -364,68 +386,97 @@ function applyPlanToUI(udata) {
 }
 
 async function createUpgradeRequest(uid, desiredPlan) {
-  const now = new Date().toISOString();
-  const req = { status: 'pending', requestedPlan: desiredPlan, request_time: now };
-  const adminKey = `req_${uid}_${Date.now()}`;
-  const updates = {};
-  updates[`users/${uid}/upgrade_request`] = req;
-  updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status: 'pending', request_time: now };
-  await db.ref().update(updates);
-  await sendAdminNotification(`User ${uid} requested upgrade to ${desiredPlan.toUpperCase()}`);
+  try {
+    const now = new Date().toISOString();
+    const req = { status: 'pending', requestedPlan: desiredPlan, request_time: now };
+    const adminKey = `req_${uid}_${Date.now()}`;
+    const updates = {};
+    updates[`users/${uid}/upgrade_request`] = req;
+    updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status: 'pending', request_time: now };
+    await db.ref().update(updates);
+    await sendAdminNotification(`User ${uid} requested upgrade to ${desiredPlan.toUpperCase()}`);
+    console.log('Upgrade request created:', { uid, desiredPlan });
+    alert('Upgrade requested. Awaiting admin approval.');
+  } catch (error) {
+    console.error('Failed to create upgrade request:', error);
+    alert('Failed to request upgrade. Please try again.');
+  }
 }
 
 async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-  const targetUid = adminReqObj.uid;
-  const plan = adminReqObj.requestedPlan || 'silver';
-  const now = new Date();
-  const expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
-  const updates = {};
-  updates[`users/${targetUid}/plan`] = plan;
-  updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
-  updates[`users/${targetUid}/vehicle_limit`] = PLAN_POLICIES[plan].vehicle_limit;
-  updates[`users/${targetUid}/exportCSV`] = true;
-  updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
-  updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'approved';
-  updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, plan, approvedAt: new Date().toISOString(), adminNameDisplay: adminName || adminUid };
-  await db.ref().update(updates);
-  alert('User upgraded to ' + plan.toUpperCase());
+  try {
+    const targetUid = adminReqObj.uid;
+    const plan = adminReqObj.requestedPlan || 'silver';
+    const now = new Date();
+    const expiry = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+    const updates = {};
+    updates[`users/${targetUid}/plan`] = plan;
+    updates[`users/${targetUid}/plan_expiry`] = expiry.toISOString();
+    updates[`users/${targetUid}/vehicle_limit`] = PLAN_POLICIES[plan].vehicle_limit;
+    updates[`users/${targetUid}/exportCSV`] = true;
+    updates[`users/${targetUid}/upgrade_request/status`] = 'approved';
+    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'approved';
+    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, plan, approvedAt: new Date().toISOString(), adminNameDisplay: adminName || adminUid };
+    await db.ref().update(updates);
+    await sendAdminNotification(`User ${targetUid} upgraded to ${plan.toUpperCase()} by admin ${adminName || adminUid}`);
+    alert('User upgraded to ' + plan.toUpperCase());
+  } catch (error) {
+    console.error('Failed to approve request:', error);
+    alert('Failed to approve request. Please try again.');
+  }
 }
 
 async function adminRejectRequest(adminUid, adminName, adminReqKey, adminReqObj) {
-  const targetUid = adminReqObj.uid;
-  const updates = {};
-  updates[`users/${targetUid}/upgrade_request/status`] = 'rejected';
-  updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'rejected';
-  updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, status: 'rejected', processedAt: new Date().toISOString() };
-  await db.ref().update(updates);
-  alert('Request rejected.');
+  try {
+    const targetUid = adminReqObj.uid;
+    const updates = {};
+    updates[`users/${targetUid}/upgrade_request/status`] = 'rejected';
+    updates[`admin/upgrade_requests/${adminReqKey}/status`] = 'rejected';
+    updates[`admin/approvals/${adminReqKey}`] = { adminUid, adminName, uid: targetUid, status: 'rejected', processedAt: new Date().toISOString() };
+    await db.ref().update(updates);
+    await sendAdminNotification(`Upgrade request for user ${targetUid} rejected by admin ${adminName || adminUid}`);
+    alert('Request rejected.');
+  } catch (error) {
+    console.error('Failed to reject request:', error);
+    alert('Failed to reject request. Please try again.');
+  }
 }
 
 async function adminApprovePayment(paymentId, paymentObj) {
-  const updates = {};
-  updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'approved';
-  updates[`admin/payments/${paymentId}/status`] = 'approved';
-  updates[`users/${paymentObj.uid}/purchases/${paymentObj.feature}`] = {
-    feature: paymentObj.feature,
-    amount: paymentObj.amount,
-    expiry: paymentObj.expiry,
-    purchase_time: paymentObj.created,
-    transaction_id: paymentObj.transaction_id || paymentId
-  };
-  await db.ref().update(updates);
-  await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} approved`);
-  alert(`Payment for ${paymentObj.feature} approved`);
-  renderPendingPayments();
+  try {
+    const updates = {};
+    updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'approved';
+    updates[`admin/payments/${paymentId}/status`] = 'approved';
+    updates[`users/${paymentObj.uid}/purchases/${paymentObj.feature}`] = {
+      feature: paymentObj.feature,
+      amount: paymentObj.amount,
+      expiry: paymentObj.expiry,
+      purchase_time: paymentObj.created,
+      transaction_id: paymentObj.transaction_id || paymentId
+    };
+    await db.ref().update(updates);
+    await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} approved (Transaction ID: ${paymentObj.transaction_id || paymentId})`);
+    alert(`Payment for ${paymentObj.feature} approved`);
+    renderPendingPayments();
+  } catch (error) {
+    console.error('Failed to approve payment:', error);
+    alert('Failed to approve payment. Please try again.');
+  }
 }
 
 async function adminRejectPayment(paymentId, paymentObj) {
-  const updates = {};
-  updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'rejected';
-  updates[`admin/payments/${paymentId}/status`] = 'rejected';
-  await db.ref().update(updates);
-  await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} rejected`);
-  alert(`Payment for ${paymentObj.feature} rejected`);
-  renderPendingPayments();
+  try {
+    const updates = {};
+    updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'rejected';
+    updates[`admin/payments/${paymentId}/status`] = 'rejected';
+    await db.ref().update(updates);
+    await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} rejected (Transaction ID: ${paymentObj.transaction_id || paymentId})`);
+    alert(`Payment for ${paymentObj.feature} rejected`);
+    renderPendingPayments();
+  } catch (error) {
+    console.error('Failed to reject payment:', error);
+    alert('Failed to reject payment. Please try again.');
+  }
 }
 
 function checkAndAutoDowngrade(uid, udata) {
@@ -443,7 +494,7 @@ function checkAndAutoDowngrade(uid, udata) {
     db.ref().update(updates).then(() => {
       const k = `downgrade_${uid}_${Date.now()}`;
       db.ref(`admin/downgrades/${k}`).set({ uid, old_plan: udata.plan, new_plan: 'basic', time: new Date().toISOString(), reason: 'expired_auto_downgrade' });
-    });
+    }).catch(error => console.error('Auto-downgrade failed:', error));
   }
 }
 
@@ -619,6 +670,7 @@ async function buyFeatureWithUPI(feature, amount) {
     await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
     await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
     await sendAdminNotification(`User ${uidGlobal} initiated UPI payment for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${transactionId})`);
+    console.log('UPI payment initiated:', paymentData);
     alert(`UPI payment initiated for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${transactionId}). Awaiting admin approval.`);
     modal.style.display = 'none';
   } catch (error) {
@@ -636,12 +688,14 @@ async function buyFeatureWithStripe(feature, amount) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount: Math.round(convertedAmount * 100), currency: userCurrency.toLowerCase(), feature, uid: uidGlobal })
     });
+    if (!response.ok) throw new Error(`Stripe server error: ${response.status}`);
     const { clientSecret } = await response.json();
     const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card: { token: 'tok_visa' } }
+      payment_method: { card: { token: 'tok_visa' } } // Use test token for development
     });
     if (error) {
-      alert(error.message);
+      console.error('Stripe payment error:', error);
+      alert(`Payment error: ${error.message}`);
     } else if (paymentIntent.status === 'requires_confirmation') {
       const paymentId = paymentIntent.id;
       const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
@@ -649,6 +703,7 @@ async function buyFeatureWithStripe(feature, amount) {
       await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
       await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
       await sendAdminNotification(`User ${uidGlobal} initiated Stripe payment for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${paymentId})`);
+      console.log('Stripe payment initiated:', paymentData);
       alert(`Payment initiated for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${paymentId}). Awaiting admin approval.`);
       modal.style.display = 'none';
     }
@@ -701,8 +756,11 @@ function setRefreshIntervals(ms) {
     const ref = db.ref(`users/${uidGlobal}/vehicle`);
     ref.child("current/last_active").once('value').then(lastSnap => {
       const lastActive = lastSnap.val();
-      ref.child("online").once('value').then(flagSnap => renderOnlineAndLastActive(flagSnap.val(), lastActive));
-    });
+      ref.child("online").once('value').then(flagSnap => {
+        renderOnlineAndLastActive(flagSnap.val(), lastActive);
+        console.log('Online status check:', { online: flagSnap.val(), lastActive });
+      }).catch(error => console.error('Error fetching online status:', error));
+    }).catch(error => console.error('Error fetching last_active:', error));
   }, ms);
 }
 
@@ -789,13 +847,17 @@ async function saveGeofences() {
     alert('Silver plan allows only 1 geofence');
     return;
   }
-  await db.ref(`users/${uidGlobal}/geofences`).set(layers);
+  await db.ref(`users/${uidGlobal}/geofences`).set(layers).catch(error => console.error('Failed to save geofences:', error));
   alert('Geofences saved');
 }
 
 async function loadGeofences() {
   if (!uidGlobal || !map) return;
-  const snap = await db.ref(`users/${uidGlobal}/geofences`).once('value');
+  const snap = await db.ref(`users/${uidGlobal}/geofences`).once('value').catch(error => {
+    console.error('Failed to load geofences:', error);
+    return null;
+  });
+  if (!snap) return;
   const arr = snap.val() || [];
   drawnItems.clearLayers();
   arr.forEach(obj => {
@@ -905,7 +967,7 @@ async function addVehicle() {
     alert(`Vehicle limit reached (${policy.vehicle_limit})`);
     return;
   }
-  await db.ref(`users/${uidGlobal}/vehicles/${vehicleId}`).set({ added: new Date().toISOString() });
+  await db.ref(`users/${uidGlobal}/vehicles/${vehicleId}`).set({ added: new Date().toISOString() }).catch(error => console.error('Failed to add vehicle:', error));
   renderFleetList();
 }
 
@@ -914,7 +976,11 @@ async function renderFleetList() {
     fleetList.innerHTML = '<li>Fleet management not available</li>';
     return;
   }
-  const snap = await db.ref(`users/${uidGlobal}/vehicles`).once('value');
+  const snap = await db.ref(`users/${uidGlobal}/vehicles`).once('value').catch(error => {
+    console.error('Failed to load fleet:', error);
+    return null;
+  });
+  if (!snap) return;
   const vehicles = snap.val() || {};
   fleetList.innerHTML = '';
   if (!Object.keys(vehicles).length) {
@@ -930,7 +996,11 @@ async function renderFleetList() {
 
 async function renderPendingPayments() {
   if (!isAdmin) return;
-  const snap = await db.ref('admin/payments').once('value');
+  const snap = await db.ref('admin/payments').once('value').catch(error => {
+    console.error('Failed to load payments:', error);
+    return null;
+  });
+  if (!snap) return;
   const payments = snap.val() || {};
   paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Currency</th><th>Transaction ID</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
   const tbody = paymentList.querySelector('tbody');
@@ -963,7 +1033,11 @@ async function renderPendingPayments() {
 
 async function renderAdminPanel() {
   if (!isAdmin) return;
-  const snap = await db.ref('admin/upgrade_requests').once('value');
+  const snap = await db.ref('admin/upgrade_requests').once('value').catch(error => {
+    console.error('Failed to load upgrade requests:', error);
+    return null;
+  });
+  if (!snap) return;
   const requests = snap.val() || {};
   adminList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
   const tbody = adminList.querySelector('tbody');
@@ -993,7 +1067,11 @@ async function renderAdminPanel() {
     tbody.appendChild(tr);
   });
 
-  const logSnap = await db.ref('admin/approvals').once('value');
+  const logSnap = await db.ref('admin/approvals').once('value').catch(error => {
+    console.error('Failed to load approvals:', error);
+    return null;
+  });
+  if (!logSnap) return;
   const logs = logSnap.val() || {};
   adminLogs.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Admin</th><th>Time</th></tr></thead><tbody></tbody></table>';
   const logTbody = adminLogs.querySelector('tbody');
@@ -1011,8 +1089,8 @@ modalClose.onclick = () => modal.style.display = 'none';
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
 currencySelector.onchange = handleCurrencyChange;
-upgradeToSilverBtn.onclick = () => createUpgradeRequest(uidGlobal, 'silver').then(() => alert('Silver upgrade requested. Awaiting admin approval.'));
-upgradeToGoldBtn.onclick = () => createUpgradeRequest(uidGlobal, 'gold').then(() => alert('Gold upgrade requested. Awaiting admin approval.'));
+upgradeToSilverBtn.onclick = () => createUpgradeRequest(uidGlobal, 'silver');
+upgradeToGoldBtn.onclick = () => createUpgradeRequest(uidGlobal, 'gold');
 buyExportBtn.onclick = () => showPurchaseModal('export', BASE_PRICES.export);
 buyAnalyticsBtn.onclick = () => showPurchaseModal('analytics', BASE_PRICES.analytics);
 buyFleetBtn.onclick = () => showPurchaseModal('fleet', BASE_PRICES.fleet);
@@ -1046,7 +1124,7 @@ iconUploader.onchange = async (e) => {
 alarmToggle.onchange = () => {
   if (!uidGlobal) return;
   const isChecked = alarmToggle.checked;
-  db.ref(`users/${uidGlobal}/vehicle/alarm`).set(isChecked ? 'on' : 'off');
+  db.ref(`users/${uidGlobal}/vehicle/alarm`).set(isChecked ? 'on' : 'off').catch(error => console.error('Failed to update alarm:', error));
   alarmStatusText.textContent = isChecked ? 'Alarm ON' : 'Alarm OFF';
 };
 
@@ -1054,6 +1132,7 @@ alarmToggle.onchange = () => {
 let udata = null;
 auth.onAuthStateChanged(async (user) => {
   if (!user) {
+    console.log('No user logged in, redirecting to login');
     window.location.href = 'login.html';
     return;
   }
@@ -1068,6 +1147,7 @@ auth.onAuthStateChanged(async (user) => {
   const userRef = db.ref(`users/${user.uid}`);
   userRef.on('value', async (snapshot) => {
     udata = snapshot.val() || {};
+    console.log('User data updated:', udata);
     checkAndAutoDowngrade(user.uid, udata);
     applyPlanToUI(udata);
     isAdmin = !!udata.isAdmin;
@@ -1077,6 +1157,7 @@ auth.onAuthStateChanged(async (user) => {
     const vRef = userRef.child('vehicle');
     vRef.child('current').on('value', snap => {
       const d = snap.val() || {};
+      console.log('Vehicle data:', d);
       const loc = d.location || '';
       const [lat, lng] = loc.split(',').map(s => parseFloat(s.trim()));
       locationEl.textContent = loc || '-';
@@ -1094,15 +1175,15 @@ auth.onAuthStateChanged(async (user) => {
         }
         geofenceState.lastInsideAny = inside;
       }
-    });
+    }, error => console.error('Error listening to vehicle/current:', error));
     vRef.child('alarm').on('value', snap => {
       const alarm = snap.val();
       alarmToggle.checked = alarm === 'on';
       alarmStatusText.textContent = alarm === 'on' ? 'Alarm ON' : 'Alarm OFF';
-    });
+    }, error => console.error('Error listening to vehicle/alarm:', error));
     vRef.child('alarm_trigger').on('value', snap => {
       alarmTriggerEl.textContent = prettyTS(snap.val()) || 'No triggers';
-    });
+    }, error => console.error('Error listening to vehicle/alarm_trigger:', error));
     vRef.child('history').on('value', snap => {
       const hist = snap.val() || {};
       fullHistory = Object.values(hist).map(parseEntry).filter(p => p.time && p.ts).sort((a, b) => b.ts - a.ts);
@@ -1110,10 +1191,13 @@ auth.onAuthStateChanged(async (user) => {
       if (localPlan.analytics || (udata.purchases?.analytics && isPurchaseValid(udata.purchases.analytics))) {
         renderAnalyticsChart(filteredHistory);
       }
+    }, error => console.error('Error listening to vehicle/history:', error));
+    const iconSnap = await userRef.child('custom_marker_icon').once('value').catch(error => {
+      console.error('Failed to load custom icon:', error);
+      return null;
     });
-    const iconSnap = await userRef.child('custom_marker_icon').once('value');
-    const iconUrl = iconSnap.val();
-    if (iconUrl) {
+    if (iconSnap && iconSnap.val()) {
+      const iconUrl = iconSnap.val();
       customMarkerIcon = L.icon({ iconUrl, iconSize: [32, 32], iconAnchor: [16, 30] });
       if (liveMarker) liveMarker.setIcon(customMarkerIcon);
     }
@@ -1121,5 +1205,5 @@ auth.onAuthStateChanged(async (user) => {
     if (localPlan.fleet || (udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet))) {
       await renderFleetList();
     }
-  });
+  }, error => console.error('Error listening to user data:', error));
 });
