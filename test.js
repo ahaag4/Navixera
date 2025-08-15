@@ -1,3 +1,5 @@
+
+// Firebase and Stripe initialization
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
   authDomain: "svms-c0232.firebaseapp.com",
@@ -10,8 +12,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
+const messaging = firebase.messaging.isSupported() ? firebase.messaging() : null;
 const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8'); // Replace with your Stripe publishable key
 
+// DOM elements
 const userEmailEl = document.getElementById('userEmail');
 const planPill = document.getElementById('planPill');
 const planPillHeader = document.getElementById('planPillHeader');
@@ -83,12 +87,14 @@ const analyticsPriceEl = document.getElementById('analyticsPrice');
 const fleetPriceEl = document.getElementById('fleetPrice');
 const currencySelector = document.getElementById('currencySelector');
 const currentCurrencyEl = document.getElementById('currentCurrency');
+const paymentStatusArea = document.getElementById('paymentStatusArea'); // New element for payment status
 
+// Global variables
 let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false, analytics:false, fleet:false };
+let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, analytics: false, fleet: false };
 let userCurrency = 'USD';
 let currencySymbol = '$';
 let exchangeRates = {};
@@ -97,12 +103,14 @@ let adsList = [];
 let currentAdIndex = 0;
 let adTimerInt = null;
 
+// Plan policies
 const PLAN_POLICIES = {
-  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
-  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
-  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
+  basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false },
+  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1, analytics: false, fleet: false },
+  gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999, analytics: true, fleet: true }
 };
 
+// Base prices in USD
 const BASE_PRICES = {
   silver: 149,
   gold: 249,
@@ -111,6 +119,7 @@ const BASE_PRICES = {
   fleet: 30
 };
 
+// Currency mapping
 const CURRENCY_MAP = {
   'US': { currency: 'USD', symbol: '$' },
   'IN': { currency: 'INR', symbol: '₹' },
@@ -123,7 +132,7 @@ const CURRENCY_MAP = {
   'default': { currency: 'USD', symbol: '$' }
 };
 
-// Currency detection and conversion functions
+// Currency detection and conversion
 async function detectUserCountry() {
   try {
     currencyLoading.style.display = 'block';
@@ -197,6 +206,30 @@ async function initializeCurrency() {
   updatePricesUI();
 }
 
+// Admin notification via FCM
+async function sendAdminNotification(message) {
+  if (!messaging || !isAdmin) return;
+  try {
+    const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' }); // Replace with your VAPID key
+    await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'key=YOUR_FCM_SERVER_KEY', // Replace with your FCM server key
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        to: token,
+        notification: {
+          title: 'New User Request',
+          body: message
+        }
+      })
+    });
+  } catch (error) {
+    console.error('Failed to send admin notification:', error);
+  }
+}
+
 // Ad handling
 function showAd(ad) {
   adArea.innerHTML = 'Loading...';
@@ -212,7 +245,7 @@ function showAd(ad) {
 function loadAdsForPlan(plan) {
   if (adTimerInt) clearInterval(adTimerInt);
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-  if (policy.ads === 'no-ads') { adArea.style.display='none'; adArea.innerHTML=''; return; }
+  if (policy.ads === 'no-ads') { adArea.style.display = 'none'; adArea.innerHTML = ''; return; }
   adArea.style.display = 'flex';
   db.ref('admin/ads').once('value').then(snapshot => {
     adsList = Object.values(snapshot.val() || {}).filter(ad => ad && ad.active && ad.url && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer'));
@@ -272,6 +305,19 @@ function renderRequestUI(upgradeRequest, currentPlan) {
   requestStatusArea.innerHTML = statusMsg;
 }
 
+function renderPaymentStatus(purchasesPending) {
+  if (!purchasesPending) {
+    paymentStatusArea.innerHTML = '';
+    return;
+  }
+  const pending = Object.entries(purchasesPending).filter(([_, p]) => p.status === 'pending');
+  if (!pending.length) {
+    paymentStatusArea.innerHTML = '';
+    return;
+  }
+  paymentStatusArea.innerHTML = pending.map(([id, p]) => `<span class="pending-pill">Payment for ${p.feature} (${currencySymbol}${p.amount}) — PENDING</span>`).join('<br>');
+}
+
 function applyPlanToUI(udata) {
   const plan = udata.plan || 'basic';
   const plan_expiry = udata.plan_expiry || null;
@@ -312,18 +358,20 @@ function applyPlanToUI(udata) {
   }
 
   renderRequestUI(udata.upgrade_request || null, plan);
+  renderPaymentStatus(udata.purchases_pending || null);
   if (isAdmin) renderPendingPayments();
   updatePricesUI();
 }
 
-function createUpgradeRequest(uid, desiredPlan) {
+async function createUpgradeRequest(uid, desiredPlan) {
   const now = new Date().toISOString();
   const req = { status: 'pending', requestedPlan: desiredPlan, request_time: now };
+  const adminKey = `req_${uid}_${Date.now()}`;
   const updates = {};
   updates[`users/${uid}/upgrade_request`] = req;
-  const adminKey = `req_${uid}_${Date.now()}`;
   updates[`admin/upgrade_requests/${adminKey}`] = { uid, requestedPlan: desiredPlan, status: 'pending', request_time: now };
-  return db.ref().update(updates);
+  await db.ref().update(updates);
+  await sendAdminNotification(`User ${uid} requested upgrade to ${desiredPlan.toUpperCase()}`);
 }
 
 async function adminApproveRequest(adminUid, adminName, adminReqKey, adminReqObj) {
@@ -361,9 +409,11 @@ async function adminApprovePayment(paymentId, paymentObj) {
     feature: paymentObj.feature,
     amount: paymentObj.amount,
     expiry: paymentObj.expiry,
-    purchase_time: paymentObj.created
+    purchase_time: paymentObj.created,
+    transaction_id: paymentObj.transaction_id || paymentId
   };
   await db.ref().update(updates);
+  await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} approved`);
   alert(`Payment for ${paymentObj.feature} approved`);
   renderPendingPayments();
 }
@@ -373,6 +423,7 @@ async function adminRejectPayment(paymentId, paymentObj) {
   updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'rejected';
   updates[`admin/payments/${paymentId}/status`] = 'rejected';
   await db.ref().update(updates);
+  await sendAdminNotification(`Payment for ${paymentObj.feature} by user ${paymentObj.uid} rejected`);
   alert(`Payment for ${paymentObj.feature} rejected`);
   renderPendingPayments();
 }
@@ -396,6 +447,7 @@ function checkAndAutoDowngrade(uid, udata) {
   }
 }
 
+// Map-related functions
 let map, liveMarker, baseLayer, baseLayers = {};
 let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
 let customMarkerIcon = null;
@@ -436,6 +488,7 @@ window.focusOnMap = function(lat, lng) {
   }
 };
 
+// History and KPI functions
 let fullHistory = null;
 let filteredHistory = null;
 
@@ -552,18 +605,21 @@ function applyHistoryPipeline() {
   updateHeatmap(filteredHistory);
 }
 
-function buyFeatureWithUPI(feature, amount) {
+// Payment functions
+async function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
     const convertedAmount = convertPrice(amount, userCurrency);
-    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${convertedAmount}&cu=${userCurrency}`;
+    const transactionId = `upi_txn_${uidGlobal}_${Date.now()}`;
+    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${convertedAmount}&cu=${userCurrency}&tid=${transactionId}`;
     window.open(upiLink);
     const paymentId = `upi_${uidGlobal}_${Date.now()}`;
     const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-    const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
-    db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
-    db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
-    alert(`UPI payment initiated for ${feature} (${currencySymbol}${convertedAmount}). Awaiting admin approval.`);
+    const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi', transaction_id: transactionId };
+    await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
+    await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
+    await sendAdminNotification(`User ${uidGlobal} initiated UPI payment for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${transactionId})`);
+    alert(`UPI payment initiated for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${transactionId}). Awaiting admin approval.`);
     modal.style.display = 'none';
   } catch (error) {
     console.error(`Failed to initiate UPI payment for ${feature}:`, error);
@@ -589,10 +645,11 @@ async function buyFeatureWithStripe(feature, amount) {
     } else if (paymentIntent.status === 'requires_confirmation') {
       const paymentId = paymentIntent.id;
       const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-      const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
+      const paymentData = { feature, amount: convertedAmount, currency: userCurrency, status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', transaction_id: paymentId };
       await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
       await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
-      alert(`Payment initiated for ${feature} (${currencySymbol}${convertedAmount}). Awaiting admin approval.`);
+      await sendAdminNotification(`User ${uidGlobal} initiated Stripe payment for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${paymentId})`);
+      alert(`Payment initiated for ${feature} (${currencySymbol}${convertedAmount}, Transaction ID: ${paymentId}). Awaiting admin approval.`);
       modal.style.display = 'none';
     }
   } catch (error) {
@@ -611,6 +668,7 @@ function showPurchaseModal(feature, amount) {
   modal.style.display = 'flex';
 }
 
+// Online status and notifications
 const ONLINE_TTL_MS = 90000;
 
 function parseTimestampToMs(ts) {
@@ -667,6 +725,7 @@ function maybeNotifyBattery(battPercent) {
   }
 }
 
+// Geofencing functions
 let drawControl, drawnItems;
 let geofenceState = { lastInsideAny: null };
 
@@ -873,12 +932,12 @@ async function renderPendingPayments() {
   if (!isAdmin) return;
   const snap = await db.ref('admin/payments').once('value');
   const payments = snap.val() || {};
-  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Currency</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Currency</th><th>Transaction ID</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
   const tbody = paymentList.querySelector('tbody');
   tbody.innerHTML = '';
   Object.entries(payments).reverse().forEach(([key, val]) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>${val.currency} ${val.amount}</td><td>${val.currency}</td><td>${val.status}</td><td></td>`;
+    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>${val.currency} ${val.amount}</td><td>${val.currency}</td><td>${val.transaction_id || 'N/A'}</td><td>${val.status}</td><td></td>`;
     const actionsTd = tr.querySelector('td:last-child');
     if (val.status === 'pending') {
       const aBtn = document.createElement('button');
@@ -1001,6 +1060,11 @@ auth.onAuthStateChanged(async (user) => {
   uidGlobal = user.uid;
   userEmailEl.textContent = user.email || 'user@domain.com';
   await initializeCurrency();
+  if (messaging && isAdmin) {
+    messaging.requestPermission().then(() => {
+      console.log('Admin notification permission granted');
+    }).catch(err => console.error('Notification permission denied:', err));
+  }
   const userRef = db.ref(`users/${user.uid}`);
   userRef.on('value', async (snapshot) => {
     udata = snapshot.val() || {};
