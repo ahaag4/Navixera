@@ -10,8 +10,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
+const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8'); // Replace with your Stripe publishable key
 
-// DOM elements
 const userEmailEl = document.getElementById('userEmail');
 const planPill = document.getElementById('planPill');
 const planPillHeader = document.getElementById('planPillHeader');
@@ -34,16 +34,20 @@ const vehicleLimitEl = document.getElementById('vehicleLimit');
 const upgradeBtns = document.getElementById('upgradeBtns');
 const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
 const upgradeToGoldBtn = document.getElementById('upgradeToGold');
+const buyExportBtn = document.getElementById('buyExportBtn');
+const buyAnalyticsBtn = document.getElementById('buyAnalyticsBtn');
+const buyFleetBtn = document.getElementById('buyFleetBtn');
 const requestStatusArea = document.getElementById('requestStatusArea');
 const adminPanel = document.getElementById('adminPanel');
 const adminList = document.getElementById('adminList');
 const adminLogs = document.getElementById('adminLogs');
+const adminPanelPayments = document.getElementById('adminPanelPayments');
+const paymentList = document.getElementById('paymentList');
 const modal = document.getElementById('modal');
 const modalContent = document.getElementById('modalContent');
 const modalClose = document.getElementById('modalClose');
-const modalUpgradeBtn = document.getElementById('modalUpgradeBtn');
-
-// Additional UI controls
+const modalPayUPI = document.getElementById('modalPayUPI');
+const modalPayStripe = document.getElementById('modalPayStripe');
 const dateFilterSection = document.getElementById('dateFilterSection');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
@@ -63,48 +67,43 @@ const gfHint = document.getElementById('gfHint');
 const kpiDistanceEl = document.getElementById('kpiDistance');
 const kpiStopsEl = document.getElementById('kpiStops');
 const kpiRefreshEl = document.getElementById('kpiRefresh');
+const analyticsSection = document.getElementById('analyticsSection');
+const analyticsMessage = document.getElementById('analyticsMessage');
+const analyticsChart = document.getElementById('analyticsChart');
+const fleetSection = document.getElementById('fleetSection');
+const fleetMessage = document.getElementById('fleetMessage');
+const addVehicleBtn = document.getElementById('addVehicleBtn');
+const fleetList = document.getElementById('fleetList');
 
-// Global variables
 let uidGlobal = null;
 let isAdmin = false;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false };
+let currentFeature = null;
+let currentAmount = null;
+let localPlan = { plan:'basic', plan_expiry:null, vehicle_limit:1, exportCSV:false, analytics:false, fleet:false };
 
 const PLAN_POLICIES = {
-  basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0 },
-  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1 },
-  gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999 }
+  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
+  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
+  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
 };
 
-// Ad management
-let adTimerInt = null;
-let currentAdIndex = 0;
-let adsList = [];
+let adTimerInt = null, currentAdIndex=0, adsList=[];
 
 function showAd(ad) {
   adArea.innerHTML = 'Loading...';
   if (ad.type === 'banner') {
-    const img = new Image();
-    img.src = ad.url;
+    const img = new Image(); img.src = ad.url;
     img.onload = () => { adArea.innerHTML = ''; adArea.appendChild(img); };
   } else if (ad.type === 'video') {
-    const v = document.createElement('video');
-    v.src = ad.url;
-    v.controls = true;
-    v.autoplay = true;
-    v.muted = true;
-    adArea.innerHTML = '';
-    adArea.appendChild(v);
+    const v = document.createElement('video'); v.src = ad.url; v.controls = true; v.autoplay = true; v.muted = true;
+    adArea.innerHTML = ''; adArea.appendChild(v);
   }
 }
 
 function loadAdsForPlan(plan) {
   if (adTimerInt) clearInterval(adTimerInt);
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-  if (policy.ads === 'no-ads') {
-    adArea.style.display = 'none';
-    adArea.innerHTML = '';
-    return;
-  }
+  if (policy.ads === 'no-ads') { adArea.style.display='none'; adArea.innerHTML=''; return; }
   adArea.style.display = 'flex';
   db.ref('admin/ads').once('value').then(snapshot => {
     const adsObj = snapshot.val() || {};
@@ -112,11 +111,9 @@ function loadAdsForPlan(plan) {
       ad && ad.active && ad.url &&
       (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
     );
-    if (policy.ads === 'banner-limited' && adsList.length > 1) {
-      adsList = adsList.slice(0, 1);
-    }
+    if (policy.ads==='banner-limited' && adsList.length > 1) { adsList = adsList.slice(0,1); }
     if (adsList.length) {
-      showAd(adsList[currentAdIndex = 0]);
+      showAd(adsList[currentAdIndex=0]);
       adTimerInt = setInterval(() => {
         currentAdIndex = (currentAdIndex + 1) % adsList.length;
         showAd(adsList[currentAdIndex]);
@@ -124,14 +121,25 @@ function loadAdsForPlan(plan) {
     } else {
       adArea.innerHTML = 'No active ad';
     }
-  }).catch(() => { adArea.innerHTML = 'Ad load error'; });
+  }).catch(()=> { adArea.innerHTML = 'Ad load error'; });
 }
 
-function renderAdsForPlan(plan) {
-  loadAdsForPlan(plan);
+function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
+
+function prettyTS(iso) {
+  if (!iso) return '-';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch (e) {
+    return iso;
+  }
 }
 
-// UI rendering for subscription requests
+function isPurchaseValid(purchase) {
+  if (!purchase || !purchase.expiry) return false;
+  return Date.now() < Date.parse(purchase.expiry);
+}
+
 function renderRequestUI(upgradeRequest, currentPlan) {
   upgradeToSilverBtn.style.display = 'none';
   upgradeToGoldBtn.style.display = 'none';
@@ -164,30 +172,23 @@ function renderRequestUI(upgradeRequest, currentPlan) {
   requestStatusArea.innerHTML = statusMsg;
 }
 
-function prettyTS(iso) {
-  if (!iso) return '-';
-  try {
-    return new Date(iso).toLocaleString();
-  } catch (e) {
-    return iso;
-  }
-}
-
-// Apply plan policies to UI
 function applyPlanToUI(udata) {
   const plan = udata.plan || 'basic';
   const plan_expiry = udata.plan_expiry || null;
   const vehicle_limit = (udata.vehicle_limit || PLAN_POLICIES[plan].vehicle_limit);
   const exportCSV = (typeof udata.exportCSV === 'boolean') ? udata.exportCSV : !!PLAN_POLICIES[plan].exportCSV;
-  localPlan = { plan, plan_expiry, vehicle_limit, exportCSV };
+  const analytics = PLAN_POLICIES[plan].analytics || (udata.purchases?.analytics && isPurchaseValid(udata.purchases.analytics));
+  const fleet = PLAN_POLICIES[plan].fleet || (udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet));
+  localPlan = { plan, plan_expiry, vehicle_limit, exportCSV, analytics, fleet };
+
   planPill.textContent = plan.toUpperCase();
   currentPlanEl.textContent = plan.toUpperCase();
   planPillHeader.textContent = plan.toUpperCase();
   planExpiryEl.textContent = prettyTS(plan_expiry);
   vehicleLimitEl.textContent = vehicle_limit;
-  exportCSVBtn.style.display = exportCSV ? 'inline-block' : 'none';
+  exportCSVBtn.style.display = exportCSV || (udata.purchases?.export && isPurchaseValid(udata.purchases.export)) ? 'inline-block' : 'none';
+  buyExportBtn.style.display = (!exportCSV && !(udata.purchases?.export && isPurchaseValid(udata.purchases.export))) ? 'inline-block' : 'none';
   renderAdsForPlan(plan);
-  renderRequestUI(udata.upgrade_request || null, plan);
 
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
   dateFilterSection.style.display = ['silver', 'gold'].includes(plan) ? 'flex' : 'none';
@@ -197,15 +198,27 @@ function applyPlanToUI(udata) {
   geofenceControls.style.display = policy.geofences > 0 ? 'flex' : 'none';
   gfHint.textContent = plan === 'silver' ? 'Max 1 zone' : (plan === 'gold' ? 'Multiple zones allowed' : '');
 
+  analyticsSection.style.display = analytics ? 'block' : 'none';
+  buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
+  analyticsMessage.textContent = analytics ? 'Speed trend analytics' : 'Analytics unavailable';
+  if (analytics && fullHistory) renderAnalyticsChart(fullHistory);
+
+  fleetSection.style.display = fleet ? 'block' : 'none';
+  addVehicleBtn.style.display = fleet ? 'inline-block' : 'none';
+  buyFleetBtn.style.display = (!fleet && plan !== 'gold') ? 'inline-block' : 'none';
+  fleetMessage.textContent = fleet ? 'Manage your vehicles' : 'Fleet management unavailable';
+
   kpiRefreshEl.textContent = (policy.refreshMs / 1000) + 's';
   setRefreshIntervals(policy.refreshMs);
 
   if (policy.notify && 'Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
   }
+
+  renderRequestUI(udata.upgrade_request || null, plan);
+  if (isAdmin) renderPendingPayments();
 }
 
-// Upgrade request handling
 function createUpgradeRequest(uid, desiredPlan) {
   const now = new Date().toISOString();
   const req = { status: 'pending', requestedPlan: desiredPlan, request_time: now };
@@ -243,6 +256,30 @@ async function adminRejectRequest(adminUid, adminName, adminReqKey, adminReqObj)
   alert('Request rejected.');
 }
 
+async function adminApprovePayment(paymentId, paymentObj) {
+  const updates = {};
+  updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'approved';
+  updates[`admin/payments/${paymentId}/status`] = 'approved';
+  updates[`users/${paymentObj.uid}/purchases/${paymentObj.feature}`] = {
+    feature: paymentObj.feature,
+    amount: paymentObj.amount,
+    expiry: paymentObj.expiry,
+    purchase_time: paymentObj.created
+  };
+  await db.ref().update(updates);
+  alert(`Payment for ${paymentObj.feature} approved`);
+  renderPendingPayments();
+}
+
+async function adminRejectPayment(paymentId, paymentObj) {
+  const updates = {};
+  updates[`users/${paymentObj.uid}/purchases_pending/${paymentId}/status`] = 'rejected';
+  updates[`admin/payments/${paymentId}/status`] = 'rejected';
+  await db.ref().update(updates);
+  alert(`Payment for ${paymentObj.feature} rejected`);
+  renderPendingPayments();
+}
+
 function checkAndAutoDowngrade(uid, udata) {
   if (!udata || !udata.plan || !udata.plan_expiry) return;
   const expiryMs = Date.parse(udata.plan_expiry);
@@ -262,15 +299,8 @@ function checkAndAutoDowngrade(uid, udata) {
   }
 }
 
-// Map and layers
-let map = null;
-let liveMarker = null;
-let baseLayer = null;
-let baseLayers = {};
-let routeLayer = null;
-let startMarker = null;
-let endMarker = null;
-let heatLayer = null;
+let map, liveMarker, baseLayer, baseLayers = {};
+let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
 let customMarkerIcon = null;
 
 function createBaseLayers() {
@@ -286,39 +316,37 @@ function updateBaseLayer(type) {
   baseLayer.addTo(map);
 }
 
-function updateMap(lat, lng, popupText = null) {
-  if (!(typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng))) return;
+function updateMap(lat, lng, popupText=null) {
+  if (!(typeof lat==='number' && typeof lng==='number' && !isNaN(lat) && !isNaN(lng))) return;
   if (!map) {
     map = L.map('map').setView([lat, lng], 14);
     createBaseLayers();
     updateBaseLayer('street');
-    liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
+    liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
     setupDrawTools();
   } else {
-    if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
+    if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? {icon: customMarkerIcon} : undefined).addTo(map);
     liveMarker.setLatLng([lat, lng]);
   }
   if (popupText) liveMarker.bindPopup(popupText).openPopup();
 }
 
 window.focusOnMap = function(lat, lng) {
-  lat = parseFloat(lat);
-  lng = parseFloat(lng);
+  lat = parseFloat(lat); lng = parseFloat(lng);
   if (!isNaN(lat) && !isNaN(lng)) {
     updateMap(lat, lng, `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     map.setView([lat, lng], 15);
   }
 };
 
-// History, filtering, route, KPIs
 let fullHistory = null;
 let filteredHistory = null;
 
 function parseEntry(entry) {
   const loc = entry.location || '';
-  const [lat, lng] = (loc.split(',') || []).map(s => parseFloat(s.trim()));
+  const [lat, lng] = (loc.split(',') || []).map(s=>parseFloat(s.trim()));
   const tms = Date.parse(entry.time || '');
-  return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed === 'number' ? entry.speed : null };
+  return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed==='number'?entry.speed:null };
 }
 
 function renderHistoryTable(list) {
@@ -330,42 +358,38 @@ function renderHistoryTable(list) {
   list.forEach(entry => {
     const canFocus = !(isNaN(entry.lat) || isNaN(entry.lng));
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat) && isFinite(entry.lng)) ? (entry.lat + ',' + entry.lng) : ''}</td>
-      <td><button class="view-btn"${canFocus ? ` onclick="focusOnMap(${entry.lat},${entry.lng})"` : ' disabled style="opacity:.65;"'}>View</button></td>`;
+    tr.innerHTML = `<td>${entry.time || ''}</td><td>${(isFinite(entry.lat)&&isFinite(entry.lng))? (entry.lat+','+entry.lng) : ''}</td>
+      <td><button class="view-btn"${canFocus?` onclick="focusOnMap(${entry.lat},${entry.lng})"`:' disabled style="opacity:.65;"'}>View</button></td>`;
     historyTbody.appendChild(tr);
   });
 }
 
 function haversineKm(a, b) {
   const R = 6371;
-  const toRad = d => d * Math.PI / 180;
+  const toRad = d => d*Math.PI/180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
 }
 
 function computeKPIs(list) {
-  if (!list || list.length < 2) {
-    kpiDistanceEl.textContent = '0.00 km';
-    kpiStopsEl.textContent = '0';
-    return;
-  }
+  if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent='0'; return; }
   let dist = 0;
-  for (let i = 1; i < list.length; i++) {
-    const p = list[i - 1], q = list[i];
-    if (isFinite(p.lat) && isFinite(p.lng) && isFinite(q.lat) && isFinite(q.lng)) {
-      dist += haversineKm(p, q);
+  for (let i=1;i<list.length;i++) {
+    const p = list[i-1], q = list[i];
+    if (isFinite(p.lat)&&isFinite(p.lng)&&isFinite(q.lat)&&isFinite(q.lng)) {
+      dist += haversineKm(p,q);
     }
   }
   let stops = 0;
   const SPEED_KMH_THRESHOLD = 2;
-  const STOP_MS = 5 * 60 * 1000;
+  const STOP_MS = 5*60*1000;
   let blockStart = null, lastPoint = null;
-  for (let i = 0; i < list.length; i++) {
+  for (let i=0;i<list.length;i++) {
     const p = list[i];
     const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
-                         (lastPoint && p.ts && lastPoint.ts && haversineKm(p, lastPoint) < 0.015);
+                         (lastPoint && p.ts && lastPoint.ts && haversineKm(p,lastPoint) < 0.015);
     if (slowOrStatic) {
       if (!blockStart) blockStart = p;
     } else {
@@ -374,7 +398,7 @@ function computeKPIs(list) {
     }
     lastPoint = p;
   }
-  if (blockStart && lastPoint && lastPoint.ts && blockStart.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
+  if (blockStart && lastPoint && blockStart.ts && lastPoint.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
   kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
   kpiStopsEl.textContent = String(stops);
 }
@@ -386,14 +410,11 @@ function clearRouteLayers() {
 }
 
 function plotRoute(list) {
-  if (!map || !list || !list.length) {
-    clearRouteLayers();
-    return;
-  }
+  if (!map || !list || !list.length) return;
   clearRouteLayers();
   const coords = list.filter(p => isFinite(p.lat) && isFinite(p.lng)).map(p => [p.lat, p.lng]);
   if (!coords.length) return;
-  routeLayer = L.polyline(coords, { weight: 4, color: '#2670ff' }).addTo(map);
+  routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
   const startIcon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41] });
   const endIcon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', iconSize: [25, 41], iconAnchor: [12, 41] });
   startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
@@ -426,7 +447,62 @@ function applyDateFilter(list) {
   });
 }
 
-// Online status and notifications
+function buyFeatureWithUPI(feature, amount) {
+  if (!uidGlobal) return alert('Not logged in');
+  try {
+    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${amount}&cu=USD`;
+    window.open(upiLink);
+    const paymentId = `upi_${uidGlobal}_${Date.now()}`;
+    const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
+    const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
+    db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
+    db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
+    alert(`UPI payment initiated for ${feature}. Awaiting admin approval.`);
+    modal.style.display = 'none';
+  } catch (error) {
+    console.error(`Failed to initiate UPI payment for ${feature}:`, error);
+    alert(`Failed to initiate UPI payment. Please try again.`);
+  }
+}
+
+async function buyFeatureWithStripe(feature, amount) {
+  if (!uidGlobal) return alert('Not logged in');
+  try {
+    const response = await fetch('http://localhost:3000/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: Math.round(amount * 100), currency: 'usd', feature, uid: uidGlobal })
+    });
+    const { clientSecret } = await response.json();
+    const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card: { token: 'tok_visa' } }
+    });
+    if (error) {
+      alert(error.message);
+    } else if (paymentIntent.status === 'requires_confirmation') {
+      const paymentId = paymentIntent.id;
+      const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
+      const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
+      await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
+      await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
+      alert(`Payment initiated for ${feature}. Awaiting admin approval.`);
+      modal.style.display = 'none';
+    }
+  } catch (error) {
+    console.error(`Failed to process Stripe payment for ${feature}:`, error);
+    alert(`Error processing payment: ${error.message}`);
+  }
+}
+
+function showPurchaseModal(feature, amount) {
+  currentFeature = feature;
+  currentAmount = amount;
+  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: $${amount}</p><p>Choose payment method:</p>`;
+  modalPayUPI.style.display = 'inline-block';
+  modalPayStripe.style.display = 'inline-block';
+  modal.style.display = 'flex';
+}
+
 const ONLINE_TTL_MS = 90000;
 
 function parseTimestampToMs(ts) {
@@ -452,7 +528,6 @@ function renderOnlineAndLastActive(flag, lastActiveStr) {
 }
 
 let lastActivePoller = null;
-
 function setRefreshIntervals(ms) {
   if (lastActivePoller) clearInterval(lastActivePoller);
   lastActivePoller = setInterval(() => {
@@ -466,14 +541,10 @@ function setRefreshIntervals(ms) {
 }
 
 let lastOnlineState = null;
-
 function maybeNotifyStatus(isOnline) {
   const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
   if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
-  if (lastOnlineState === null) {
-    lastOnlineState = isOnline;
-    return;
-  }
+  if (lastOnlineState === null) { lastOnlineState = isOnline; return; }
   if (isOnline !== lastOnlineState) {
     new Notification("Vehicle Status", { body: isOnline ? "Vehicle is ONLINE" : "Vehicle is OFFLINE" });
     lastOnlineState = isOnline;
@@ -488,9 +559,7 @@ function maybeNotifyBattery(battPercent) {
   }
 }
 
-// Geofencing
-let drawControl = null;
-let drawnItems = null;
+let drawControl, drawnItems;
 let geofenceState = { lastInsideAny: null };
 
 function setupDrawTools() {
@@ -584,50 +653,43 @@ function pointInsideGeofences(lat, lng) {
       const c = layer.getLatLng();
       inside = map.distance([lat, lng], c) <= layer.getRadius();
     } else if (layer instanceof L.Polygon) {
-      inside = leafletPipPointInLayer([lat, lng], layer);
+      inside = leafletPip.pointInLayer([lng, lat], layer, true).length > 0;
     }
   });
   return inside;
 }
 
-function leafletPipPointInLayer(point, polygonLayer) {
-  const x = point[1], y = point[0];
-  const poly = polygonLayer.getLatLngs()[0].map(p => [p.lng, p.lat]);
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i][0], yi = poly[i][1];
-    const xj = poly[j][0], yj = poly[j][1];
-    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-// CSV export
-function exportHistoryCSV(histObj) {
-  if (!localPlan.exportCSV) {
-    showModal('CSV export is not available on your current plan. Request upgrade to Silver or Gold.', true);
+function exportHistoryCSV(histArray) {
+  if (!localPlan.exportCSV && !(udata && udata.purchases?.export && isPurchaseValid(udata.purchases.export))) {
+    showPurchaseModal('export', 2);
     return;
   }
-  if (!histObj) {
-    alert('No history');
+  if (!histArray || !Array.isArray(histArray) || histArray.length === 0) {
+    alert('No history data available to export.');
     return;
   }
-  const rows = [['time', 'location', 'speed']];
-  Object.values(histObj).forEach(e => rows.push([e.time || '', '' + (e.location || ''), (e.speed ?? '')]));
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `history_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const rows = [['time', 'location', 'speed']];
+    histArray.forEach(entry => {
+      const location = (isFinite(entry.lat) && isFinite(entry.lng)) ? `${entry.lat},${entry.lng}` : '';
+      rows.push([entry.time || '', location, entry.speed !== null ? String(entry.speed) : '']);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `history_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('CSV export failed:', error);
+    alert('Failed to export history. Please try again.');
+  }
 }
 
-// Component rendering
 function renderComponents(obj) {
   componentsListEl.innerHTML = "";
   if (!obj || !Object.keys(obj).length) {
@@ -644,114 +706,122 @@ function renderComponents(obj) {
   }
 }
 
-// Modal handling
-function showModal(html, showUpgrade = false) {
-  modalContent.innerHTML = html;
-  modal.style.display = 'flex';
-  modalUpgradeBtn.style.display = showUpgrade ? 'inline-block' : 'none';
+let chartInstance = null;
+function renderAnalyticsChart(history) {
+  if (!history || !analyticsChart) return;
+  const ctx = analyticsChart.getContext('2d');
+  const labels = history.map(h => h.time || '');
+  const speeds = history.map(h => h.speed !== null ? h.speed : 0);
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Speed (km/h)',
+        data: speeds,
+        borderColor: '#2670ff',
+        fill: false,
+        tension: 0.1
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { display: true, title: { display: true, text: 'Time' } },
+        y: { display: true, title: { display: true, text: 'Speed (km/h)' } }
+      }
+    }
+  });
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) {
-    logoutBtn.onclick = () => auth.signOut();
-  }
-
-  applyFilterBtn.addEventListener('click', () => {
-    applyHistoryPipeline(true); // Plot polyline on filter
-  });
-
-  clearFilterBtn.addEventListener('click', () => {
-    startDateInput.value = '';
-    endDateInput.value = '';
-    applyHistoryPipeline(false); // Clear polyline on reset
-  });
-
-  mapTypeSelect.addEventListener('change', (e) => {
-    updateBaseLayer(e.target.value);
-  });
-
-  heatToggle.addEventListener('change', () => updateHeatmap(filteredHistory));
-
-  iconUploader.addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file || !uidGlobal) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result;
-      await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
-      customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize: [32, 32], iconAnchor: [16, 30] });
-      if (liveMarker) liveMarker.setIcon(customMarkerIcon);
-      alert('Custom marker icon saved.');
-    };
-    reader.readAsDataURL(file);
-  });
-
-  gfEnableDrawBtn.addEventListener('click', () => {
-    enableDrawing();
-  });
-  gfSaveBtn.addEventListener('click', () => {
-    saveGeofences();
-    disableDrawing();
-  });
-  gfClearBtn.addEventListener('click', async () => {
-    if (!uidGlobal) return;
-    drawnItems.clearLayers();
-    await db.ref(`users/${uidGlobal}/geofences`).set([]);
-    alert('Geofences cleared');
-  });
-
-  upgradeToSilverBtn.addEventListener('click', () => {
-    if (!uidGlobal) return alert('Not logged in');
-    createUpgradeRequest(uidGlobal, 'silver').then(() => {
-      upgradeToSilverBtn.style.display = 'none';
-      upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(() => {
-      alert('Failed to send request');
-    });
-  });
-
-  upgradeToGoldBtn.addEventListener('click', () => {
-    if (!uidGlobal) return alert('Not logged in');
-    createUpgradeRequest(uidGlobal, 'gold').then(() => {
-      upgradeToSilverBtn.style.display = 'none';
-      upgradeToGoldBtn.style.display = 'none';
-      requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-    }).catch(() => {
-      alert('Failed to send request');
-    });
-  });
-
-  modalClose.onclick = () => modal.style.display = 'none';
-  modalUpgradeBtn.onclick = () => { modal.style.display = 'none'; };
-});
-
-// Authentication and real-time bindings
-auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    window.location.href = 'login.html';
+async function addVehicle() {
+  const vehicleId = prompt('Enter Vehicle ID:');
+  if (!vehicleId || !uidGlobal) return;
+  const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
+  const currentVehicles = await db.ref(`users/${uidGlobal}/vehicles`).once('value').then(snap => snap.val() || {});
+  if (Object.keys(currentVehicles).length >= policy.vehicle_limit) {
+    alert(`Vehicle limit reached (${policy.vehicle_limit})`);
     return;
   }
+  await db.ref(`users/${uidGlobal}/vehicles/${vehicleId}`).set({ added: new Date().toISOString() });
+  renderFleetList();
+}
+
+async function renderFleetList() {
+  if (!localPlan.fleet && !(udata && udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet))) {
+    fleetList.innerHTML = '<li>Fleet management not available</li>';
+    return;
+  }
+  const snap = await db.ref(`users/${uidGlobal}/vehicles`).once('value');
+  const vehicles = snap.val() || {};
+  fleetList.innerHTML = '';
+  if (!Object.keys(vehicles).length) {
+    fleetList.innerHTML = '<li>No vehicles added</li>';
+    return;
+  }
+  for (const [id, data] of Object.entries(vehicles)) {
+    const li = document.createElement('li');
+    li.innerHTML = `${id} (Added: ${prettyTS(data.added)})`;
+    fleetList.appendChild(li);
+  }
+}
+
+async function renderPendingPayments() {
+  if (!isAdmin) return;
+  const snap = await db.ref('admin/payments').once('value');
+  const payments = snap.val() || {};
+  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+  const tbody = paymentList.querySelector('tbody');
+  tbody.innerHTML = '';
+  Object.entries(payments).reverse().forEach(([key, val]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>$${val.amount}</td><td>${val.status}</td><td></td>`;
+    const actionsTd = tr.querySelector('td:last-child');
+    if (val.status === 'pending') {
+      const aBtn = document.createElement('button');
+      aBtn.textContent = 'Approve';
+      aBtn.className = 'btn btn-primary';
+      aBtn.onclick = () => adminApprovePayment(key, val);
+      const rBtn = document.createElement('button');
+      rBtn.textContent = 'Reject';
+      rBtn.className = 'btn btn-danger';
+      rBtn.style.marginLeft = '8px';
+      rBtn.onclick = () => {
+        if (!confirm('Reject this payment?')) return;
+        adminRejectPayment(key, val);
+      };
+      actionsTd.appendChild(aBtn);
+      actionsTd.appendChild(rBtn);
+    } else {
+      actionsTd.textContent = 'Processed';
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+modalClose.onclick = () => modal.style.display = 'none';
+modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
+modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
+
+let udata = null;
+auth.onAuthStateChanged(async (user) => {
+  if (!user) { window.location.href = 'login.html'; return; }
   uidGlobal = user.uid;
   userEmailEl.textContent = user.email || user.uid;
 
   db.ref(`users/${uidGlobal}`).on('value', snap => {
-    const udata = snap.val() || {};
+    udata = snap.val() || {};
     applyPlanToUI(udata);
     checkAndAutoDowngrade(uidGlobal, udata);
     if (udata.custom_marker_icon) {
       customMarkerIcon = L.icon({ iconUrl: udata.custom_marker_icon, iconSize: [32, 32], iconAnchor: [16, 30] });
       if (liveMarker) liveMarker.setIcon(customMarkerIcon);
     }
-    if (udata.admin === true) {
-      isAdmin = true;
-      adminPanel.style.display = 'block';
-    } else {
-      isAdmin = false;
-      adminPanel.style.display = 'none';
-    }
+    if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; adminPanelPayments.style.display = 'block'; }
+    else { isAdmin = false; adminPanel.style.display = 'none'; adminPanelPayments.style.display = 'none'; }
+    if (udata.purchases?.fleet || localPlan.fleet) renderFleetList();
   });
 
   const ref = db.ref(`users/${uidGlobal}/vehicle`);
@@ -764,7 +834,7 @@ auth.onAuthStateChanged(async (user) => {
       const inside = pointInsideGeofences(parseFloat(d.latitude), parseFloat(d.longitude));
       if (geofenceState.lastInsideAny === null) geofenceState.lastInsideAny = inside;
       if (geofenceState.lastInsideAny && !inside) {
-        showModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
+        showPurchaseModal('<b>Geofence Alert:</b> Vehicle left the zone.', false);
         const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
         if (policy.notify && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('Geofence Alert', { body: 'Vehicle left the zone' });
@@ -783,7 +853,8 @@ auth.onAuthStateChanged(async (user) => {
   ref.child("history").on("value", snap => {
     const raw = snap.val() || null;
     fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
-    applyHistoryPipeline(false); // Do not plot polyline on history update
+    applyHistoryPipeline();
+    if (localPlan.analytics) renderAnalyticsChart(fullHistory);
   });
 
   ref.child("components").on("value", snap => renderComponents(snap.val()));
@@ -799,10 +870,10 @@ auth.onAuthStateChanged(async (user) => {
   ref.child("last_trigger").on("value", s => {
     const t = s.val();
     if (t && t.time && t.status === "alert") {
-      alarmTriggerEl.innerHTML = `<span style="color:#dc3545;">⚠️ ${t.time} at ${t.location}</span>`;
+      alarmTriggerEl.innerHTML = `<span style="color:red;">⚠️ ${t.time} at ${t.location}</span>`;
     } else alarmTriggerEl.textContent = "No triggers";
   });
-  ref.child("alarm").on("change", () => {
+  alarmToggle.addEventListener("change", () => {
     ref.child("alarm").set(alarmToggle.checked ? "on" : "off");
   });
 
@@ -852,22 +923,88 @@ auth.onAuthStateChanged(async (user) => {
   });
 
   await loadGeofences();
+  await renderFleetList();
 });
 
-// History pipeline
 function applyHistoryPipeline(plotPolyline = false) {
   if (!fullHistory) {
     historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
-    clearRouteLayers();
     return;
   }
   filteredHistory = applyDateFilter(fullHistory);
   renderHistoryTable(filteredHistory);
   computeKPIs(filteredHistory);
+  if (plotPolyline) plotRoute(filteredHistory);
   updateHeatmap(filteredHistory);
-  if (plotPolyline) {
-    plotRoute(filteredHistory);
-  } else {
-    clearRouteLayers();
-  }
-  }
+  if (localPlan.analytics) renderAnalyticsChart(filteredHistory);
+}
+
+applyFilterBtn.addEventListener('click', () => applyHistoryPipeline(true));
+clearFilterBtn.addEventListener('click', () => {
+  startDateInput.value = '';
+  endDateInput.value = '';
+  applyHistoryPipeline();
+});
+
+exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
+buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 2));
+buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 5));
+buyFleetBtn.addEventListener('click', () => showPurchaseModal('fleet', 30));
+addVehicleBtn.addEventListener('click', addVehicle);
+
+mapTypeSelect.addEventListener('change', (e) => {
+  updateBaseLayer(e.target.value);
+});
+
+heatToggle.addEventListener('change', () => updateHeatmap(filteredHistory));
+
+iconUploader.addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file || !uidGlobal) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    await db.ref(`users/${uidGlobal}/custom_marker_icon`).set(dataUrl);
+    customMarkerIcon = L.icon({ iconUrl: dataUrl, iconSize: [32, 32], iconAnchor: [16, 30] });
+    if (liveMarker) liveMarker.setIcon(customMarkerIcon);
+    alert('Custom marker icon saved.');
+  };
+  reader.readAsDataURL(file);
+});
+
+gfEnableDrawBtn.addEventListener('click', () => {
+  enableDrawing();
+});
+gfSaveBtn.addEventListener('click', () => { saveGeofences(); disableDrawing(); });
+gfClearBtn.addEventListener('click', async () => {
+  if (!uidGlobal) return;
+  drawnItems.clearLayers();
+  await db.ref(`users/${uidGlobal}/geofences`).set([]);
+  alert('Geofences cleared');
+});
+
+upgradeToSilverBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'silver').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+upgradeToGoldBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'gold').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+
+logoutBtn.addEventListener('click', () => {
+  auth.signOut().then(() => {
+    window.location.href = 'login.html';
+  }).catch(error => {
+    console.error('Logout failed:', error);
+    alert('Failed to logout. Please try again.');
+  });
+});
