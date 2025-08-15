@@ -65,7 +65,7 @@
     .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
     .btn-stripe { background:#635bff; color:#fff; font-weight:700;}
     #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
-    .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
     .modal-content { padding: 20px; }
     .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
     .close:hover { color: black; }
@@ -80,8 +80,6 @@
     .fleet-card ul { list-style: none; padding: 0; }
     .fleet-card ul li { padding: 8px 0; border-bottom: 1px solid #f2f5fc; }
     .currency-loading { display: none; color: #6c757d; font-size: 14px; margin-top: 10px; }
-    .currency-error { display: none; color: #dc3545; font-size: 14px; margin-top: 10px; }
-    .currency-selector { padding:6px 8px; border:1px solid #e5e9f2; border-radius:8px; font-size:14px; }
     @media (max-width:600px) {
       .dashboard {padding:0 7px;}
       header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
@@ -149,16 +147,6 @@
         <div>Plan: <strong id="currentPlan">Loading</strong></div>
         <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
         <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
-        <div class="small-muted">Currency: <span id="currentCurrency">USD</span></div>
-        <div class="inline">
-          <select id="currencySelector" class="currency-selector">
-            <option value="USD">USD ($)</option>
-            <option value="INR">INR (₹)</option>
-            <option value="EUR">EUR (€)</option>
-            <option value="GBP">GBP (£)</option>
-            <option value="AUD">AUD (A$)</option>
-          </select>
-        </div>
         <div id="upgradeBtns" style="margin-left:auto;">
           <button id="upgradeToSilver" class="btn btn-warning">Request Silver (<span id="silverPrice">149</span>)</button>
           <button id="upgradeToGold" class="btn btn-primary">Request Gold (<span id="goldPrice">249</span>)</button>
@@ -174,7 +162,6 @@
         Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
       </div>
       <div id="currencyLoading" class="currency-loading">Detecting currency...</div>
-      <div id="currencyError" class="currency-error">Unable to detect currency, defaulting to USD.</div>
     </section>
 
     <section class="card map-card">
@@ -291,6 +278,6 @@
     <!-- Stripe -->
     <script src="https://js.stripe.com/v3/"></script>
     <!-- Main script -->
-    <script src="test.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
