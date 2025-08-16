@@ -17,6 +17,8 @@
     .pill-pending{background:#ffd966;color:#4a2900;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
     .pill-approved{background:#31ffa7;color:#167054;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
     .pill-rejected{background:#f8d7da;color:#721c24;border-radius:8px;padding:5px 12px;font-weight:700;display:inline-block}
+    .clickable-ad { cursor: pointer; transition: transform 0.2s; }
+    .clickable-ad:hover { transform: scale(1.02); }
   </style>
 </head>
 <body>
@@ -51,6 +53,28 @@
         <h5>Subscription Plan Upgrade Requests</h5>
         <ul id="subscriptionPendingList" class="list-group mb-2"></ul>
         <div class="small text-muted">Approve/reject users' Silver/Gold upgrade requests.</div>
+      </div>
+    </div>
+    <!-- In-App Purchases Approvals -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>In-App Purchase Requests</h5>
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Feature</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Transaction ID</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="purchaseRequestsTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
     <!-- Ads Management -->
@@ -89,6 +113,10 @@
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
+          </div>
+          <div class="col-md-4 mt-2">
+            <label class="form-label">Click URL</label>
+            <input id="adClickUrl" class="form-control" placeholder="https://... (optional)"/>
           </div>
           <div class="col-md-4 d-flex align-items-end mt-2">
             <button id="uploadAdBtn" class="btn btn-primary w-100">Upload / Save Ad</button>
@@ -175,6 +203,7 @@
     loadApprovedUsers();
     loadUserDropdowns();
     loadPendingSubscriptions();
+    loadPurchaseRequests();
     loadAds();
     document.getElementById('uploadAdBtn').onclick = handleUploadAd;
     document.getElementById('loadHistoryBtn').onclick = handleLoadHistory;
@@ -320,7 +349,73 @@
   }
   window.rejectSubscriptionPlan = rejectSubscriptionPlan;
 
-  // ==== Ads Management (fully working)
+  // ==== In-App Purchase Approvals
+  function loadPurchaseRequests() {
+    const table = document.getElementById('purchaseRequestsTable');
+    db.ref('admin/payments').on('value', snap => {
+      const payments = snap.val() || {};
+      table.innerHTML = '';
+      
+      Object.entries(payments).reverse().forEach(([paymentId, payment]) => {
+        if (!payment || payment.status !== 'pending') return;
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${payment.user_email || payment.uid || 'N/A'}</td>
+          <td>${payment.feature || 'N/A'}</td>
+          <td>${payment.currency === 'inr' ? '₹' : '$'}${payment.amount || '0'}</td>
+          <td>${payment.payment_method || 'N/A'}</td>
+          <td>${payment.transaction_id || 'N/A'}</td>
+          <td><span class="pill-pending">Pending</span></td>
+          <td>
+            <button class="btn btn-success btn-sm me-1" onclick="window.approvePurchase('${paymentId}', '${payment.uid}', '${payment.feature}')">Approve</button>
+            <button class="btn btn-danger btn-sm" onclick="window.rejectPurchase('${paymentId}')">Reject</button>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+      
+      if (table.innerHTML === '') {
+        table.innerHTML = '<tr><td colspan="7" class="text-muted">No pending purchase requests</td></tr>';
+      }
+    });
+  }
+  
+  window.approvePurchase = function(paymentId, uid, feature) {
+    if (!confirm(`Approve this ${feature} purchase?`)) return;
+    
+    const expiryDate = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
+    
+    const updates = {};
+    updates[`users/${uid}/purchases/${feature}`] = {
+      feature: feature,
+      purchase_time: new Date().toISOString(),
+      expiry: expiryDate,
+      approved_by: auth.currentUser.email || auth.currentUser.uid,
+      approved_at: new Date().toISOString()
+    };
+    updates[`users/${uid}/purchases_pending/${paymentId}/status`] = 'approved';
+    updates[`admin/payments/${paymentId}/status`] = 'approved';
+    updates[`admin/payments/${paymentId}/approved_by`] = auth.currentUser.email || auth.currentUser.uid;
+    updates[`admin/payments/${paymentId}/approved_at`] = new Date().toISOString();
+    
+    db.ref().update(updates)
+      .then(() => alert('Purchase approved!'))
+      .catch(err => alert('Error: ' + err.message));
+  };
+  
+  window.rejectPurchase = function(paymentId) {
+    if (!confirm('Reject this purchase request?')) return;
+    
+    const updates = {};
+    updates[`admin/payments/${paymentId}/status`] = 'rejected';
+    
+    db.ref().update(updates)
+      .then(() => alert('Purchase rejected!'))
+      .catch(err => alert('Error: ' + err.message));
+  };
+
+  // ==== Ads Management (fully working with clickable ads)
   function loadAds(){
     const adsList = document.getElementById('adsList');
     adsList.innerHTML = '<div class="text-muted">Loading ads…</div>';
@@ -334,16 +429,48 @@
         div.innerHTML = `<div><strong>Placement:</strong> ${escapeHtml(ad.placement || '')} · <strong>Type:</strong> ${escapeHtml(ad.type||'')} · <small class="text-muted">${escapeHtml(created)}</small></div>`;
         const content = document.createElement('div');
         if(ad.type === 'banner'){
-          content.innerHTML = ad.url ? `<img src="${ad.url}" style="max-width:320px;height:auto;border-radius:6px"/>` : `<small class="text-muted">No url</small>`;
+          const img = document.createElement('img');
+          img.src = ad.url || '';
+          img.style.maxWidth = '320px';
+          img.style.height = 'auto';
+          img.style.borderRadius = '6px';
+          img.className = 'clickable-ad';
+          if (ad.clickUrl) {
+            img.onclick = () => window.open(ad.clickUrl, '_blank');
+          }
+          content.appendChild(img);
         } else {
-          content.innerHTML = ad.url ? `<video controls style="max-width:320px;border-radius:6px"><source src="${ad.url}"></video>` : `<small class="text-muted">No url</small>`;
+          const video = document.createElement('video');
+          video.controls = true;
+          video.style.maxWidth = '320px';
+          video.style.borderRadius = '6px';
+          const source = document.createElement('source');
+          source.src = ad.url || '';
+          video.appendChild(source);
+          video.className = 'clickable-ad';
+          if (ad.clickUrl) {
+            video.onclick = () => window.open(ad.clickUrl, '_blank');
+          }
+          content.appendChild(video);
         }
+        
         const btns = document.createElement('div'); btns.className='mt-2';
         const toggleBtn = document.createElement('button'); toggleBtn.className='btn btn-sm btn-outline-secondary me-2';
         toggleBtn.textContent = ad.active ? 'Deactivate' : 'Activate';
         toggleBtn.onclick = ()=> {
           db.ref(`admin/ads/${key}/active`).set(!ad.active).then(()=> loadAds());
         };
+        
+        const clickUrlBtn = document.createElement('button'); 
+        clickUrlBtn.className='btn btn-sm btn-outline-primary me-2';
+        clickUrlBtn.textContent='Edit Click URL';
+        clickUrlBtn.onclick = ()=> {
+          const newUrl = prompt('Enter new click URL (leave empty to remove):', ad.clickUrl || '');
+          if (newUrl !== null) {
+            db.ref(`admin/ads/${key}/clickUrl`).set(newUrl || null).then(()=> loadAds());
+          }
+        };
+        
         const delBtn = document.createElement('button'); delBtn.className='btn btn-sm btn-danger'; delBtn.textContent='Delete';
         delBtn.onclick = ()=> {
           if(!confirm('Delete this ad?')) return;
@@ -352,21 +479,31 @@
             loadAds();
           });
         };
-        btns.appendChild(toggleBtn); btns.appendChild(delBtn);
+        
+        btns.appendChild(toggleBtn); 
+        btns.appendChild(clickUrlBtn);
+        btns.appendChild(delBtn);
         div.appendChild(content); div.appendChild(btns);
         adsList.appendChild(div);
       });
     }).catch(err => logDebug('loadAds error: ' + err.message));
   }
+  
   async function handleUploadAd(){
     const placement = document.getElementById('adPlacement').value;
     const type = document.getElementById('adType').value;
     const active = document.getElementById('adActive').value === 'true';
     const urlProvided = (document.getElementById('adUrl').value || '').trim();
+    const clickUrl = (document.getElementById('adClickUrl').value || '').trim();
     const file = document.getElementById('adFile').files[0];
     const key = db.ref('admin/ads').push().key;
     const createdAt = new Date().toISOString();
     const adMeta = { placement, type, active, createdAt };
+    
+    if (clickUrl) {
+      adMeta.clickUrl = clickUrl;
+    }
+    
     try {
       if (file) {
         const path = `admin_ads/${key}/${file.name}`;
@@ -380,9 +517,11 @@
       } else {
         return alert('Provide a file or a URL.');
       }
+      
       await db.ref(`admin/ads/${key}`).set(adMeta);
       document.getElementById('adFile').value = '';
       document.getElementById('adUrl').value = '';
+      document.getElementById('adClickUrl').value = '';
       alert('Ad saved.');
       loadAds();
     } catch(err){
@@ -471,4 +610,4 @@
   }
   </script>
 </body>
-</html>
+  </html>
