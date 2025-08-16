@@ -201,7 +201,6 @@ function applyPlanToUI(udata) {
   analyticsSection.style.display = analytics ? 'block' : 'none';
   buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
   analyticsMessage.textContent = analytics ? 'Speed trend analytics' : 'Analytics unavailable';
-  if (analytics && fullHistory) renderAnalyticsChart(fullHistory);
 
   fleetSection.style.display = fleet ? 'block' : 'none';
   addVehicleBtn.style.display = fleet ? 'inline-block' : 'none';
@@ -450,11 +449,13 @@ function applyDateFilter(list) {
 function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
-    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${amount}&cu=USD`;
+    const upiLink = `upi://pay?pa=hydrahunter93@postbank&pn=Asitech&am=${amount}&cu=INR`;
     window.open(upiLink);
+    const txId = prompt('Enter transaction ID from UPI app:');
     const paymentId = `upi_${uidGlobal}_${Date.now()}`;
     const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-    const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
+    const paymentData = { feature, amount, currency: 'inr', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'upi' };
+    if (txId) paymentData.transaction_id = txId;
     db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
     db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
     alert(`UPI payment initiated for ${feature}. Awaiting admin approval.`);
@@ -471,7 +472,7 @@ async function buyFeatureWithStripe(feature, amount) {
     const response = await fetch('http://localhost:3000/create-payment-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Math.round(amount * 100), currency: 'usd', feature, uid: uidGlobal })
+      body: JSON.stringify({ amount: Math.round(amount * 100), currency: 'inr', feature, uid: uidGlobal })
     });
     const { clientSecret } = await response.json();
     const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
@@ -482,7 +483,7 @@ async function buyFeatureWithStripe(feature, amount) {
     } else if (paymentIntent.status === 'requires_confirmation') {
       const paymentId = paymentIntent.id;
       const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-      const paymentData = { feature, amount, currency: 'usd', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
+      const paymentData = { feature, amount, currency: 'inr', status: 'pending', created: new Date().toISOString(), expiry, payment_method: 'stripe', payment_intent_id: paymentId };
       await db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
       await db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
       alert(`Payment initiated for ${feature}. Awaiting admin approval.`);
@@ -497,7 +498,7 @@ async function buyFeatureWithStripe(feature, amount) {
 function showPurchaseModal(feature, amount) {
   currentFeature = feature;
   currentAmount = amount;
-  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: $${amount}</p><p>Choose payment method:</p>`;
+  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: ₹${amount}</p><p>Choose payment method:</p>`;
   modalPayUPI.style.display = 'inline-block';
   modalPayStripe.style.display = 'inline-block';
   modal.style.display = 'flex';
@@ -710,8 +711,9 @@ let chartInstance = null;
 function renderAnalyticsChart(history) {
   if (!history || !analyticsChart) return;
   const ctx = analyticsChart.getContext('2d');
-  const labels = history.map(h => h.time || '');
-  const speeds = history.map(h => h.speed !== null ? h.speed : 0);
+  const chronoHistory = [...history].sort((a,b) => (a.ts || 0) - (b.ts || 0));
+  const labels = chronoHistory.map(h => h.time || '');
+  const speeds = chronoHistory.map(h => h.speed !== null ? h.speed : 0);
 
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart(ctx, {
@@ -772,12 +774,12 @@ async function renderPendingPayments() {
   if (!isAdmin) return;
   const snap = await db.ref('admin/payments').once('value');
   const payments = snap.val() || {};
-  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+  paymentList.innerHTML = '<table style="width:100%"><thead><tr><th>User</th><th>Feature</th><th>Amount</th><th>Transaction ID</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
   const tbody = paymentList.querySelector('tbody');
   tbody.innerHTML = '';
   Object.entries(payments).reverse().forEach(([key, val]) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>$${val.amount}</td><td>${val.status}</td><td></td>`;
+    tr.innerHTML = `<td>${val.uid}</td><td>${val.feature}</td><td>₹${val.amount}</td><td>${val.transaction_id || val.payment_intent_id || '-'}</td><td>${val.status}</td><td></td>`;
     const actionsTd = tr.querySelector('td:last-child');
     if (val.status === 'pending') {
       const aBtn = document.createElement('button');
@@ -854,7 +856,6 @@ auth.onAuthStateChanged(async (user) => {
     const raw = snap.val() || null;
     fullHistory = raw ? Object.values(raw).slice().reverse().map(parseEntry) : [];
     applyHistoryPipeline();
-    if (localPlan.analytics) renderAnalyticsChart(fullHistory);
   });
 
   ref.child("components").on("value", snap => renderComponents(snap.val()));
@@ -933,9 +934,10 @@ function applyHistoryPipeline(plotPolyline = false) {
   }
   filteredHistory = applyDateFilter(fullHistory);
   renderHistoryTable(filteredHistory);
-  computeKPIs(filteredHistory);
-  if (plotPolyline) plotRoute(filteredHistory);
-  updateHeatmap(filteredHistory);
+  const chronoHistory = [...filteredHistory].sort((a,b) => (a.ts || 0) - (b.ts || 0));
+  computeKPIs(chronoHistory);
+  if (plotPolyline) plotRoute(chronoHistory);
+  updateHeatmap(chronoHistory);
   if (localPlan.analytics) renderAnalyticsChart(filteredHistory);
 }
 
