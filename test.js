@@ -449,7 +449,7 @@ function applyDateFilter(list) {
 function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
   try {
-    const upiLink = `upi://pay?pa=shukladevinarayan@okhdfcbank&pn=SVMS&am=${amount}&cu=INR`;
+    const upiLink = `upi://pay?pa=shukladevinarayan@okhdfcbank&pn=DEVINARAYAN%20THAKURPRASAD%20SHUKLA&am=${amount}&cu=INR`;
     window.open(upiLink);
     const txId = prompt('Enter transaction ID from UPI app:');
     const paymentId = `upi_${uidGlobal}_${Date.now()}`;
