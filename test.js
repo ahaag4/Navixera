@@ -85,126 +85,93 @@ let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, analytics: false, fleet: false, temp_premium: false };
+let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs:30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false, temp_premium: false };
 
 // Plan policies
 const PLAN_POLICIES = {
-  basic:  { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false },
-  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1, analytics: false, fleet: false },
-  gold:   { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999, analytics: true, fleet: true }
+  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
+  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
+  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
 };
 
 // Ad handling
 let adTimerInt = null, currentAdIndex = 0, adsList = [];
 
 function showAd(ad, isPremiumAd = false, onComplete = null) {
-  if (!ad || !ad.url || !ad.type) {
-    adArea.innerHTML = '<div style="color:#721c24;">Invalid ad data</div>';
-    console.error(`Invalid ad data at ${new Date().toISOString()}:`, ad);
-    return;
-  }
-  adArea.innerHTML = '<div style="color:#999;">Loading ad...</div>';
-  console.log(`Showing ad at ${new Date().toISOString()}:`, ad);
-  const link = document.createElement('a');
-  if (ad.clickUrl && /^https?:\/\//i.test(ad.clickUrl)) {
-    link.href = ad.clickUrl;
-    link.target = '_blank';
-    link.className = 'clickable-ad';
-  }
+  adArea.innerHTML = 'Loading ad...';
+  console.log('Showing ad:', ad);
   if (ad.type === 'banner') {
     const img = new Image();
     img.src = ad.url;
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
-    img.className = ad.clickUrl ? '' : 'clickable-ad';
     img.onload = () => {
       adArea.innerHTML = '';
+      const link = document.createElement('a');
+      link.href = ad.clickUrl || '#';
+      link.target = '_blank';
       link.appendChild(img);
       adArea.appendChild(link);
-      console.log(`Banner ad loaded at ${new Date().toISOString()}: ${ad.url}`);
+      console.log('Banner ad loaded:', ad.url);
     };
-    img.onerror = () => {
-      adArea.innerHTML = '<div style="color:#721c24;">Failed to load ad image</div>';
-      console.error(`Banner ad failed to load at ${new Date().toISOString()}: ${ad.url}`);
-    };
+    img.onerror = () => { adArea.innerHTML = 'Ad image failed to load'; };
   } else if (ad.type === 'video') {
-    const video = document.createElement('video');
-    video.src = ad.url;
-    video.controls = isPremiumAd;
-    video.autoplay = true;
-    video.muted = !isPremiumAd;
-    video.style.maxWidth = '100%';
-    video.style.maxHeight = '100%';
-    video.className = ad.clickUrl ? '' : 'clickable-ad';
+    const v = document.createElement('video');
+    v.src = ad.url;
+    v.controls = true;
+    v.autoplay = true;
+    v.muted = true;
     adArea.innerHTML = '';
-    link.appendChild(video);
+    const link = document.createElement('a');
+    link.href = ad.clickUrl || '#';
+    link.target = '_blank';
+    link.appendChild(v);
     adArea.appendChild(link);
-    video.play().catch(err => {
+    v.play().catch(err => {
       console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
-      adArea.innerHTML = '<div style="color:#721c24;">Video ad failed to play (autoplay blocked)</div>';
+      adArea.innerHTML = 'Video ad failed to play (autoplay blocked)';
     });
-    video.onloadeddata = () => console.log(`Video ad loaded at ${new Date().toISOString()}: ${ad.url}`);
-    video.onerror = () => {
+    v.onloadeddata = () => console.log(`Video ad loaded at ${new Date().toISOString()}: ${ad.url}`);
+    v.onerror = () => {
       console.error(`Video ad failed to load at ${new Date().toISOString()}: ${ad.url}`);
-      adArea.innerHTML = '<div style="color:#721c24;">Failed to load ad video</div>';
+      adArea.innerHTML = 'Ad video failed to load';
     };
     if (isPremiumAd && onComplete) {
-      video.onended = () => {
-        console.log(`Premium ad completed at ${new Date().toISOString()}: ${ad.url}`);
+      v.onended = () => {
+        console.log('Premium ad completed:', ad.url);
         onComplete();
         loadAdsForPlan(localPlan.plan);
       };
     }
   } else {
-    adArea.innerHTML = '<div style="color:#721c24;">Invalid ad type</div>';
-    console.error(`Invalid ad type at ${new Date().toISOString()}:`, ad);
+    adArea.innerHTML = 'Invalid ad type';
   }
 }
 
 function loadAdsForPlan(plan) {
-  console.log(`Loading ads for plan: ${plan} at ${new Date().toISOString()}`);
   if (adTimerInt) clearInterval(adTimerInt);
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-  if (policy.ads === 'no-ads') {
-    adArea.style.display = 'none';
-    adArea.innerHTML = '';
-    console.log(`No ads for plan ${plan} at ${new Date().toISOString()}`);
-    return;
-  }
+  if (policy.ads === 'no-ads') { adArea.style.display = 'none'; adArea.innerHTML = ''; return; }
   adArea.style.display = 'flex';
-  adArea.innerHTML = '<div style="color:#999;">Loading ads...</div>';
   db.ref('admin/ads').once('value').then(snapshot => {
     const adsObj = snapshot.val() || {};
-    console.log(`Fetched ads at ${new Date().toISOString()}:`, Object.keys(adsObj).length);
     adsList = Object.values(adsObj).filter(ad =>
-      ad && (ad.active === true || ad.active === 'true') && ad.url && ad.type &&
-      (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
+      ad && ad.active && ad.url && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
     );
-    console.log(`Filtered ads at ${new Date().toISOString()}:`, adsList.length);
-    if (policy.ads === 'banner-limited' && adsList.length > 1) {
-      adsList = adsList.filter(ad => ad.type === 'banner').slice(0, 1);
-    }
+    if (policy.ads === 'banner-limited' && adsList.length > 1) { adsList = adsList.slice(0, 1); }
     if (adsList.length) {
-      currentAdIndex = 0;
-      showAd(adsList[currentAdIndex]);
+      showAd(adsList[currentAdIndex = 0]);
       adTimerInt = setInterval(() => {
         currentAdIndex = (currentAdIndex + 1) % adsList.length;
         showAd(adsList[currentAdIndex]);
       }, 15000);
     } else {
-      adArea.innerHTML = '<div style="color:#999;">No ads available</div>';
-      console.log(`No valid ads found for plan ${plan} at ${new Date().toISOString()}`);
+      adArea.innerHTML = 'No active ad';
     }
-  }).catch(err => {
-    console.error(`Ad load error at ${new Date().toISOString()}:`, err);
-    adArea.innerHTML = '<div style="color:#721c24;">Error loading ads</div>';
-  });
+  }).catch(() => { adArea.innerHTML = 'Ad load error'; });
 }
 
-function renderAdsForPlan(plan) {
-  loadAdsForPlan(plan);
-}
+function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 
+// Watch ad for premium access
 async function watchAdForPremium() {
   if (!uidGlobal) return alert('Not logged in');
   const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
@@ -216,10 +183,8 @@ async function watchAdForPremium() {
   }
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
-  console.log(`Premium ads at ${new Date().toISOString()}:`, Object.keys(ads).length);
-  const premiumAd = Object.values(ads).find(ad => (ad.active === true || ad.active === 'true') && ad.type === 'video' && ad.url && ad.clickUrl);
+  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
   if (!premiumAd) {
-    console.error(`No premium ad available at ${new Date().toISOString()}`);
     alert('No premium ad available at the moment. Try again later.');
     return;
   }
@@ -503,7 +468,7 @@ function haversineKm(a, b) {
   const R = 6371;
   const toRad = d => d * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - b.lng);
+  const dLng = toRad(b.lng - a.lng);
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
