@@ -154,59 +154,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-  // Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-  authDomain: "svms-c0232.firebaseapp.com",
-  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-  projectId: "svms-c0232",
-  storageBucket: "svms-c0232.appspot.com",
-  messagingSenderId: "359201898609",
-  appId: "1:359201898609:web:893ef076207abb06471bd0"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
-const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8'); // Replace with your Stripe publishable key
-
-// DOM elements
-const userEmailEl = document.getElementById('userEmail');
-const planPill = document.getElementById('planPill');
-const planPillHeader = document.getElementById('planPillHeader');
-const adArea = document.getElementById('adArea');
-const locationEl = document.getElementById("location");
-const lastActiveEl = document.getElementById("lastActive");
-const statusEl = document.getElementById("status");
-const batteryHealthEl = document.getElementById("batteryHealth");
-const historyTbody = document.getElementById("history");
-const exportCSVBtn = document.getElementById("exportCSVBtn");
-const alarmToggle = document.getElementById("alarmToggle");
-const alarmStatusText = document.getElementById("alarmStatusText");
-const alarmTriggerEl = document.getElementById("alarmTrigger");
-const onlineStatusEl = document.getElementById("onlineStatus");
-const lastSeenEl = document.getElementById("lastSeen");
-const componentsListEl = document.getElementById("componentsList");
-const currentPlanEl = document.getElementById('currentPlan');
-const planExpiryEl = document.getElementById('planExpiry');
-const vehicleLimitEl = document.getElementById('vehicleLimit');
-const upgradeBtns = document.getElementById('upgradeBtns');
-const upgradeToSilverBtn = document.getElementById('upgradeToSilver');
-const upgradeToGoldBtn = document.getElementById('upgradeToGold');
-const buyExportBtn = document.getElementById('buyExportBtn');
-const buyAnalyticsBtn = document.getElementById('buyAnalyticsBtn');
-const buyFleetBtn = document.getElementById('buyFleetBtn');
-const watchAdBtn = document.getElementById('watchAdBtn');
-const requestStatusArea = document.getElementById The function call to browse_page returned "Nothing is retrieved...", which means the video URL is not accessible or the tool couldn't retrieve the content. This confirms that the video URL in Firebase is invalid or not publicly accessible, explaining why the video isn't showing in the admin dashboard.
-
-The code needs to handle invalid or inaccessible video URLs better, and I should advise on how to make the video URL public or use a correct download URL with token.
-
-To fix the code, I'll update the video rendering part to include a source tag with type, add a fallback message, and log the error code.
-
-Also, in handleUploadAd, ensure the downloadURL is correctly set.
-
-The full code with fixes.```javascript
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -855,4 +802,4 @@ function deleteHistoryByUser(uid) {
 }
   </script>
 </body>
-</html>
+  </html>
