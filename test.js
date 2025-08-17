@@ -85,13 +85,13 @@ let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs:30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false, temp_premium: false };
+let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false };
 
 // Plan policies
 const PLAN_POLICIES = {
-  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
-  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
-  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
+  basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false },
+  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1, analytics: false, fleet: false },
+  gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999, analytics: true, fleet: true }
 };
 
 // Ad handling
@@ -174,6 +174,8 @@ function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 // Watch ad for premium access
 async function watchAdForPremium() {
   if (!uidGlobal) return alert('Not logged in');
+
+  // Check ad view limit (once every 24 hours)
   const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
   const adViews = adViewSnap.val() || {};
   const lastAdView = Object.values(adViews)[0];
@@ -181,26 +183,64 @@ async function watchAdForPremium() {
     alert('You can only watch an ad for premium access once every 24 hours.');
     return;
   }
+
+  // Fetch premium ad
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
   const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
   if (!premiumAd) {
-    alert('No premium ad available at the moment. Try again later.');
+    alert('No premium ad available at the moment. Try again later or contact support.');
     return;
   }
-  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2><p>Watch the full video to unlock Silver plan features for 1 hour.</p>`;
+
+  // Show modal with ad
+  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2><p>Watch the full video to unlock Silver plan features for 1 hour.</p><div id="adContainer"></div>`;
   modalPayUPI.style.display = 'none';
   modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
-  showAd(premiumAd, true, async () => {
+
+  // Create ad container and play video
+  const adContainer = document.getElementById('adContainer');
+  adContainer.innerHTML = 'Loading ad...';
+  const video = document.createElement('video');
+  video.src = premiumAd.url;
+  video.controls = true; // Add controls for manual play if autoplay fails
+  video.muted = true; // Required for autoplay
+  video.autoplay = true; // Attempt autoplay
+  video.style.width = '100%'; // Ensure it fits the modal
+  video.onloadeddata = () => {
+    console.log(`Video ad loaded at ${new Date().toISOString()}: ${premiumAd.url}`);
+    adContainer.innerHTML = '';
+    adContainer.appendChild(video);
+  };
+  video.onerror = (e) => {
+    console.error(`Video ad failed to load at ${new Date().toISOString()}: ${premiumAd.url}`, e);
+    adContainer.innerHTML = 'Video ad failed to load. Please try again.';
+  };
+  video.onended = async () => {
+    console.log('Premium ad completed:', premiumAd.url);
+    // Grant temporary premium
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const adViewId = `adview_${uidGlobal}_${Date.now()}`;
-    await db.ref(`users/${uidGlobal}/temp_premium`).set({ expiry, granted: new Date().toISOString() });
-    await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ created: new Date().toISOString(), adId: Object.keys(ads)[0] });
-    await db.ref(`admin/ad_views/${adViewId}`).set({ uid: uidGlobal, adId: Object.keys(ads)[0], created: new Date().toISOString() });
-    alert('Premium access granted for 1 hour!');
-    modal.style.display = 'none';
-    renderAdsForPlan(localPlan.plan);
+    try {
+      await db.ref(`users/${uidGlobal}/temp_premium`).set({ expiry, granted: new Date().toISOString() });
+      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ created: new Date().toISOString(), adId: Object.keys(ads)[0] });
+      await db.ref(`admin/ad_views/${adViewId}`).set({ uid: uidGlobal, adId: Object.keys(ads)[0], created: new Date().toISOString() });
+      alert('Premium access granted for 1 hour!');
+      modal.style.display = 'none';
+      renderAdsForPlan(localPlan.plan); // Refresh ads
+      applyPlanToUI(udata); // Update UI with new plan state
+    } catch (error) {
+      console.error(`Database update failed at ${new Date().toISOString()}:`, error);
+      alert('Failed to grant premium access. Please contact support.');
+    }
+  };
+
+  // Handle autoplay failure
+  video.play().catch((err) => {
+    console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
+    adContainer.innerHTML = 'Autoplay blocked. Please click play to watch the ad.';
+    video.controls = true; // Ensure controls are visible for manual play
   });
 }
 
