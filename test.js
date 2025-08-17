@@ -98,94 +98,115 @@ const PLAN_POLICIES = {
 let adTimerInt = null, currentAdIndex = 0, adsList = [];
 
 function showAd(ad, isPremiumAd = false, onComplete = null) {
-  adArea.innerHTML = 'Loading ad...';
-  console.log('Showing ad:', ad);
+  if (!ad || !ad.url || !ad.type) {
+    adArea.innerHTML = '<div style="color:#721c24;">Invalid ad data</div>';
+    console.error(`Invalid ad data at ${new Date().toISOString()}:`, ad);
+    return;
+  }
+  adArea.innerHTML = '<div style="color:#999;">Loading ad...</div>';
+  console.log(`Showing ad at ${new Date().toISOString()}:`, ad);
+  const link = document.createElement('a');
+  if (ad.clickUrl && /^https?:\/\//i.test(ad.clickUrl)) {
+    link.href = ad.clickUrl;
+    link.target = '_blank';
+    link.className = 'clickable-ad';
+  }
   if (ad.type === 'banner') {
     const img = new Image();
     img.src = ad.url;
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100%';
+    img.className = ad.clickUrl ? '' : 'clickable-ad';
     img.onload = () => {
       adArea.innerHTML = '';
-      const link = document.createElement('a');
-      link.href = ad.adLink || '#';
-      link.target = '_blank';
       link.appendChild(img);
       adArea.appendChild(link);
-      console.log('Banner ad loaded:', ad.url);
+      console.log(`Banner ad loaded at ${new Date().toISOString()}: ${ad.url}`);
     };
     img.onerror = () => {
+      adArea.innerHTML = '<div style="color:#721c24;">Failed to load ad image</div>';
       console.error(`Banner ad failed to load at ${new Date().toISOString()}: ${ad.url}`);
-      adArea.innerHTML = 'Ad image failed to load';
     };
   } else if (ad.type === 'video') {
-    const v = document.createElement('video');
-    v.src = ad.url;
-    v.controls = isPremiumAd;
-    v.autoplay = true;
-    v.muted = !isPremiumAd;
-    v.style.maxWidth = '100%';
-    v.style.maxHeight = '100%';
+    const video = document.createElement('video');
+    video.src = ad.url;
+    video.controls = isPremiumAd;
+    video.autoplay = true;
+    video.muted = !isPremiumAd;
+    video.style.maxWidth = '100%';
+    video.style.maxHeight = '100%';
+    video.className = ad.clickUrl ? '' : 'clickable-ad';
     adArea.innerHTML = '';
-    const link = document.createElement('a');
-    link.href = ad.adLink || '#';
-    link.target = '_blank';
-    link.appendChild(v);
+    link.appendChild(video);
     adArea.appendChild(link);
-    v.play().catch(err => {
+    video.play().catch(err => {
       console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
-      adArea.innerHTML = 'Video ad failed to play (autoplay blocked)';
+      adArea.innerHTML = '<div style="color:#721c24;">Video ad failed to play (autoplay blocked)</div>';
     });
-    v.onerror = () => {
+    video.onloadeddata = () => console.log(`Video ad loaded at ${new Date().toISOString()}: ${ad.url}`);
+    video.onerror = () => {
       console.error(`Video ad failed to load at ${new Date().toISOString()}: ${ad.url}`);
-      adArea.innerHTML = 'Ad video failed to load';
+      adArea.innerHTML = '<div style="color:#721c24;">Failed to load ad video</div>';
     };
     if (isPremiumAd && onComplete) {
-      v.onended = () => {
-        console.log('Premium ad completed:', ad.url);
+      video.onended = () => {
+        console.log(`Premium ad completed at ${new Date().toISOString()}: ${ad.url}`);
         onComplete();
         loadAdsForPlan(localPlan.plan);
       };
     }
   } else {
+    adArea.innerHTML = '<div style="color:#721c24;">Invalid ad type</div>';
     console.error(`Invalid ad type at ${new Date().toISOString()}:`, ad);
-    adArea.innerHTML = 'Invalid ad type';
   }
 }
 
 function loadAdsForPlan(plan) {
-  console.log(`Loading ads for plan: ${plan}`);
+  console.log(`Loading ads for plan: ${plan} at ${new Date().toISOString()}`);
   if (adTimerInt) clearInterval(adTimerInt);
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
-  if (policy.ads === 'no-ads') { adArea.style.display = 'none'; adArea.innerHTML = ''; return; }
+  if (policy.ads === 'no-ads') {
+    adArea.style.display = 'none';
+    adArea.innerHTML = '';
+    console.log(`No ads for plan ${plan} at ${new Date().toISOString()}`);
+    return;
+  }
   adArea.style.display = 'flex';
+  adArea.innerHTML = '<div style="color:#999;">Loading ads...</div>';
   db.ref('admin/ads').once('value').then(snapshot => {
     const adsObj = snapshot.val() || {};
-    console.log('Fetched ads:', adsObj);
+    console.log(`Fetched ads at ${new Date().toISOString()}:`, Object.keys(adsObj).length);
     adsList = Object.values(adsObj).filter(ad =>
-      ad && ad.active && ad.url && ad.adLink && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
+      ad && (ad.active === true || ad.active === 'true') && ad.url && ad.type &&
+      (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
     );
-    console.log('Filtered ads:', adsList);
-    if (policy.ads === 'banner-limited' && adsList.length > 1) { adsList = adsList.slice(0, 1); }
+    console.log(`Filtered ads at ${new Date().toISOString()}:`, adsList.length);
+    if (policy.ads === 'banner-limited' && adsList.length > 1) {
+      adsList = adsList.filter(ad => ad.type === 'banner').slice(0, 1);
+    }
     if (adsList.length) {
-      showAd(adsList[currentAdIndex = 0]);
+      currentAdIndex = 0;
+      showAd(adsList[currentAdIndex]);
       adTimerInt = setInterval(() => {
         currentAdIndex = (currentAdIndex + 1) % adsList.length;
         showAd(adsList[currentAdIndex]);
       }, 15000);
     } else {
-      adArea.innerHTML = 'No active ad';
+      adArea.innerHTML = '<div style="color:#999;">No ads available</div>';
+      console.log(`No valid ads found for plan ${plan} at ${new Date().toISOString()}`);
     }
   }).catch(err => {
     console.error(`Ad load error at ${new Date().toISOString()}:`, err);
-    adArea.innerHTML = 'Ad load error';
+    adArea.innerHTML = '<div style="color:#721c24;">Error loading ads</div>';
   });
 }
 
-function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
+function renderAdsForPlan(plan) {
+  loadAdsForPlan(plan);
+}
 
-// Watch ad for premium access
 async function watchAdForPremium() {
   if (!uidGlobal) return alert('Not logged in');
-  // Check if user has watched an ad recently (within 24 hours)
   const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
   const adViews = adViewSnap.val() || {};
   const lastAdView = Object.values(adViews)[0];
@@ -193,32 +214,28 @@ async function watchAdForPremium() {
     alert('You can only watch an ad for premium access once every 24 hours.');
     return;
   }
-
-  // Fetch premium ad
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
-  console.log('Premium ads:', ads);
-  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url && ad.adLink);
+  console.log(`Premium ads at ${new Date().toISOString()}:`, Object.keys(ads).length);
+  const premiumAd = Object.values(ads).find(ad => (ad.active === true || ad.active === 'true') && ad.type === 'video' && ad.url && ad.clickUrl);
   if (!premiumAd) {
-    console.error('No premium ad available at', new Date().toISOString());
+    console.error(`No premium ad available at ${new Date().toISOString()}`);
     alert('No premium ad available at the moment. Try again later.');
     return;
   }
-
-  // Show ad in modal
   modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2><p>Watch the full video to unlock Silver plan features for 1 hour.</p>`;
   modalPayUPI.style.display = 'none';
   modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
   showAd(premiumAd, true, async () => {
-    // On ad completion, grant temporary premium access
-    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const adViewId = `adview_${uidGlobal}_${Date.now()}`;
     await db.ref(`users/${uidGlobal}/temp_premium`).set({ expiry, granted: new Date().toISOString() });
     await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ created: new Date().toISOString(), adId: Object.keys(ads)[0] });
     await db.ref(`admin/ad_views/${adViewId}`).set({ uid: uidGlobal, adId: Object.keys(ads)[0], created: new Date().toISOString() });
     alert('Premium access granted for 1 hour!');
     modal.style.display = 'none';
+    renderAdsForPlan(localPlan.plan);
   });
 }
 
@@ -486,7 +503,7 @@ function haversineKm(a, b) {
   const R = 6371;
   const toRad = d => d * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
+  const dLng = toRad(b.lng - b.lng);
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
@@ -685,7 +702,7 @@ function setRefreshIntervals(ms) {
 
 let lastOnlineState = null;
 function maybeNotifyStatus(isOnline) {
-  const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+  const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
   if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
   if (lastOnlineState === null) { lastOnlineState = isOnline; return; }
   if (isOnline !== lastOnlineState) {
@@ -695,7 +712,7 @@ function maybeNotifyStatus(isOnline) {
 }
 
 function maybeNotifyBattery(battPercent) {
-  const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+  const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
   if (!policy.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
   if (typeof battPercent === 'number' && battPercent <= 20) {
     new Notification("Low Battery", { body: `Vehicle battery low (${battPercent}%)` });
@@ -887,7 +904,7 @@ function renderAnalyticsChart(history) {
 async function addVehicle() {
   const vehicleId = prompt('Enter Vehicle ID:');
   if (!vehicleId || !uidGlobal) return;
-  const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
+  const policy = PLAN_POLICIES[localPlan.plan] || PLAN_POLICIES.basic;
   const currentVehicles = await db.ref(`users/${uidGlobal}/vehicles`).once('value').then(snap => snap.val() || {});
   if (Object.keys(currentVehicles).length >= policy.vehicle_limit) {
     alert(`Vehicle limit reached (${policy.vehicle_limit})`);
