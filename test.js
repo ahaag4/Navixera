@@ -79,19 +79,69 @@ const fleetSection = document.getElementById('fleetSection');
 const fleetMessage = document.getElementById('fleetMessage');
 const addVehicleBtn = document.getElementById('addVehicleBtn');
 const fleetList = document.getElementById('fleetList');
+const logoutBtn = document.getElementById('logoutBtn');
 
 // Global variables
 let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs:30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false, temp_premium: false };
+let localPlan = { 
+  plan: 'basic', 
+  plan_expiry: null, 
+  vehicle_limit: 1, 
+  exportCSV: false, 
+  refreshMs: 30000, 
+  heatmap: false, 
+  mapSwitch: false, 
+  notify: false, 
+  geofences: 0, 
+  analytics: false, 
+  fleet: false, 
+  temp_premium: false 
+};
 
 // Plan policies
 const PLAN_POLICIES = {
-  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
-  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
-  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
+  basic:  { 
+    historyDays: 1, 
+    ads: 'banner+interstitial', 
+    vehicle_limit: 1, 
+    exportCSV: false, 
+    refreshMs: 30000, 
+    heatmap: false, 
+    mapSwitch: false, 
+    notify: false, 
+    geofences: 0, 
+    analytics: false, 
+    fleet: false 
+  },
+  silver: { 
+    historyDays: 7, 
+    ads: 'banner-limited', 
+    vehicle_limit: 3, 
+    exportCSV: true, 
+    refreshMs: 20000, 
+    heatmap: false, 
+    mapSwitch: true, 
+    notify: true, 
+    geofences: 1, 
+    analytics: false, 
+    fleet: false 
+  },
+  gold:   { 
+    historyDays: 90, 
+    ads: 'no-ads', 
+    vehicle_limit: 3, 
+    exportCSV: true, 
+    refreshMs: 10000, 
+    heatmap: true, 
+    mapSwitch: true, 
+    notify: true, 
+    geofences: 999, 
+    analytics: true, 
+    fleet: true 
+  }
 };
 
 // Ad handling
@@ -214,6 +264,7 @@ async function watchAdForPremium() {
         <span id="videoDuration">1:00</span>
       </div>
       <div style="margin-top:8px;text-align:center;">
+        
       </div>
     </div>
   `;
@@ -543,7 +594,13 @@ function parseEntry(entry) {
   const loc = entry.location || '';
   const [lat, lng] = (loc.split(',') || []).map(s => parseFloat(s.trim()));
   const tms = Date.parse(entry.time || '');
-  return { lat, lng, time: entry.time || '', ts: isNaN(tms) ? null : tms, speed: typeof entry.speed === 'number' ? entry.speed : null };
+  return { 
+    lat, 
+    lng, 
+    time: entry.time || '', 
+    ts: isNaN(tms) ? null : tms, 
+    speed: typeof entry.speed === 'number' ? entry.speed : null 
+  };
 }
 
 function renderHistoryTable(list) {
@@ -571,7 +628,12 @@ function haversineKm(a, b) {
 }
 
 function computeKPIs(list) {
-  if (!list || list.length < 2) { kpiDistanceEl.textContent = '0.00 km'; kpiStopsEl.textContent = '0'; return; }
+  if (!list || list.length < 2) { 
+    kpiDistanceEl.textContent = '0.00 km'; 
+    kpiStopsEl.textContent = '0'; 
+    return; 
+  }
+  
   let dist = 0;
   for (let i = 1; i < list.length; i++) {
     const p = list[i - 1], q = list[i];
@@ -579,10 +641,12 @@ function computeKPIs(list) {
       dist += haversineKm(p, q);
     }
   }
+  
   let stops = 0;
   const SPEED_KMH_THRESHOLD = 2;
   const STOP_MS = 5 * 60 * 1000;
   let blockStart = null, lastPoint = null;
+  
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     const slowOrStatic = (p.speed !== null && p.speed <= SPEED_KMH_THRESHOLD) ||
@@ -595,7 +659,9 @@ function computeKPIs(list) {
     }
     lastPoint = p;
   }
+  
   if (blockStart && lastPoint && lastPoint.ts && blockStart.ts && (lastPoint.ts - blockStart.ts >= STOP_MS)) stops++;
+  
   kpiDistanceEl.textContent = dist.toFixed(2) + ' km';
   kpiStopsEl.textContent = String(stops);
 }
@@ -609,37 +675,74 @@ function clearRouteLayers() {
 function plotRoute(list) {
   if (!map || !list || !list.length) return;
   clearRouteLayers();
-  const coords = list.filter(p => isFinite(p.lat) && isFinite(p.lng)).map(p => [p.lat, p.lng]);
-  if (!coords.length) return;
+  
+  const validPoints = list.filter(p => isFinite(p.lat) && isFinite(p.lng));
+  if (validPoints.length < 2) return;
+  
+  const coords = validPoints.map(p => [p.lat, p.lng]);
   routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
-  const startIcon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41] });
-  const endIcon = L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+  
+  const startIcon = L.icon({ 
+    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', 
+    iconSize: [25, 41], 
+    iconAnchor: [12, 41] 
+  });
+  
+  const endIcon = L.icon({ 
+    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', 
+    iconSize: [25, 41], 
+    iconAnchor: [12, 41] 
+  });
+  
   startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
   endMarker = L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map).bindPopup('End');
-  map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
+  
+  try {
+    map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
+  } catch (e) {
+    console.error('Error fitting bounds:', e);
+  }
 }
 
 function updateHeatmap(list) {
   if (!map) return;
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
   if (!list || !list.length || !heatToggle.checked) return;
-  const heatData = list.filter(p => isFinite(p.lat) && isFinite(p.lng)).map(p => [p.lat, p.lng, 0.5]);
-  if (heatData.length) heatLayer = L.heatLayer(heatData, { radius: 25 }).addTo(map);
+  
+  const heatData = list
+    .filter(p => isFinite(p.lat) && isFinite(p.lng))
+    .map(p => [p.lat, p.lng, 0.5]);
+    
+  if (heatData.length) {
+    heatLayer = L.heatLayer(heatData, { radius: 25 }).addTo(map);
+  }
 }
 
 function applyDateFilter(list) {
   const plan = localPlan.plan;
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
   const cutoffMs = Date.now() - policy.historyDays * 86400000;
-  const hasDate = startDateInput.value || endDateInput.value;
-  let s = startDateInput.value ? Date.parse(startDateInput.value + 'T00:00:00') : null;
-  let e = endDateInput.value ? Date.parse(endDateInput.value + 'T23:59:59') : null;
+  
+  // Get filter values
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  
+  // If no dates selected, return data within plan's history limit
+  if (!startDate && !endDate) {
+    return (list || []).filter(p => p.ts && p.ts >= cutoffMs);
+  }
+  
+  // Parse dates with time components
+  const startMs = startDate ? new Date(startDate + 'T00:00:00').getTime() : 0;
+  const endMs = endDate ? new Date(endDate + 'T23:59:59').getTime() : Date.now();
+  
   return (list || []).filter(p => {
     if (!p.ts) return false;
+    // Apply plan's history limit
     if (p.ts < cutoffMs) return false;
-    if (!hasDate) return true;
-    if (s && p.ts < s) return false;
-    if (e && p.ts > e) return false;
+    // Apply date filter
+    if (startDate && p.ts < startMs) return false;
+    if (endDate && p.ts > endMs) return false;
     return true;
   });
 }
@@ -647,34 +750,33 @@ function applyDateFilter(list) {
 // Payment handling
 function buyFeatureWithUPI(feature, amount) {
   if (!uidGlobal) return alert('Not logged in');
-  try {
-    const upiLink = `upi://pay?pa=hydrahunter93@postbank&am=${amount}&cu=INR&tn=Payment%20for%20${encodeURIComponent(feature)}`;
-    window.open(upiLink);
-    const txId = prompt('Enter transaction ID from your UPI app after completing the payment:');
-    if (!txId) {
-      alert('Transaction ID is required to proceed. Please retry and provide the ID.');
-      return;
-    }
-    const paymentId = `upi_${uidGlobal}_${Date.now()}`;
-    const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
-    const paymentData = {
-      feature,
-      amount,
-      currency: 'inr',
-      status: 'pending',
-      created: new Date().toISOString(),
-      expiry,
-      payment_method: 'upi',
-      transaction_id: txId
-    };
-    db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
-    db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
-    alert(`UPI payment initiated for ${feature}. Transaction ID: ${txId}. Awaiting admin approval.`);
-    modal.style.display = 'none';
-  } catch (error) {
-    console.error(`UPI Payment Error for ${feature} at ${new Date().toISOString()}:`, error);
-    alert(`UPI Payment Failed: ${error.message || 'Transaction error'}. Please check your UPI app for details and try again.`);
-  }
+  
+  // Generate payment ID
+  const paymentId = `upi_${uidGlobal}_${Date.now()}`;
+  const expiry = new Date(Date.now() + (feature === 'export' ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000)).toISOString();
+  
+  // Create payment data
+  const paymentData = {
+    feature,
+    amount,
+    currency: 'inr',
+    status: 'pending',
+    created: new Date().toISOString(),
+    expiry,
+    payment_method: 'upi'
+  };
+  
+  // Save payment request
+  db.ref(`users/${uidGlobal}/purchases_pending/${paymentId}`).set(paymentData);
+  db.ref(`admin/payments/${paymentId}`).set({ uid: uidGlobal, ...paymentData });
+  
+  // Hide payment buttons during pending approval
+  buyExportBtn.style.display = 'none';
+  buyAnalyticsBtn.style.display = 'none';
+  buyFleetBtn.style.display = 'none';
+  
+  // Redirect to payment page with payment ID
+  window.location.href = `payment.html?paymentId=${paymentId}&feature=${feature}&amount=${amount}`;
 }
 
 async function buyFeatureWithStripe(feature, amount) {
@@ -723,15 +825,16 @@ function showPurchaseModal(feature, amount) {
   
   currentFeature = feature;
   currentAmount = amount;
+  
   modalContent.innerHTML = `
     <h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2>
     <p>Price: ₹${amount}</p>
     <p>Choose payment method:</p>
-    <div class="payment-options">
+    <div class="payment-options" style="display:flex;gap:10px;margin-top:20px;">
       <button id="upiOption" class="btn btn-primary">Pay with UPI</button>
       <button id="stripeOption" class="btn btn-stripe">Pay with Stripe</button>
     </div>
-    <p class="small-muted" style="margin-top:10px;">Note: All payments require admin approval</p>
+    <p class="small-muted" style="margin-top:15px;">Note: All payments require admin approval</p>
   `;
   
   modalPayUPI.style.display = 'none';
@@ -1054,6 +1157,36 @@ async function renderPendingPayments() {
   });
 }
 
+// History pipeline
+function applyHistoryPipeline(plotPolyline = false) {
+  if (!fullHistory) {
+    historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
+    return;
+  }
+  
+  // Apply date filter
+  filteredHistory = applyDateFilter(fullHistory);
+  
+  // Render history table
+  renderHistoryTable(filteredHistory);
+  
+  // Calculate and display KPIs
+  computeKPIs(filteredHistory);
+  
+  // Plot route if requested
+  if (plotPolyline && filteredHistory.length > 1) {
+    plotRoute(filteredHistory);
+  }
+  
+  // Update heatmap
+  updateHeatmap(filteredHistory);
+  
+  // Render analytics if available
+  if (localPlan.analytics) {
+    renderAnalyticsChart(filteredHistory);
+  }
+}
+
 // Event listeners
 modalClose.onclick = () => {
   const video = document.getElementById('premiumVideo');
@@ -1190,20 +1323,7 @@ auth.onAuthStateChanged(async (user) => {
   await renderFleetList();
 });
 
-// History pipeline
-function applyHistoryPipeline(plotPolyline = false) {
-  if (!fullHistory) {
-    historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
-    return;
-  }
-  filteredHistory = applyDateFilter(fullHistory);
-  renderHistoryTable(filteredHistory);
-  computeKPIs(filteredHistory);
-  if (plotPolyline) plotRoute(filteredHistory);
-  updateHeatmap(filteredHistory);
-  if (localPlan.analytics) renderAnalyticsChart(filteredHistory);
-}
-
+// Setup event listeners for buttons
 applyFilterBtn.addEventListener('click', () => applyHistoryPipeline(true));
 clearFilterBtn.addEventListener('click', () => {
   startDateInput.value = '';
