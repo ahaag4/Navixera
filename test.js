@@ -264,8 +264,8 @@ async function watchAdForPremium() {
         <span id="videoDuration">1:00</span>
       </div>
       <div style="margin-top:8px;text-align:center;">
-        <!--<button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
-        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>-->
+        <button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
+        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>
       </div>
     </div>
   `;
