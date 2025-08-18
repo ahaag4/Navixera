@@ -177,7 +177,7 @@
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2025 ProShop. All rights reserved. | Last updated: 06:03 PM IST, August 18, 2025</p>
+        <p>&copy; 2025 ProShop. All rights reserved. | Last updated: 07:44 PM IST, August 18, 2025</p>
     </footer>
 
     <!-- Scripts -->
@@ -215,15 +215,15 @@
         let cart = [];
         let products = [];
 
-        // Load Products
+        // Load Products with Real-Time Updates
         function loadProducts() {
             document.getElementById('productGrid').classList.add('loading');
-            db.ref('products').once('value').then((snapshot) => {
-                products = snapshot.val() || [];
+            db.ref('products').on('value', (snapshot) => {
+                products = snapshot.val() ? Object.values(snapshot.val()) : [];
                 renderProducts();
                 populateProductSelect();
                 document.getElementById('productGrid').classList.remove('loading');
-            }).catch((error) => {
+            }, (error) => {
                 console.error("Error loading products:", error);
                 alert("Failed to load products. Check console for details.");
             });
@@ -308,7 +308,7 @@
                                 .then(() => {
                                     cart = [];
                                     renderCart();
-                                    alert(`Payment successful! Order placed at 06:03 PM IST, August 18, 2025.`);
+                                    alert(`Payment successful! Order placed at 07:44 PM IST, August 18, 2025.`);
                                 })
                                 .catch(error => console.error("Order save error:", error));
                         }
@@ -327,7 +327,7 @@
             const quantity = prompt('Enter quantity for quote:');
             if (quantity && !isNaN(quantity)) {
                 db.ref(`users/${user.uid}/quotes`).push({ productId, quantity, date: new Date().toISOString() })
-                    .then(() => alert('Quote request submitted at 06:03 PM IST, August 18, 2025!'))
+                    .then(() => alert('Quote request submitted at 07:44 PM IST, August 18, 2025!'))
                     .catch(error => console.error("Quote save error:", error));
             } else {
                 alert("Please enter a valid quantity.");
@@ -340,7 +340,7 @@
             const quantity = prompt('Enter bulk quantity:');
             if (quantity && !isNaN(quantity) && confirm(`Order ${quantity} units of this product?`)) {
                 db.ref(`users/${user.uid}/orders`).push({ productId, quantity, date: new Date().toISOString(), type: 'bulk' })
-                    .then(() => alert('Bulk order placed at 06:03 PM IST, August 18, 2025!'))
+                    .then(() => alert('Bulk order placed at 07:44 PM IST, August 18, 2025!'))
                     .catch(error => console.error("Bulk order save error:", error));
             } else {
                 alert("Please enter a valid quantity.");
@@ -370,14 +370,14 @@
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
             auth.signOut().then(() => {
-                alert('Logged out successfully at 06:03 PM IST, August 18, 2025.');
+                alert('Logged out successfully at 07:44 PM IST, August 18, 2025.');
                 location.reload();
             }).catch(error => console.error("Logout error:", error));
         });
 
         // Inventory Dashboard
         function loadInventory() {
-            if (user && (user.email === 'admin@proshop.com' || (user.uid && db.ref(`users/${user.uid}`).once('value').then(s => s.val().role === 'super-admin')))) {
+            if (user && (user.role === 'super-admin' || (user.uid && db.ref(`users/${user.uid}`).once('value').then(s => s.val().role === 'super-admin')))) {
                 db.ref('products').once('value').then((snapshot) => {
                     const inventory = snapshot.val() || [];
                     document.getElementById('inventoryList').innerHTML = inventory.map(p => `<li class="list-group-item">${p.name} - Stock: ${p.stock}</li>`).join('') || '<li>No products available</li>';
@@ -417,8 +417,9 @@
             };
             db.ref('products').push(newProduct)
                 .then(() => {
-                    alert(`Product added successfully at 06:03 PM IST, August 18, 2025!`);
+                    alert(`Product added successfully at 07:44 PM IST, August 18, 2025!`);
                     document.getElementById('productForm').reset();
+                    // Real-time listener handles rendering
                 })
                 .catch(error => console.error("Product add error:", error));
         });
@@ -432,7 +433,7 @@
             if (productId) {
                 if (confirm('Are you sure you want to delete this product?')) {
                     db.ref(`products/${productId}`).remove()
-                        .then(() => alert(`Product deleted at 06:03 PM IST, August 18, 2025!`))
+                        .then(() => alert(`Product deleted at 07:44 PM IST, August 18, 2025!`))
                         .catch(error => console.error("Product delete error:", error));
                 }
             } else {
@@ -445,12 +446,12 @@
 
         // Analytics (Simulated)
         setInterval(() => {
-            console.log(`Analytics at 06:03 PM IST, August 18, 2025: Total Views: ${Math.floor(Math.random() * 1000)}`);
+            console.log(`Analytics at 07:44 PM IST, August 18, 2025: Total Views: ${Math.floor(Math.random() * 1000)}`);
         }, 60000);
 
         // Integration Points (Simulated)
         function integrateWithCRM() {
-            console.log('Integrating with CRM at 06:03 PM IST, August 18, 2025...');
+            console.log('Integrating with CRM at 07:44 PM IST, August 18, 2025...');
         }
 
         // Initial Load
@@ -463,4 +464,4 @@
         };
     </script>
 </body>
-                        </html>
+        </html>
