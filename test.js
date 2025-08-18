@@ -244,7 +244,7 @@ async function watchAdForPremium() {
 
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
-  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.clickurl);
+  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
   
   if (!premiumAd) {
     alert('No premium ad available at the moment. Try again later.');
@@ -263,6 +263,10 @@ async function watchAdForPremium() {
         <span id="videoCurrentTime">0:00</span>
         <span id="videoDuration">1:00</span>
       </div>
+      <div style="margin-top:8px;text-align:center;">
+        <!--<button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
+        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>-->
+      </div>
     </div>
   `;
   
@@ -273,6 +277,8 @@ async function watchAdForPremium() {
   const video = document.getElementById('premiumVideo');
   const videoCurrentTime = document.getElementById('videoCurrentTime');
   const videoDuration = document.getElementById('videoDuration');
+  const cancelAdBtn = document.getElementById('cancelAdBtn');
+  const skipAdBtn = document.getElementById('skipAdBtn');
   
   // Update time display
   video.ontimeupdate = () => {
@@ -291,7 +297,10 @@ async function watchAdForPremium() {
     modal.style.display = 'none';
     video.pause();
   };
-
+  
+  skipAdBtn.onclick = () => {
+    video.currentTime = video.duration - 1;
+  };
   
   video.onended = async () => {
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
