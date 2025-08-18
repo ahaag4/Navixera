@@ -79,21 +79,19 @@ const fleetSection = document.getElementById('fleetSection');
 const fleetMessage = document.getElementById('fleetMessage');
 const addVehicleBtn = document.getElementById('addVehicleBtn');
 const fleetList = document.getElementById('fleetList');
-const logoutBtn = document.getElementById('logoutBtn'); // Added for logout functionality
 
 // Global variables
 let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false };
-let udata = null;
+let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs:30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false, temp_premium: false };
 
 // Plan policies
 const PLAN_POLICIES = {
-  basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false },
-  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1, analytics: false, fleet: false },
-  gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999, analytics: true, fleet: true }
+  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
+  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
+  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
 };
 
 // Ad handling
@@ -176,74 +174,93 @@ function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 // Watch ad for premium access
 async function watchAdForPremium() {
   if (!uidGlobal) return alert('Not logged in');
-
-  // Check ad view limit (once every 24 hours)
+  
+  // Check if user already has temp premium that's still valid
+  const tempPremiumSnap = await db.ref(`users/${uidGlobal}/temp_premium`).once('value');
+  const tempPremium = tempPremiumSnap.val();
+  if (tempPremium && isTempPremiumValid(tempPremium)) {
+    alert('You already have temporary premium access that expires at ' + prettyTS(tempPremium.expiry));
+    return;
+  }
+  
+  // Check last ad view time
   const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
   const adViews = adViewSnap.val() || {};
   const lastAdView = Object.values(adViews)[0];
+  
   if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
     alert('You can only watch an ad for premium access once every 24 hours.');
     return;
   }
 
-  // Fetch premium ad
+  // Find a premium access video ad
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
   const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
+  
   if (!premiumAd) {
-    alert('No premium ad available at the moment. Try again later or contact support.');
+    alert('No premium ad available at the moment. Try again later.');
     return;
   }
 
-  // Show modal with ad
-  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2><p>Watch the full video to unlock Silver plan features for 1 hour.</p><div id="adContainer"></div>`;
+  // Show modal with video ad
+  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2>
+    <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
+    <div id="premiumAdContainer"></div>`;
   modalPayUPI.style.display = 'none';
   modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
-
-  // Create ad container and play video
-  const adContainer = document.getElementById('adContainer');
-  adContainer.innerHTML = 'Loading ad...';
+  
+  // Show the premium ad in the modal
+  const adContainer = document.getElementById('premiumAdContainer');
   const video = document.createElement('video');
   video.src = premiumAd.url;
-  video.controls = true; // Add controls for manual play if autoplay fails
-  video.muted = true; // Required for autoplay
-  video.autoplay = true; // Attempt autoplay
-  video.style.width = '100%'; // Ensure it fits the modal
-  video.onloadeddata = () => {
-    console.log(`Video ad loaded at ${new Date().toISOString()}: ${premiumAd.url}`);
-    adContainer.innerHTML = '';
-    adContainer.appendChild(video);
-  };
-  video.onerror = (e) => {
-    console.error(`Video ad failed to load at ${new Date().toISOString()}: ${premiumAd.url}`, e);
-    adContainer.innerHTML = 'Video ad failed to load. Please try again.';
-  };
+  video.controls = true;
+  video.autoplay = true;
+  video.muted = true;
+  video.style.width = '100%';
+  adContainer.appendChild(video);
+  
+  video.play().catch(err => {
+    console.error('Video play error:', err);
+    alert('Could not play the video. Please enable autoplay and try again.');
+  });
+
+  // Handle video completion
   video.onended = async () => {
-    console.log('Premium ad completed:', premiumAd.url);
-    // Grant temporary premium
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const adViewId = `adview_${uidGlobal}_${Date.now()}`;
+    
     try {
-      await db.ref(`users/${uidGlobal}/temp_premium`).set({ expiry, granted: new Date().toISOString() });
-      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ created: new Date().toISOString(), adId: Object.keys(ads)[0] });
-      await db.ref(`admin/ad_views/${adViewId}`).set({ uid: uidGlobal, adId: Object.keys(ads)[0], created: new Date().toISOString() });
+      await db.ref(`users/${uidGlobal}/temp_premium`).set({ 
+        expiry, 
+        granted: new Date().toISOString() 
+      });
+      
+      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ 
+        created: new Date().toISOString(), 
+        adId: Object.keys(ads)[0] 
+      });
+      
+      await db.ref(`admin/ad_views/${adViewId}`).set({ 
+        uid: uidGlobal, 
+        adId: Object.keys(ads)[0], 
+        created: new Date().toISOString() 
+      });
+      
       alert('Premium access granted for 1 hour!');
       modal.style.display = 'none';
-      renderAdsForPlan(localPlan.plan); // Refresh ads
-      applyPlanToUI(udata); // Update UI with new plan state
+      
+      // Update UI to reflect premium access
+      const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
+      const userData = userSnap.val() || {};
+      applyPlanToUI(userData);
+      
     } catch (error) {
-      console.error(`Database update failed at ${new Date().toISOString()}:`, error);
-      alert('Failed to grant premium access. Please contact support.');
+      console.error('Error granting premium access:', error);
+      alert('Failed to grant premium access. Please try again.');
     }
   };
-
-  // Handle autoplay failure
-  video.play().catch((err) => {
-    console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
-    adContainer.innerHTML = 'Autoplay blocked. Please click play to watch the ad.';
-    video.controls = true; // Ensure controls are visible for manual play
-  });
 }
 
 // Utility functions
@@ -272,6 +289,7 @@ function renderRequestUI(upgradeRequest, currentPlan) {
   upgradeToGoldBtn.style.display = 'none';
   watchAdBtn.style.display = 'none';
   let statusMsg = '';
+  
   if (currentPlan === 'gold') {
     upgradeBtns.style.display = 'none';
     statusMsg = `<span class="approved-pill">You are on GOLD, the highest plan.</span>`;
@@ -300,6 +318,7 @@ function renderRequestUI(upgradeRequest, currentPlan) {
     watchAdBtn.style.display = currentPlan === 'basic' ? 'inline-block' : 'none';
     statusMsg = `<span class="small-muted">Upgrade request cancelled</span>`;
   }
+  
   requestStatusArea.innerHTML = statusMsg;
 }
 
@@ -312,6 +331,7 @@ function applyPlanToUI(udata) {
   const analytics = PLAN_POLICIES[plan].analytics || (udata.purchases?.analytics && isPurchaseValid(udata.purchases.analytics));
   const fleet = PLAN_POLICIES[plan].fleet || (udata.purchases?.fleet && isPurchaseValid(udata.purchases.fleet));
   const temp_premium = isTempPremiumValid(udata.temp_premium);
+  
   localPlan = { plan, plan_expiry, vehicle_limit, exportCSV, analytics, fleet, temp_premium };
 
   const effectivePlan = temp_premium && plan === 'basic' ? 'silver' : plan;
@@ -320,10 +340,12 @@ function applyPlanToUI(udata) {
   currentPlanEl.textContent = effectivePlan.toUpperCase() + (temp_premium && plan === 'basic' ? ' (TEMP)' : '');
   planExpiryEl.textContent = temp_premium && plan === 'basic' ? prettyTS(udata.temp_premium.expiry) : prettyTS(plan_expiry);
   vehicleLimitEl.textContent = vehicle_limit;
+  
   exportCSVBtn.style.display = (exportCSV || (udata.purchases?.export && isPurchaseValid(udata.purchases.export)) || temp_premium) ? 'inline-block' : 'none';
   buyExportBtn.style.display = (!exportCSV && !(udata.purchases?.export && isPurchaseValid(udata.purchases.export)) && !temp_premium) ? 'inline-block' : 'none';
   buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
   buyFleetBtn.style.display = (!fleet && plan !== 'gold') ? 'inline-block' : 'none';
+  
   renderAdsForPlan(effectivePlan);
 
   const policy = PLAN_POLICIES[effectivePlan] || PLAN_POLICIES.basic;
@@ -747,10 +769,6 @@ function setupDrawTools() {
     },
     edit: { featureGroup: drawnItems }
   });
-  map.on(L.Draw.Event.CREATED, function (e) {
-    const layer = e.layer;
-    drawnItems.addLayer(layer);
-  });
 }
 
 function enableDrawing() {
@@ -982,31 +1000,6 @@ async function renderPendingPayments() {
 modalClose.onclick = () => modal.style.display = 'none';
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
-watchAdBtn.addEventListener('click', () => watchAdForPremium()); // Added watchAdBtn listener
-upgradeToSilverBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'silver').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-upgradeToGoldBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'gold').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-logoutBtn.addEventListener('click', () => {
-  auth.signOut().then(() => {
-    window.location.href = 'login.html';
-  }).catch(error => {
-    console.error('Logout failed:', error);
-    alert('Failed to logout. Please try again.');
-  });
-});
 
 let udata = null;
 auth.onAuthStateChanged(async (user) => {
@@ -1154,6 +1147,7 @@ buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 2));
 buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 5));
 buyFleetBtn.addEventListener('click', () => showPurchaseModal('fleet', 30));
 addVehicleBtn.addEventListener('click', addVehicle);
+watchAdBtn.addEventListener('click', watchAdForPremium);
 
 mapTypeSelect.addEventListener('change', (e) => {
   updateBaseLayer(e.target.value);
@@ -1184,4 +1178,30 @@ gfClearBtn.addEventListener('click', async () => {
   drawnItems.clearLayers();
   await db.ref(`users/${uidGlobal}/geofences`).set([]);
   alert('Geofences cleared');
+});
+
+upgradeToSilverBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'silver').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+upgradeToGoldBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'gold').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+
+logoutBtn.addEventListener('click', () => {
+  auth.signOut().then(() => {
+    window.location.href = 'login.html';
+  }).catch(error => {
+    console.error('Logout failed:', error);
+    alert('Failed to logout. Please try again.');
+  });
 });
