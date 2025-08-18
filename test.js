@@ -86,6 +86,7 @@ let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
+let premiumVideoAd = null;
 let localPlan = { 
   plan: 'basic', 
   plan_expiry: null, 
@@ -222,125 +223,166 @@ function loadAdsForPlan(plan) {
 
 function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 
-// Watch ad for premium access
+// Updated watchAdForPremium function
 async function watchAdForPremium() {
-  if (!uidGlobal) return alert('Not logged in');
-  
+  if (!uidGlobal) {
+    alert('Please log in to access this feature');
+    return;
+  }
+
+  // Check for existing premium access
   const tempPremiumSnap = await db.ref(`users/${uidGlobal}/temp_premium`).once('value');
   const tempPremium = tempPremiumSnap.val();
+  
   if (tempPremium && isTempPremiumValid(tempPremium)) {
-    alert('You already have temporary premium access that expires at ' + prettyTS(tempPremium.expiry));
-    return;
-  }
-  
-  const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
-  const adViews = adViewSnap.val() || {};
-  const lastAdView = Object.values(adViews)[0];
-  
-  if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
-    alert('You can only watch an ad for premium access once every 24 hours.');
+    alert(`You already have temporary premium access (expires ${prettyTS(tempPremium.expiry)})`);
     return;
   }
 
-  const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
-  const ads = adSnap.val() || {};
-  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
+  // Check last ad view time
+  const lastAdViewSnap = await db.ref(`users/${uidGlobal}/last_ad_view`).once('value');
+  const lastAdViewTime = lastAdViewSnap.val();
   
-  if (!premiumAd) {
-    alert('No premium ad available at the moment. Try again later.');
+  if (lastAdViewTime && Date.now() - new Date(lastAdViewTime).getTime() < 24 * 60 * 60 * 1000) {
+    alert('You can only watch one premium ad per day. Please try again tomorrow.');
     return;
   }
 
+  // Load premium ad
+  try {
+    const adSnap = await db.ref('admin/ads/premium_access').once('value');
+    premiumVideoAd = adSnap.val();
+    
+    if (!premiumVideoAd || !premiumVideoAd.url || !premiumVideoAd.active) {
+      alert('No premium ad available at the moment. Please try again later.');
+      return;
+    }
+
+    // Show the ad modal
+    showPremiumAdModal();
+    
+  } catch (error) {
+    console.error('Error loading premium ad:', error);
+    alert('Failed to load ad. Please try again.');
+  }
+}
+
+function showPremiumAdModal() {
   modalContent.innerHTML = `
-    <h2>Watch Ad for 1-Hour Premium Access</h2>
-    <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
-    <div style="position:relative;width:100%;max-width:500px;margin:20px auto;">
-      <video id="premiumVideo" autoplay muted style="width:100%;border-radius:8px;">
-        <source src="${premiumAd.url}" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;">
-        <span id="videoCurrentTime">0:00</span>
-        <span id="videoDuration">1:00</span>
+    <div class="premium-ad-modal">
+      <h2>Watch Ad for 1-Hour Premium Access</h2>
+      <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
+      
+      <div class="video-container">
+        <video id="premiumVideo" autoplay muted>
+          <source src="${premiumVideoAd.url}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <div class="video-controls">
+          <span id="videoCurrentTime">0:00</span>
+          <progress id="videoProgress" value="0" max="100"></progress>
+          <span id="videoDuration">0:00</span>
+        </div>
       </div>
-      <div style="margin-top:8px;text-align:center;">
-        
+      
+      <div class="ad-disclaimer">
+        <p>You must watch the entire ad to receive premium access</p>
       </div>
     </div>
   `;
-  
+
   modalPayUPI.style.display = 'none';
   modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
-  
+
   const video = document.getElementById('premiumVideo');
-  const videoCurrentTime = document.getElementById('videoCurrentTime');
-  const videoDuration = document.getElementById('videoDuration');
-  const cancelAdBtn = document.getElementById('cancelAdBtn');
-  const skipAdBtn = document.getElementById('skipAdBtn');
-  
-  // Update time display
+  const progress = document.getElementById('videoProgress');
+  const currentTime = document.getElementById('videoCurrentTime');
+  const duration = document.getElementById('videoDuration');
+  const cancelBtn = document.getElementById('cancelAdBtn');
+  const skipBtn = document.getElementById('skipAdBtn');
+
+  // Video event handlers
+  video.onloadedmetadata = () => {
+    duration.textContent = formatTime(video.duration);
+    progress.max = video.duration;
+  };
+
   video.ontimeupdate = () => {
-    videoCurrentTime.textContent = formatTime(video.currentTime);
+    currentTime.textContent = formatTime(video.currentTime);
+    progress.value = video.currentTime;
+    
     // Enable skip button after 30 seconds
-    if (video.currentTime > 30 && skipAdBtn.disabled) {
-      skipAdBtn.disabled = false;
+    if (video.currentTime > 30 && skipBtn.disabled) {
+      skipBtn.disabled = false;
     }
   };
-  
-  video.onloadedmetadata = () => {
-    videoDuration.textContent = formatTime(video.duration);
-  };
-  
-  cancelAdBtn.onclick = () => {
+
+  video.onended = async () => {
+    await grantPremiumAccess();
     modal.style.display = 'none';
-    video.pause();
   };
-  
-  skipAdBtn.onclick = () => {
+
+  video.onerror = () => {
+    alert('Error playing video ad. Please try another ad.');
+    modal.style.display = 'none';
+  };
+
+  // Button handlers
+  cancelBtn.onclick = () => {
+    video.pause();
+    modal.style.display = 'none';
+  };
+
+  skipBtn.onclick = () => {
     video.currentTime = video.duration - 1;
   };
-  
-  video.onended = async () => {
-    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const adViewId = `adview_${uidGlobal}_${Date.now()}`;
+}
+
+async function grantPremiumAccess() {
+  try {
+    const now = new Date();
+    const expiry = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
     
-    try {
-      await db.ref(`users/${uidGlobal}/temp_premium`).set({ 
-        expiry, 
-        granted: new Date().toISOString() 
-      });
-      
-      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ 
-        created: new Date().toISOString(), 
-        adId: Object.keys(ads)[0] 
-      });
-      
-      await db.ref(`admin/ad_views/${adViewId}`).set({ 
-        uid: uidGlobal, 
-        adId: Object.keys(ads)[0], 
-        created: new Date().toISOString() 
-      });
-      
-      alert('Premium access granted for 1 hour!');
-      modal.style.display = 'none';
-      
-      const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
-      const userData = userSnap.val() || {};
-      applyPlanToUI(userData);
-      
-    } catch (error) {
-      console.error('Error granting premium access:', error);
-      alert('Failed to grant premium access. Please try again.');
-    }
-  };
-  
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    // Record the ad view
+    await db.ref(`users/${uidGlobal}/last_ad_view`).set(now.toISOString());
+    
+    // Grant premium access
+    await db.ref(`users/${uidGlobal}/temp_premium`).set({
+      granted: now.toISOString(),
+      expiry: expiry.toISOString(),
+      ad_id: premiumVideoAd.id
+    });
+    
+    // Log the ad view in admin
+    await db.ref(`admin/ad_views/${uidGlobal}_${now.getTime()}`).set({
+      uid: uidGlobal,
+      ad_id: premiumVideoAd.id,
+      timestamp: now.toISOString(),
+      granted_premium: true
+    });
+    
+    // Update UI
+    const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
+    applyPlanToUI(userSnap.val());
+    
+    alert('Premium access granted for 1 hour! Enjoy your Silver features.');
+    
+  } catch (error) {
+    console.error('Error granting premium access:', error);
+    alert('Failed to grant premium access. Please try again.');
   }
 }
+
+// Helper function to format time
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+
+
 
 // Utility functions
 function prettyTS(iso) {
