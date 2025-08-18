@@ -13,7 +13,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
-const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8'); // Replace with your Stripe publishable key
+const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8');
 
 // DOM elements
 const userEmailEl = document.getElementById('userEmail');
@@ -119,6 +119,7 @@ function showAd(ad, isPremiumAd = false, onComplete = null) {
     v.controls = true;
     v.autoplay = true;
     v.muted = true;
+    v.style.width = '100%';
     adArea.innerHTML = '';
     const link = document.createElement('a');
     link.href = ad.clickUrl || '#';
@@ -175,7 +176,6 @@ function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 async function watchAdForPremium() {
   if (!uidGlobal) return alert('Not logged in');
   
-  // Check if user already has temp premium that's still valid
   const tempPremiumSnap = await db.ref(`users/${uidGlobal}/temp_premium`).once('value');
   const tempPremium = tempPremiumSnap.val();
   if (tempPremium && isTempPremiumValid(tempPremium)) {
@@ -183,7 +183,6 @@ async function watchAdForPremium() {
     return;
   }
   
-  // Check last ad view time
   const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
   const adViews = adViewSnap.val() || {};
   const lastAdView = Object.values(adViews)[0];
@@ -193,7 +192,6 @@ async function watchAdForPremium() {
     return;
   }
 
-  // Find a premium access video ad
   const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
   const ads = adSnap.val() || {};
   const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
@@ -203,30 +201,57 @@ async function watchAdForPremium() {
     return;
   }
 
-  // Show modal with video ad
-  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2>
+  modalContent.innerHTML = `
+    <h2>Watch Ad for 1-Hour Premium Access</h2>
     <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
-    <div id="premiumAdContainer"></div>`;
+    <div style="position:relative;width:100%;max-width:500px;margin:20px auto;">
+      <video id="premiumVideo" controls autoplay muted style="width:100%;border-radius:8px;">
+        <source src="${premiumAd.url}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span id="videoCurrentTime">0:00</span>
+        <span id="videoDuration">1:00</span>
+      </div>
+      <div style="margin-top:8px;text-align:center;">
+        <button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
+        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>
+      </div>
+    </div>
+  `;
+  
   modalPayUPI.style.display = 'none';
   modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
   
-  // Show the premium ad in the modal
-  const adContainer = document.getElementById('premiumAdContainer');
-  const video = document.createElement('video');
-  video.src = premiumAd.url;
-  video.controls = true;
-  video.autoplay = true;
-  video.muted = true;
-  video.style.width = '100%';
-  adContainer.appendChild(video);
+  const video = document.getElementById('premiumVideo');
+  const videoCurrentTime = document.getElementById('videoCurrentTime');
+  const videoDuration = document.getElementById('videoDuration');
+  const cancelAdBtn = document.getElementById('cancelAdBtn');
+  const skipAdBtn = document.getElementById('skipAdBtn');
   
-  video.play().catch(err => {
-    console.error('Video play error:', err);
-    alert('Could not play the video. Please enable autoplay and try again.');
-  });
-
-  // Handle video completion
+  // Update time display
+  video.ontimeupdate = () => {
+    videoCurrentTime.textContent = formatTime(video.currentTime);
+    // Enable skip button after 30 seconds
+    if (video.currentTime > 30 && skipAdBtn.disabled) {
+      skipAdBtn.disabled = false;
+    }
+  };
+  
+  video.onloadedmetadata = () => {
+    videoDuration.textContent = formatTime(video.duration);
+  };
+  
+  cancelAdBtn.onclick = () => {
+    modal.style.display = 'none';
+    video.pause();
+  };
+  
+  skipAdBtn.onclick = () => {
+    video.currentTime = video.duration - 1;
+  };
+  
   video.onended = async () => {
     const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const adViewId = `adview_${uidGlobal}_${Date.now()}`;
@@ -251,7 +276,6 @@ async function watchAdForPremium() {
       alert('Premium access granted for 1 hour!');
       modal.style.display = 'none';
       
-      // Update UI to reflect premium access
       const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
       const userData = userSnap.val() || {};
       applyPlanToUI(userData);
@@ -261,6 +285,12 @@ async function watchAdForPremium() {
       alert('Failed to grant premium access. Please try again.');
     }
   };
+  
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
 }
 
 // Utility functions
@@ -297,7 +327,7 @@ function renderRequestUI(upgradeRequest, currentPlan) {
     upgradeBtns.style.display = 'block';
     upgradeToSilverBtn.style.display = 'inline-block';
     upgradeToGoldBtn.style.display = 'inline-block';
-    watchAdBtn.style.display = currentPlan === 'basic' ? 'inline-block' : 'none';
+    watchAdBtn.style.display = (currentPlan === 'basic' && !localPlan.temp_premium) ? 'inline-block' : 'none';
     statusMsg = '';
   } else if (upgradeRequest.status === 'pending') {
     upgradeBtns.style.display = 'none';
@@ -309,13 +339,13 @@ function renderRequestUI(upgradeRequest, currentPlan) {
     upgradeBtns.style.display = 'block';
     upgradeToSilverBtn.style.display = 'inline-block';
     upgradeToGoldBtn.style.display = 'inline-block';
-    watchAdBtn.style.display = currentPlan === 'basic' ? 'inline-block' : 'none';
+    watchAdBtn.style.display = (currentPlan === 'basic' && !localPlan.temp_premium) ? 'inline-block' : 'none';
     statusMsg = `<span class="rejected-pill">Upgrade request rejected — you may try again</span>`;
   } else if (upgradeRequest.status === 'cancelled') {
     upgradeBtns.style.display = 'block';
     upgradeToSilverBtn.style.display = 'inline-block';
     upgradeToGoldBtn.style.display = 'inline-block';
-    watchAdBtn.style.display = currentPlan === 'basic' ? 'inline-block' : 'none';
+    watchAdBtn.style.display = (currentPlan === 'basic' && !localPlan.temp_premium) ? 'inline-block' : 'none';
     statusMsg = `<span class="small-muted">Upgrade request cancelled</span>`;
   }
   
@@ -334,15 +364,20 @@ function applyPlanToUI(udata) {
   
   localPlan = { plan, plan_expiry, vehicle_limit, exportCSV, analytics, fleet, temp_premium };
 
-  const effectivePlan = temp_premium && plan === 'basic' ? 'silver' : plan;
-  planPill.textContent = effectivePlan.toUpperCase() + (temp_premium && plan === 'basic' ? ' (TEMP)' : '');
-  planPillHeader.textContent = effectivePlan.toUpperCase() + (temp_premium && plan === 'basic' ? ' (TEMP)' : '');
-  currentPlanEl.textContent = effectivePlan.toUpperCase() + (temp_premium && plan === 'basic' ? ' (TEMP)' : '');
-  planExpiryEl.textContent = temp_premium && plan === 'basic' ? prettyTS(udata.temp_premium.expiry) : prettyTS(plan_expiry);
+  const effectivePlan = temp_premium ? 'silver' : plan;
+  planPill.textContent = effectivePlan.toUpperCase() + (temp_premium ? ' (TEMP)' : '');
+  planPillHeader.textContent = effectivePlan.toUpperCase() + (temp_premium ? ' (TEMP)' : '');
+  currentPlanEl.textContent = effectivePlan.toUpperCase() + (temp_premium ? ' (TEMP)' : '');
+  planExpiryEl.textContent = temp_premium ? prettyTS(udata.temp_premium.expiry) : prettyTS(plan_expiry);
   vehicleLimitEl.textContent = vehicle_limit;
   
-  exportCSVBtn.style.display = (exportCSV || (udata.purchases?.export && isPurchaseValid(udata.purchases.export)) || temp_premium) ? 'inline-block' : 'none';
-  buyExportBtn.style.display = (!exportCSV && !(udata.purchases?.export && isPurchaseValid(udata.purchases.export)) && !temp_premium) ? 'inline-block' : 'none';
+  // Show watch ad button only for basic plan users without active temp premium
+  watchAdBtn.style.display = (plan === 'basic' && !temp_premium) ? 'inline-block' : 'none';
+  
+  // Enable export if user has silver/gold OR temp premium OR purchased export
+  exportCSVBtn.style.display = (effectivePlan !== 'basic' || (udata.purchases?.export && isPurchaseValid(udata.purchases.export))) ? 'inline-block' : 'none';
+  buyExportBtn.style.display = (effectivePlan === 'basic' && !(udata.purchases?.export && isPurchaseValid(udata.purchases.export))) ? 'inline-block' : 'none';
+  
   buyAnalyticsBtn.style.display = (!analytics && plan !== 'gold') ? 'inline-block' : 'none';
   buyFleetBtn.style.display = (!fleet && plan !== 'gold') ? 'inline-block' : 'none';
   
@@ -683,12 +718,30 @@ async function buyFeatureWithStripe(feature, amount) {
 }
 
 function showPurchaseModal(feature, amount) {
+  if (localPlan.temp_premium) {
+    alert('You currently have temporary premium access. Please wait until it expires to make purchases.');
+    return;
+  }
+  
   currentFeature = feature;
   currentAmount = amount;
-  modalContent.innerHTML = `<h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2><p>Price: ₹${amount}</p><p>Choose payment method:</p>`;
-  modalPayUPI.style.display = 'inline-block';
-  modalPayStripe.style.display = 'inline-block';
+  modalContent.innerHTML = `
+    <h2>Purchase ${feature.charAt(0).toUpperCase() + feature.slice(1)} Access</h2>
+    <p>Price: ₹${amount}</p>
+    <p>Choose payment method:</p>
+    <div class="payment-options">
+      <button id="upiOption" class="btn btn-primary">Pay with UPI</button>
+      <button id="stripeOption" class="btn btn-stripe">Pay with Stripe</button>
+    </div>
+    <p class="small-muted" style="margin-top:10px;">Note: All payments require admin approval</p>
+  `;
+  
+  modalPayUPI.style.display = 'none';
+  modalPayStripe.style.display = 'none';
   modal.style.display = 'flex';
+  
+  document.getElementById('upiOption').onclick = () => buyFeatureWithUPI(feature, amount);
+  document.getElementById('stripeOption').onclick = () => buyFeatureWithStripe(feature, amount);
 }
 
 // Online status and notifications
@@ -851,14 +904,21 @@ function pointInsideGeofences(lat, lng) {
 
 // Export CSV
 function exportHistoryCSV(histArray) {
-  if (!localPlan.exportCSV && !(udata && udata.purchases?.export && isPurchaseValid(udata.purchases.export))) {
+  // Check for either silver/gold plan, temp premium, or purchased export
+  const canExport = localPlan.plan !== 'basic' || 
+                   localPlan.temp_premium || 
+                   (udata && udata.purchases?.export && isPurchaseValid(udata.purchases.export));
+  
+  if (!canExport) {
     showPurchaseModal('export', 2);
     return;
   }
+  
   if (!histArray || !Array.isArray(histArray) || histArray.length === 0) {
     alert('No history data available to export.');
     return;
   }
+  
   try {
     const rows = [['time', 'location', 'speed']];
     histArray.forEach(entry => {
@@ -997,7 +1057,11 @@ async function renderPendingPayments() {
 }
 
 // Event listeners
-modalClose.onclick = () => modal.style.display = 'none';
+modalClose.onclick = () => {
+  const video = document.getElementById('premiumVideo');
+  if (video) video.pause();
+  modal.style.display = 'none';
+};
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
 
@@ -1015,8 +1079,15 @@ auth.onAuthStateChanged(async (user) => {
       customMarkerIcon = L.icon({ iconUrl: udata.custom_marker_icon, iconSize: [32, 32], iconAnchor: [16, 30] });
       if (liveMarker) liveMarker.setIcon(customMarkerIcon);
     }
-    if (udata.admin === true) { isAdmin = true; adminPanel.style.display = 'block'; adminPanelPayments.style.display = 'block'; }
-    else { isAdmin = false; adminPanel.style.display = 'none'; adminPanelPayments.style.display = 'none'; }
+    if (udata.admin === true) { 
+      isAdmin = true; 
+      adminPanel.style.display = 'block'; 
+      adminPanelPayments.style.display = 'block'; 
+    } else { 
+      isAdmin = false; 
+      adminPanel.style.display = 'none'; 
+      adminPanelPayments.style.display = 'none'; 
+    }
     if (udata.purchases?.fleet || localPlan.fleet) renderFleetList();
   });
 
