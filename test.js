@@ -15,7 +15,7 @@ const auth = firebase.auth();
 const db = firebase.database();
 const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8'); // Replace with your Stripe publishable key
 
-// DOM elements (unchanged)
+// DOM elements
 const userEmailEl = document.getElementById('userEmail');
 const planPill = document.getElementById('planPill');
 const planPillHeader = document.getElementById('planPillHeader');
@@ -79,30 +79,29 @@ const fleetSection = document.getElementById('fleetSection');
 const fleetMessage = document.getElementById('fleetMessage');
 const addVehicleBtn = document.getElementById('addVehicleBtn');
 const fleetList = document.getElementById('fleetList');
+const logoutBtn = document.getElementById('logoutBtn'); // Added for logout functionality
 
-// Global variables (unchanged)
+// Global variables
 let uidGlobal = null;
 let isAdmin = false;
 let currentFeature = null;
 let currentAmount = null;
-let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs:30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false, temp_premium: false };
+let localPlan = { plan: 'basic', plan_expiry: null, vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false };
+let udata = null;
 
-// Plan policies (unchanged)
+// Plan policies
 const PLAN_POLICIES = {
-  basic:  { historyDays:1, ads:'banner+interstitial', vehicle_limit:1, exportCSV:false, refreshMs:30000, heatmap:false, mapSwitch:false, notify:false, geofences:0, analytics:false, fleet:false },
-  silver: { historyDays:7, ads:'banner-limited', vehicle_limit:3, exportCSV:true, refreshMs:20000, heatmap:false, mapSwitch:true, notify:true, geofences:1, analytics:false, fleet:false },
-  gold:   { historyDays:90, ads:'no-ads', vehicle_limit:3, exportCSV:true, refreshMs:10000, heatmap:true, mapSwitch:true, notify:true, geofences:999, analytics:true, fleet:true }
+  basic: { historyDays: 1, ads: 'banner+interstitial', vehicle_limit: 1, exportCSV: false, refreshMs: 30000, heatmap: false, mapSwitch: false, notify: false, geofences: 0, analytics: false, fleet: false },
+  silver: { historyDays: 7, ads: 'banner-limited', vehicle_limit: 3, exportCSV: true, refreshMs: 20000, heatmap: false, mapSwitch: true, notify: true, geofences: 1, analytics: false, fleet: false },
+  gold: { historyDays: 90, ads: 'no-ads', vehicle_limit: 3, exportCSV: true, refreshMs: 10000, heatmap: true, mapSwitch: true, notify: true, geofences: 999, analytics: true, fleet: true }
 };
 
-// Ad handling - Updated with better error handling and retry logic
+// Ad handling
 let adTimerInt = null, currentAdIndex = 0, adsList = [];
-let currentAd = null; // Track current ad for retry functionality
 
 function showAd(ad, isPremiumAd = false, onComplete = null) {
-  currentAd = { ad, isPremiumAd, onComplete }; // Store current ad for retry
   adArea.innerHTML = 'Loading ad...';
   console.log('Showing ad:', ad);
-  
   if (ad.type === 'banner') {
     const img = new Image();
     img.src = ad.url;
@@ -115,53 +114,28 @@ function showAd(ad, isPremiumAd = false, onComplete = null) {
       adArea.appendChild(link);
       console.log('Banner ad loaded:', ad.url);
     };
-    img.onerror = () => { 
-      adArea.innerHTML = 'Ad image failed to load. <button class="btn btn-small" onclick="retryCurrentAd()">Retry</button>';
-    };
+    img.onerror = () => { adArea.innerHTML = 'Ad image failed to load'; };
   } else if (ad.type === 'video') {
     const v = document.createElement('video');
     v.src = ad.url;
     v.controls = true;
+    v.autoplay = true;
     v.muted = true;
-    
-    // Create play button container
-    const playContainer = document.createElement('div');
-    playContainer.style.textAlign = 'center';
-    
-    const playBtn = document.createElement('button');
-    playBtn.textContent = 'Play Ad';
-    playBtn.className = 'btn btn-primary';
-    playBtn.style.margin = '10px 0';
-    playBtn.onclick = () => {
-      playBtn.textContent = 'Loading...';
-      v.play().catch(err => {
-        console.error('Video play failed:', err);
-        playBtn.textContent = 'Play Failed - Click to Retry';
-      });
-    };
-    
-    v.style.display = 'none';
     adArea.innerHTML = '';
     const link = document.createElement('a');
     link.href = ad.clickUrl || '#';
     link.target = '_blank';
     link.appendChild(v);
-    
-    playContainer.appendChild(playBtn);
-    adArea.appendChild(playContainer);
     adArea.appendChild(link);
-    
-    v.onloadeddata = () => {
-      console.log(`Video ad loaded at ${new Date().toISOString()}: ${ad.url}`);
-      playBtn.textContent = 'Play Ad';
-      v.style.display = 'block';
-    };
-    
+    v.play().catch(err => {
+      console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
+      adArea.innerHTML = 'Video ad failed to play (autoplay blocked)';
+    });
+    v.onloadeddata = () => console.log(`Video ad loaded at ${new Date().toISOString()}: ${ad.url}`);
     v.onerror = () => {
       console.error(`Video ad failed to load at ${new Date().toISOString()}: ${ad.url}`);
-      adArea.innerHTML = 'Ad video failed to load. <button class="btn btn-small" onclick="retryCurrentAd()">Retry</button>';
+      adArea.innerHTML = 'Ad video failed to load';
     };
-    
     if (isPremiumAd && onComplete) {
       v.onended = () => {
         console.log('Premium ad completed:', ad.url);
@@ -174,29 +148,17 @@ function showAd(ad, isPremiumAd = false, onComplete = null) {
   }
 }
 
-// Global retry function
-window.retryCurrentAd = function() {
-  if (currentAd) {
-    showAd(currentAd.ad, currentAd.isPremiumAd, currentAd.onComplete);
-  }
-};
-
 function loadAdsForPlan(plan) {
   if (adTimerInt) clearInterval(adTimerInt);
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
   if (policy.ads === 'no-ads') { adArea.style.display = 'none'; adArea.innerHTML = ''; return; }
   adArea.style.display = 'flex';
-  
   db.ref('admin/ads').once('value').then(snapshot => {
     const adsObj = snapshot.val() || {};
     adsList = Object.values(adsObj).filter(ad =>
       ad && ad.active && ad.url && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
     );
-    
-    if (policy.ads === 'banner-limited' && adsList.length > 1) { 
-      adsList = adsList.slice(0, 1); 
-    }
-    
+    if (policy.ads === 'banner-limited' && adsList.length > 1) { adsList = adsList.slice(0, 1); }
     if (adsList.length) {
       showAd(adsList[currentAdIndex = 0]);
       adTimerInt = setInterval(() => {
@@ -204,127 +166,105 @@ function loadAdsForPlan(plan) {
         showAd(adsList[currentAdIndex]);
       }, 15000);
     } else {
-      adArea.innerHTML = 'No active ads available';
+      adArea.innerHTML = 'No active ad';
     }
-  }).catch((error) => { 
-    console.error('Error loading ads:', error);
-    adArea.innerHTML = 'Error loading ads. <button class="btn btn-small" onclick="loadAdsForPlan(localPlan.plan)">Retry</button>';
-  });
+  }).catch(() => { adArea.innerHTML = 'Ad load error'; });
 }
 
-function renderAdsForPlan(plan) { 
-  loadAdsForPlan(plan); 
-}
+function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
 
-// Updated watchAdForPremium with better error handling and fallback
+// Watch ad for premium access
 async function watchAdForPremium() {
-  if (!uidGlobal) {
-    alert('Please log in to access premium features');
+  if (!uidGlobal) return alert('Not logged in');
+
+  // Check ad view limit (once every 24 hours)
+  const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
+  const adViews = adViewSnap.val() || {};
+  const lastAdView = Object.values(adViews)[0];
+  if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
+    alert('You can only watch an ad for premium access once every 24 hours.');
     return;
   }
 
-  // Show loading state on button
-  const originalBtnText = watchAdBtn.textContent;
-  watchAdBtn.textContent = 'Checking...';
-  watchAdBtn.disabled = true;
+  // Fetch premium ad
+  const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
+  const ads = adSnap.val() || {};
+  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
+  if (!premiumAd) {
+    alert('No premium ad available at the moment. Try again later or contact support.');
+    return;
+  }
 
+  // Show modal with ad
+  modalContent.innerHTML = `<h2>Watch Ad for 1-Hour Premium Access</h2><p>Watch the full video to unlock Silver plan features for 1 hour.</p><div id="adContainer"></div>`;
+  modalPayUPI.style.display = 'none';
+  modalPayStripe.style.display = 'none';
+  modal.style.display = 'flex';
+
+  // Create ad container and play video
+  const adContainer = document.getElementById('adContainer');
+  adContainer.innerHTML = 'Loading ad...';
+  const video = document.createElement('video');
+  video.src = premiumAd.url;
+  video.controls = true; // Add controls for manual play if autoplay fails
+  video.muted = true; // Required for autoplay
+  video.autoplay = true; // Attempt autoplay
+  video.style.width = '100%'; // Ensure it fits the modal
+  video.onloadeddata = () => {
+    console.log(`Video ad loaded at ${new Date().toISOString()}: ${premiumAd.url}`);
+    adContainer.innerHTML = '';
+    adContainer.appendChild(video);
+  };
+  video.onerror = (e) => {
+    console.error(`Video ad failed to load at ${new Date().toISOString()}: ${premiumAd.url}`, e);
+    adContainer.innerHTML = 'Video ad failed to load. Please try again.';
+  };
+  video.onended = async () => {
+    console.log('Premium ad completed:', premiumAd.url);
+    // Grant temporary premium
+    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const adViewId = `adview_${uidGlobal}_${Date.now()}`;
+    try {
+      await db.ref(`users/${uidGlobal}/temp_premium`).set({ expiry, granted: new Date().toISOString() });
+      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ created: new Date().toISOString(), adId: Object.keys(ads)[0] });
+      await db.ref(`admin/ad_views/${adViewId}`).set({ uid: uidGlobal, adId: Object.keys(ads)[0], created: new Date().toISOString() });
+      alert('Premium access granted for 1 hour!');
+      modal.style.display = 'none';
+      renderAdsForPlan(localPlan.plan); // Refresh ads
+      applyPlanToUI(udata); // Update UI with new plan state
+    } catch (error) {
+      console.error(`Database update failed at ${new Date().toISOString()}:`, error);
+      alert('Failed to grant premium access. Please contact support.');
+    }
+  };
+
+  // Handle autoplay failure
+  video.play().catch((err) => {
+    console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
+    adContainer.innerHTML = 'Autoplay blocked. Please click play to watch the ad.';
+    video.controls = true; // Ensure controls are visible for manual play
+  });
+}
+
+// Utility functions
+function prettyTS(iso) {
+  if (!iso) return '-';
   try {
-    // Check 24-hour cooldown
-    const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
-    const adViews = adViewSnap.val() || {};
-    const lastAdView = Object.values(adViews)[0];
-    
-    if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
-      alert('You can only watch an ad for premium access once every 24 hours.');
-      return;
-    }
-
-    // Try to find a premium ad first
-    let adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
-    let ads = adSnap.val() || {};
-    let premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
-    
-    // Fallback to any video ad if no premium ad found
-    if (!premiumAd) {
-      adSnap = await db.ref('admin/ads').orderByChild('type').equalTo('video').once('value');
-      ads = adSnap.val() || {};
-      premiumAd = Object.values(ads).find(ad => ad.active && ad.url);
-      
-      if (!premiumAd) {
-        alert('No video ads available at the moment. Please try again later.');
-        return;
-      }
-    }
-
-    // Show modal with the ad
-    modalContent.innerHTML = `
-      <h2>Watch Ad for 1-Hour Premium Access</h2>
-      <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
-      <div id="premiumAdContainer" style="margin: 20px 0;"></div>
-      <p class="small-muted">You must watch the entire ad to receive premium access</p>
-    `;
-    modalPayUPI.style.display = 'none';
-    modalPayStripe.style.display = 'none';
-    modal.style.display = 'flex';
-    
-    const premiumAdContainer = document.getElementById('premiumAdContainer');
-    showAd(premiumAd, true, async () => {
-      try {
-        const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        const adViewId = `adview_${uidGlobal}_${Date.now()}`;
-        const adId = Object.keys(ads)[0] || 'fallback_ad';
-        
-        // Use transaction to ensure all updates succeed or fail together
-        await db.ref().transaction(() => {
-          const updates = {};
-          updates[`users/${uidGlobal}/temp_premium`] = { expiry, granted: new Date().toISOString() };
-          updates[`users/${uidGlobal}/ad_views/${adViewId}`] = { 
-            created: new Date().toISOString(), 
-            adId 
-          };
-          updates[`admin/ad_views/${adViewId}`] = { 
-            uid: uidGlobal, 
-            adId, 
-            created: new Date().toISOString() 
-          };
-          return updates;
-        });
-        
-        alert('Premium access granted for 1 hour!');
-        modal.style.display = 'none';
-        renderAdsForPlan(localPlan.plan);
-      } catch (error) {
-        console.error('Failed to grant premium access:', error);
-        alert('Failed to grant premium access. Please try again.');
-      }
-    });
-  } catch (error) {
-    console.error('Error in watchAdForPremium:', error);
-    alert('An error occurred. Please try again.');
-  } finally {
-    watchAdBtn.textContent = originalBtnText;
-    watchAdBtn.disabled = false;
+    return new Date(iso).toLocaleString();
+  } catch (e) {
+    return iso;
   }
 }
 
-// Updated modal handling
-modalClose.onclick = function() {
-  modal.style.display = 'none';
-  // Clean up any ad resources
-  const premiumAdContainer = document.getElementById('premiumAdContainer');
-  if (premiumAdContainer) premiumAdContainer.innerHTML = '';
-  currentAd = null;
-};
+function isPurchaseValid(purchase) {
+  if (!purchase || !purchase.expiry) return false;
+  return Date.now() < Date.parse(purchase.expiry);
+}
 
-window.onclick = function(event) {
-  if (event.target === modal) {
-    modal.style.display = 'none';
-    // Clean up any ad resources
-    const premiumAdContainer = document.getElementById('premiumAdContainer');
-    if (premiumAdContainer) premiumAdContainer.innerHTML = '';
-    currentAd = null;
-  }
-};
+function isTempPremiumValid(tempPremium) {
+  if (!tempPremium || !tempPremium.expiry) return false;
+  return Date.now() < Date.parse(tempPremium.expiry);
+}
 
 // Render subscription UI
 function renderRequestUI(upgradeRequest, currentPlan) {
@@ -807,6 +747,10 @@ function setupDrawTools() {
     },
     edit: { featureGroup: drawnItems }
   });
+  map.on(L.Draw.Event.CREATED, function (e) {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+  });
 }
 
 function enableDrawing() {
@@ -1038,6 +982,31 @@ async function renderPendingPayments() {
 modalClose.onclick = () => modal.style.display = 'none';
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
+watchAdBtn.addEventListener('click', () => watchAdForPremium()); // Added watchAdBtn listener
+upgradeToSilverBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'silver').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+upgradeToGoldBtn.addEventListener('click', () => {
+  if (!uidGlobal) return alert('Not logged in');
+  createUpgradeRequest(uidGlobal, 'gold').then(() => {
+    upgradeToSilverBtn.style.display = 'none';
+    upgradeToGoldBtn.style.display = 'none';
+    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
+  }).catch(() => { alert('Failed to send request'); });
+});
+logoutBtn.addEventListener('click', () => {
+  auth.signOut().then(() => {
+    window.location.href = 'login.html';
+  }).catch(error => {
+    console.error('Logout failed:', error);
+    alert('Failed to logout. Please try again.');
+  });
+});
 
 let udata = null;
 auth.onAuthStateChanged(async (user) => {
@@ -1215,30 +1184,4 @@ gfClearBtn.addEventListener('click', async () => {
   drawnItems.clearLayers();
   await db.ref(`users/${uidGlobal}/geofences`).set([]);
   alert('Geofences cleared');
-});
-
-upgradeToSilverBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'silver').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-upgradeToGoldBtn.addEventListener('click', () => {
-  if (!uidGlobal) return alert('Not logged in');
-  createUpgradeRequest(uidGlobal, 'gold').then(() => {
-    upgradeToSilverBtn.style.display = 'none';
-    upgradeToGoldBtn.style.display = 'none';
-    requestStatusArea.innerHTML = '<span class="pending-pill">Upgrade request SENT (pending admin approval)</span>';
-  }).catch(() => { alert('Failed to send request'); });
-});
-
-logoutBtn.addEventListener('click', () => {
-  auth.signOut().then(() => {
-    window.location.href = 'login.html';
-  }).catch(error => {
-    console.error('Logout failed:', error);
-    alert('Failed to logout. Please try again.');
-  });
 });
