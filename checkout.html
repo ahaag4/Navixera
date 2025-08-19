@@ -99,6 +99,7 @@
   <div id="productDetails"></div>
 
   <form id="checkoutForm">
+    <input type="text" id="name" placeholder="Full Name" required>
     <input type="email" id="email" placeholder="Email" required>
     <input type="text" id="phone" placeholder="Phone Number" required>
     <input type="text" id="address" placeholder="Full Address" required>
@@ -151,6 +152,7 @@
         productId: product.id,
         productName: product.name,
         price: Number(product.price),
+        name: document.getElementById("name").value,
         email: document.getElementById("email").value,
         phone: document.getElementById("phone").value,
         address: document.getElementById("address").value,
