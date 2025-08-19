@@ -14,10 +14,7 @@
 
   <!-- Styles -->
   <style>
-    * {
-      margin: 0; padding: 0; box-sizing: border-box;
-      font-family: 'Inter', sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body {
       background: #f8f9fa;
       color: #333;
@@ -46,6 +43,7 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
+      min-height: 350px;
     }
     .product:hover {
       transform: translateY(-6px);
@@ -64,9 +62,14 @@
       margin-bottom: 8px;
     }
     .product p {
-      font-size: 1rem;
-      margin-bottom: 15px;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
       color: #444;
+    }
+    .stock {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 15px;
     }
     button {
       background: linear-gradient(135deg, #4f46e5, #6d28d9);
@@ -81,6 +84,10 @@
     }
     button:hover {
       background: linear-gradient(135deg, #4338ca, #5b21b6);
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
     }
     @media (max-width: 600px) {
       h1 { font-size: 1.6rem; }
@@ -115,17 +122,25 @@
         let p = data[id];
         container.innerHTML += `
           <div class="product">
-            <img src="${p.image || 'https://via.placeholder.com/250'}" alt="${p.name}">
+            <img src="${p.image || 'https://via.placeholder.com/250'}"
+                 alt="${p.name}"
+                 onerror="this.src='https://via.placeholder.com/250';">
             <h2>${p.name}</h2>
-            <p>₹${p.price}</p>
-            <button onclick="buyProduct('${id}', '${p.name}', '${p.price}')">Buy Now</button>
+            <p>₹${Number(p.price).toFixed(2)}</p>
+            <p>${p.description || ''}</p>
+            <p class="stock">Stock: ${p.stock || 'N/A'}</p>
+            <button 
+              onclick="buyProduct('${id}', '${p.name}', '${p.price}')"
+              ${p.stock <= 0 ? 'disabled' : ''}>
+              ${p.stock > 0 ? 'Buy Now' : 'Out of Stock'}
+            </button>
           </div>
         `;
       }
     });
 
     function buyProduct(id, name, price) {
-      localStorage.setItem("product", JSON.stringify({id, name, price}));
+      localStorage.setItem("product", JSON.stringify({id, name, price: Number(price)}));
       window.location = "checkout.html";
     }
   </script>
