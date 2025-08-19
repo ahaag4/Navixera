@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Checkout</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <h1>Checkout</h1>
+  <div id="productDetails"></div>
+
+  <form id="checkoutForm">
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="text" id="address" placeholder="Address" required><br>
+    <input type="text" id="country" placeholder="Country" required><br>
+    <input type="text" id="state" placeholder="State" required><br>
+    <button type="submit">Submit Order</button>
+  </form>
+
+  <p id="msg"></p>
+
+  <script>
+    // Firebase Config
+    var firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    let db = firebase.database();
+
+    // Load selected product
+    let product = JSON.parse(localStorage.getItem("product"));
+    document.getElementById("productDetails").innerHTML =
+      `<h3>${product.name}</h3><p>Price: ₹${product.price}</p>`;
+
+    document.getElementById("checkoutForm").addEventListener("submit", function(e){
+      e.preventDefault();
+
+      let order = {
+        productId: product.id,
+        productName: product.name,
+        price: product.price,
+        email: document.getElementById("email").value,
+        address: document.getElementById("address").value,
+        country: document.getElementById("country").value,
+        state: document.getElementById("state").value,
+        status: "Pending"
+      };
+
+      let newOrderKey = db.ref("orders").push().key;
+      db.ref("orders/" + newOrderKey).set(order);
+
+      document.getElementById("msg").innerText =
+        "✅ Order submitted! Admin will verify and send you payment link.";
+    });
+  </script>
+</body>
+</html>
