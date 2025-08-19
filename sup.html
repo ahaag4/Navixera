@@ -130,6 +130,42 @@
     .notification.show {
       transform: translateX(0);
     }
+    
+    /* Analytics styles */
+    .analytics-stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .analytics-stat {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      flex: 1;
+      min-width: 200px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    }
+    
+    .analytics-stat h3 {
+      margin: 0;
+      font-size: 24px;
+      color: #0d6efd;
+    }
+    
+    .analytics-stat p {
+      margin: 5px 0 0;
+      color: #6c757d;
+    }
+    
+    .analytics-chart {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    }
   </style>
 </head>
 <body>
@@ -336,6 +372,44 @@
         <div id="adsList"></div>
       </div>
     </div>
+    
+    <!-- Ads Analytics -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Ads Analytics</h5>
+        
+        <div class="analytics-stats">
+          <div class="analytics-stat">
+            <h3 id="totalAdImpressions">0</h3>
+            <p>Total Impressions</p>
+          </div>
+          <div class="analytics-stat">
+            <h3 id="totalAdClicks">0</h3>
+            <p>Total Clicks</p>
+          </div>
+          <div class="analytics-stat">
+            <h3 id="avgCtr">0%</h3>
+            <p>Average CTR</p>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Ad Placement</th>
+                <th>Impressions</th>
+                <th>Clicks</th>
+                <th>CTR</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adsAnalyticsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
     <!-- Approved Users -->
     <div class="card mb-4">
       <div class="card-body">
@@ -362,6 +436,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
 // Firebase configuration
 const firebaseConfig = {
@@ -431,6 +506,7 @@ function init(adminUid) {
   loadAds();
   setupPaymentLinkGenerator();
   setupEcommerce();
+  loadAdsAnalytics();
   
   document.getElementById('uploadAdBtn').onclick = handleUploadAd;
   document.getElementById('loadHistoryBtn').onclick = handleLoadHistory;
@@ -911,6 +987,131 @@ function setupEcommerce() {
   });
 }
 
+// Ads Analytics
+function loadAdsAnalytics() {
+  db.ref('admin/ads').once('value').then(snap => {
+    const ads = snap.val() || {};
+    const analyticsTable = document.getElementById('adsAnalyticsTable');
+    analyticsTable.innerHTML = '';
+    
+    let totalImpressions = 0;
+    let totalClicks = 0;
+    
+    Object.entries(ads).forEach(([key, ad]) => {
+      const impressions = ad.impressions || 0;
+      const clicks = ad.clicks || 0;
+      const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : 0;
+      
+      totalImpressions += impressions;
+      totalClicks += clicks;
+      
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHtml(ad.placement || 'N/A')}</td>
+        <td>${impressions}</td>
+        <td>${clicks}</td>
+        <td>${ctr}%</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="viewAdDetails('${key}')">Details</button>
+          <button class="btn btn-sm btn-warning" onclick="resetAdStats('${key}')">Reset</button>
+        </td>
+      `;
+      analyticsTable.appendChild(row);
+    });
+    
+    // Update summary stats
+    document.getElementById('totalAdImpressions').innerText = totalImpressions;
+    document.getElementById('totalAdClicks').innerText = totalClicks;
+    document.getElementById('avgCtr').innerText = totalImpressions > 0 ? 
+      ((totalClicks / totalImpressions) * 100).toFixed(2) + '%' : '0%';
+    
+    if (Object.keys(ads).length === 0) {
+      analyticsTable.innerHTML = '<tr><td colspan="5" class="text-muted">No ads available for analytics</td></tr>';
+    }
+    
+    logDebug('Ads analytics loaded');
+  }).catch(err => {
+    logDebug('loadAdsAnalytics error:', err);
+  });
+}
+
+window.viewAdDetails = function(adKey) {
+  db.ref(`admin/ads/${adKey}`).once('value').then(snap => {
+    const ad = snap.val();
+    if (!ad) return;
+    
+    const modalHtml = `
+      <div class="modal fade" id="adDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Ad Details: ${ad.placement}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Type:</strong> ${ad.type}</p>
+                  <p><strong>Impressions:</strong> ${ad.impressions || 0}</p>
+                  <p><strong>Clicks:</strong> ${ad.clicks || 0}</p>
+                  <p><strong>CTR:</strong> ${ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : 0}%</p>
+                  <p><strong>Status:</strong> ${ad.active ? 'Active' : 'Inactive'}</p>
+                </div>
+                <div class="col-md-6">
+                  ${ad.type === 'banner' ? 
+                    `<img src="${ad.url}" style="max-width: 100%; border-radius: 8px;">` : 
+                    `<video controls style="max-width: 100%; border-radius: 8px;">
+                      <source src="${ad.url}" type="video/mp4">
+                    </video>`
+                  }
+                </div>
+              </div>
+              ${ad.clickUrl ? `<p class="mt-3"><strong>Click URL:</strong> <a href="${ad.clickUrl}" target="_blank">${ad.clickUrl}</a></p>` : ''}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add modal to DOM if not already there
+    if (!document.getElementById('adDetailsModal')) {
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } else {
+      document.getElementById('adDetailsModal').remove();
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('adDetailsModal'));
+    modal.show();
+    
+  }).catch(err => {
+    logDebug('viewAdDetails error:', err);
+  });
+};
+
+window.resetAdStats = function(adKey) {
+  if (!confirm('Are you sure you want to reset the statistics for this ad?')) return;
+  
+  const updates = {};
+  updates[`admin/ads/${adKey}/impressions`] = 0;
+  updates[`admin/ads/${adKey}/clicks`] = 0;
+  
+  db.ref().update(updates)
+    .then(() => {
+      alert('Ad statistics reset successfully!');
+      loadAdsAnalytics();
+      logDebug(`Ad stats reset for: ${adKey}`);
+    })
+    .catch(err => {
+      alert('Error resetting ad statistics: ' + err.message);
+      logDebug('resetAdStats error:', err);
+    });
+};
+
 // Ads Management
 function loadAds() {
   const adsList = document.getElementById('adsList');
@@ -927,7 +1128,20 @@ function loadAds() {
       const div = document.createElement('div');
       div.className = 'mb-2 p-2 border rounded bg-white';
       const created = ad.createdAt || '';
-      div.innerHTML = `<div><strong>Placement:</strong> ${escapeHtml(ad.placement || '')} · <strong>Type:</strong> ${escapeHtml(ad.type || '')} · <strong>Active:</strong> ${ad.active ? '<span class="pill-approved">Active</span>' : '<span class="pill-rejected">Inactive</span>'} · <small class="text-muted">${escapeHtml(created)}</small></div>`;
+      const impressions = ad.impressions || 0;
+      const clicks = ad.clicks || 0;
+      const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : 0;
+      
+      div.innerHTML = `
+        <div>
+          <strong>Placement:</strong> ${escapeHtml(ad.placement || '')} · 
+          <strong>Type:</strong> ${escapeHtml(ad.type || '')} · 
+          <strong>Active:</strong> ${ad.active ? '<span class="pill-approved">Active</span>' : '<span class="pill-rejected">Inactive</span>'} · 
+          <strong>Impressions:</strong> ${impressions} · 
+          <strong>Clicks:</strong> ${clicks} · 
+          <strong>CTR:</strong> ${ctr}%
+          <small class="text-muted">${escapeHtml(created)}</small>
+        </div>`;
       const content = document.createElement('div');
       content.className = 'ad-container';
       const link = document.createElement('a');
@@ -980,6 +1194,7 @@ function loadAds() {
       toggleBtn.onclick = () => {
         db.ref(`admin/ads/${key}/active`).set(!ad.active).then(() => {
           loadAds();
+          loadAdsAnalytics();
           logDebug(`Ad ${key} toggled to ${!ad.active ? 'active' : 'inactive'}`);
         }).catch(err => logDebug(`Toggle ad ${key} error:`, err));
       };
@@ -1005,6 +1220,7 @@ function loadAds() {
             storage.ref(ad.storagePath).delete().catch(err => logDebug(`Failed to delete storage file ${ad.storagePath}:`, err));
           }
           loadAds();
+          loadAdsAnalytics();
           logDebug(`Ad ${key} deleted`);
         }).catch(err => logDebug(`Delete ad ${key} error:`, err));
       };
@@ -1034,7 +1250,7 @@ async function handleUploadAd() {
   const file = document.getElementById('adFile').files[0];
   const key = db.ref('admin/ads').push().key;
   const createdAt = new Date().toISOString();
-  const adMeta = { placement, type, active, createdAt };
+  const adMeta = { placement, type, active, createdAt, impressions: 0, clicks: 0 };
 
   if (clickUrl) {
     if (!/^https?:\/\//i.test(clickUrl)) {
@@ -1089,6 +1305,7 @@ async function handleUploadAd() {
     document.getElementById('adClickUrl').value = '';
     alert('Ad saved.');
     loadAds();
+    loadAdsAnalytics();
     logDebug(`Ad uploaded: ${key}, type: ${type}, placement: ${placement}`);
   } catch (err) {
     alert('Upload failed: ' + err.message);
@@ -1221,4 +1438,4 @@ function deleteHistoryByUser(uid) {
 }
   </script>
 </body>
-                  </html>
+              </html>
