@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Link Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            color: #2670ff;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .main-content {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .generator-section, .preview-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            color: #2670ff;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #2670ff;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            background: #2670ff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #1a5fd0;
+        }
+        
+        .btn-large {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+        }
+        
+        .payment-link-container {
+            margin-top: 20px;
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px dashed #2670ff;
+        }
+        
+        .payment-link {
+            font-size: 16px;
+            word-break: break-all;
+            margin-bottom: 15px;
+            color: #2670ff;
+            font-weight: 500;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn-copy {
+            background: #28a745;
+        }
+        
+        .btn-share {
+            background: #6c757d;
+        }
+        
+        .btn-copy:hover {
+            background: #218838;
+        }
+        
+        .btn-share:hover {
+            background: #5a6268;
+        }
+        
+        .payment-preview {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .preview-total {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2670ff;
+        }
+        
+        .recent-links {
+            margin-top: 30px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .link-item {
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .link-details {
+            flex: 1;
+        }
+        
+        .link-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #28a745;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Payment Link Generator</h1>
+            <p>Create and share payment links with your customers</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="generator-section">
+                <h2 class="section-title">Create Payment Link</h2>
+                
+                <div class="form-group">
+                    <label for="productName">Product/Service Name</label>
+                    <input type="text" id="productName" placeholder="e.g., Premium Subscription">
+                </div>
+                
+                <div class="form-group">
+                    <label for="amount">Amount (₹)</label>
+                    <input type="number" id="amount" placeholder="0.00" min="0" step="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label for="currency">Currency</label>
+                    <select id="currency">
+                        <option value="INR">Indian Rupee (INR)</option>
+                        <option value="USD">US Dollar (USD)</option>
+                        <option value="EUR">Euro (EUR)</option>
+                        <option value="GBP">British Pound (GBP)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" rows="3" placeholder="Description of the product or service"></textarea>
+                </div>
+                
+                <button id="generateBtn" class="btn btn-large">Generate Payment Link</button>
+                
+                <div class="payment-link-container" id="linkContainer" style="display: none;">
+                    <h3>Your Payment Link</h3>
+                    <p class="payment-link" id="paymentLink"></p>
+                    <div class="action-buttons">
+                        <button class="btn btn-copy" id="copyBtn"><i class="fas fa-copy"></i> Copy Link</button>
+                        <button class="btn btn-share" id="shareBtn"><i class="fas fa-share-alt"></i> Share</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <h2 class="section-title">Payment Preview</h2>
+                
+                <div class="payment-preview">
+                    <div class="preview-item">
+                        <span>Product:</span>
+                        <span id="previewProduct">-</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Amount:</span>
+                        <span id="previewAmount">₹0.00</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Currency:</span>
+                        <span id="previewCurrency">INR</span>
+                    </div>
+                    <div class="preview-item">
+                        <span>Description:</span>
+                        <span id="previewDescription">-</span>
+                    </div>
+                    <div class="preview-item preview-total">
+                        <span>Total:</span>
+                        <span id="previewTotal">₹0.00</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <h3>How it works</h3>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Fill in the product details and amount</li>
+                        <li>Click "Generate Payment Link"</li>
+                        <li>Share the link with your customer</li>
+                        <li>Customer completes the payment</li>
+                        <li>You receive notification of payment</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recent-links">
+            <h2 class="section-title">Recent Payment Links</h2>
+            <div id="recentLinksList">
+                <p style="text-align: center; padding: 20px; color: #666;">No payment links generated yet</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification">Link copied to clipboard!</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const generateBtn = document.getElementById('generateBtn');
+            const productInput = document.getElementById('productName');
+            const amountInput = document.getElementById('amount');
+            const currencySelect = document.getElementById('currency');
+            const descriptionInput = document.getElementById('description');
+            const linkContainer = document.getElementById('linkContainer');
+            const paymentLink = document.getElementById('paymentLink');
+            const copyBtn = document.getElementById('copyBtn');
+            const shareBtn = document.getElementById('shareBtn');
+            const notification = document.getElementById('notification');
+            
+            // Preview elements
+            const previewProduct = document.getElementById('previewProduct');
+            const previewAmount = document.getElementById('previewAmount');
+            const previewCurrency = document.getElementById('previewCurrency');
+            const previewDescription = document.getElementById('previewDescription');
+            const previewTotal = document.getElementById('previewTotal');
+            
+            // Update preview as user types
+            productInput.addEventListener('input', updatePreview);
+            amountInput.addEventListener('input', updatePreview);
+            currencySelect.addEventListener('change', updatePreview);
+            descriptionInput.addEventListener('input', updatePreview);
+            
+            // Generate payment link
+            generateBtn.addEventListener('click', function() {
+                const product = productInput.value.trim();
+                const amount = amountInput.value.trim();
+                
+                if (!product) {
+                    alert('Please enter a product/service name');
+                    productInput.focus();
+                    return;
+                }
+                
+                if (!amount || parseFloat(amount) <= 0) {
+                    alert('Please enter a valid amount');
+                    amountInput.focus();
+                    return;
+                }
+                
+                // Generate a unique payment ID (in a real app, this would come from the server)
+                const paymentId = 'pay_' + Math.random().toString(36).substr(2, 9);
+                
+                // Create payment link (in a real app, this would be your domain)
+                const baseUrl = window.location.href.replace(/[^/]*$/, '');
+                const link = `${baseUrl}payment.html?payment_id=${paymentId}&product=${encodeURIComponent(product)}&amount=${amount}&currency=${currencySelect.value}&description=${encodeURIComponent(descriptionInput.value)}`;
+                
+                // Display the link
+                paymentLink.textContent = link;
+                linkContainer.style.display = 'block';
+                
+                // Save to recent links
+                saveToRecentLinks(paymentId, product, amount, currencySelect.value, descriptionInput.value);
+                
+                // Scroll to link
+                linkContainer.scrollIntoView({ behavior: 'smooth' });
+            });
+            
+            // Copy link to clipboard
+            copyBtn.addEventListener('click', function() {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = paymentLink.textContent;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+                
+                showNotification('Link copied to clipboard!');
+            });
+            
+            // Share link
+            shareBtn.addEventListener('click', function() {
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Payment Link',
+                        text: `Please make a payment for ${productInput.value}`,
+                        url: paymentLink.textContent
+                    })
+                    .catch(error => {
+                        console.log('Error sharing:', error);
+                    });
+                } else {
+                    showNotification('Web Share API not supported in your browser');
+                }
+            });
+            
+            // Update preview function
+            function updatePreview() {
+                previewProduct.textContent = productInput.value || '-';
+                previewAmount.textContent = formatCurrency(amountInput.value || '0', currencySelect.value);
+                previewCurrency.textContent = currencySelect.value;
+                previewDescription.textContent = descriptionInput.value || '-';
+                previewTotal.textContent = formatCurrency(amountInput.value || '0', currencySelect.value);
+            }
+            
+            // Format currency
+            function formatCurrency(amount, currency) {
+                const numericAmount = parseFloat(amount) || 0;
+                
+                switch(currency) {
+                    case 'USD':
+                        return '$' + numericAmount.toFixed(2);
+                    case 'EUR':
+                        return '€' + numericAmount.toFixed(2);
+                    case 'GBP':
+                        return '£' + numericAmount.toFixed(2);
+                    default:
+                        return '₹' + numericAmount.toFixed(2);
+                }
+            }
+            
+            // Show notification
+            function showNotification(message) {
+                notification.textContent = message;
+                notification.classList.add('show');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+            
+            // Save to recent links
+            function saveToRecentLinks(id, product, amount, currency, description) {
+                let recentLinks = JSON.parse(localStorage.getItem('paymentLinks')) || [];
+                
+                // Add new link to beginning of array
+                recentLinks.unshift({
+                    id: id,
+                    product: product,
+                    amount: amount,
+                    currency: currency,
+                    description: description,
+                    date: new Date().toISOString(),
+                    status: Math.random() > 0.5 ? 'paid' : 'pending' // Random status for demo
+                });
+                
+                // Keep only the last 5 links
+                if (recentLinks.length > 5) {
+                    recentLinks = recentLinks.slice(0, 5);
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('paymentLinks', JSON.stringify(recentLinks));
+                
+                // Update UI
+                displayRecentLinks();
+            }
+            
+            // Display recent links
+            function displayRecentLinks() {
+                const recentLinksList = document.getElementById('recentLinksList');
+                const recentLinks = JSON.parse(localStorage.getItem('paymentLinks')) || [];
+                
+                if (recentLinks.length === 0) {
+                    recentLinksList.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">No payment links generated yet</p>';
+                    return;
+                }
+                
+                recentLinksList.innerHTML = '';
+                
+                recentLinks.forEach(link => {
+                    const linkElement = document.createElement('div');
+                    linkElement.className = 'link-item';
+                    
+                    linkElement.innerHTML = `
+                        <div class="link-details">
+                            <h3>${link.product}</h3>
+                            <p>${formatCurrency(link.amount, link.currency)} • ${new Date(link.date).toLocaleDateString()}</p>
+                        </div>
+                        <div class="link-actions">
+                            <span class="status-badge status-${link.status}">${link.status}</span>
+                            <button class="btn" onclick="navigateToPayment('${link.id}')">View</button>
+                        </div>
+                    `;
+                    
+                    recentLinksList.appendChild(linkElement);
+                });
+            }
+            
+            // Initialize
+            updatePreview();
+            displayRecentLinks();
+        });
+        
+        // Navigate to payment page (for demo purposes)
+        function navigateToPayment(paymentId) {
+            alert(`In a real application, this would navigate to the payment page for ID: ${paymentId}`);
+        }
+    </script>
+</body>
+</html>
