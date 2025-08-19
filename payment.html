@@ -218,6 +218,12 @@
             display: block;
         }
         
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        
         .loading {
             display: inline-block;
             width: 20px;
@@ -310,8 +316,12 @@
                         <label>UPI ID (for verification)</label>
                         <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
                     </div>
+                    <div class="form-group">
+                        <label>Transaction ID</label>
+                        <input type="text" id="upiTransactionId" placeholder="Enter UPI Transaction ID">
+                    </div>
                     <button class="pay-button" onclick="processUPIPayment()">
-                        Verify UPI Payment
+                        Submit UPI Payment
                     </button>
                 </div>
                 
@@ -355,8 +365,12 @@
                         <label>Mobile Number</label>
                         <input type="tel" id="walletNumber" placeholder="+91 9876543210">
                     </div>
+                    <div class="form-group">
+                        <label>Transaction ID</label>
+                        <input type="text" id="walletTransactionId" placeholder="Enter Wallet Transaction ID">
+                    </div>
                     <button class="pay-button" onclick="processWalletPayment()">
-                        Pay with Wallet
+                        Submit Wallet Payment
                     </button>
                 </div>
             </div>
@@ -384,7 +398,6 @@
         // Mock Firebase functionality for demonstration
         const mockAuth = {
             onAuthStateChanged: (callback) => {
-                // Simulate a logged-in user after a short delay
                 setTimeout(() => callback({ uid: "mock-user-id" }), 500);
             }
         };
@@ -394,6 +407,18 @@
                 return {
                     update: (data) => {
                         console.log("Mock DB update:", path, data);
+                        return Promise.resolve();
+                    },
+                    set: (data) => {
+                        console.log("Mock DB set:", path, data);
+                        return Promise.resolve();
+                    },
+                    get: () => {
+                        console.log("Mock DB get:", path);
+                        return Promise.resolve({});
+                    },
+                    remove: () => {
+                        console.log("Mock DB remove:", path);
                         return Promise.resolve();
                     }
                 };
@@ -436,12 +461,11 @@
             document.getElementById('duration').textContent = getFeatureDuration(feature);
             document.getElementById('totalAmount').textContent = `₹${amount}`;
             
-            // Generate UPI QR code using a simple QR code generator
-            const upiId = 'aalokshukla94@okhdfcbank';
+            // Generate UPI QR code
+            const upiId = 'hydar@okhdfcbank';
             const qrAmount = amount;
             const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
             
-            // Using a simple QR code generation method
             const qrCodeUrl = generateQRCode(qrData);
             document.getElementById('upiQrCode').src = qrCodeUrl;
             document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
@@ -451,7 +475,6 @@
         }
 
         function generateQRCode(text) {
-            // Simple QR code generation using an online service
             return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
         }
 
@@ -483,14 +506,10 @@
             
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
-                    // Remove active class from all tabs and forms
                     tabs.forEach(t => t.classList.remove('active'));
                     forms.forEach(f => f.classList.remove('active'));
                     
-                    // Add active class to clicked tab
                     tab.classList.add('active');
-                    
-                    // Show corresponding form
                     const method = tab.getAttribute('data-method');
                     document.getElementById(method + 'Form').classList.add('active');
                 });
@@ -499,38 +518,45 @@
 
         async function processUPIPayment() {
             const upiId = document.getElementById('upiId').value;
+            const transactionId = document.getElementById('upiTransactionId').value;
             
             if (!upiId || !upiId.includes('@')) {
                 showStatus('Please enter a valid UPI ID', 'error');
                 return;
             }
             
+            if (!transactionId) {
+                showStatus('Please enter the transaction ID', 'error');
+                return;
+            }
+            
             showStatus('Processing UPI payment...', 'pending');
             
             try {
-                // Simulate UPI payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // Update payment status in database
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                const paymentData = {
                     upi_id: upiId,
+                    transaction_id: transactionId,
                     status: 'pending_verification',
                     payment_method: 'upi',
-                    verified_at: new Date().toISOString()
-                });
+                    amount: currentAmount,
+                    feature: currentFeature,
+                    verified_at: new Date().toISOString(),
+                    submitted_at: new Date().toISOString()
+                };
                 
+                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
                 await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
-                    upi_id: upiId,
-                    status: 'pending_verification',
-                    payment_method: 'upi',
-                    verified_at: new Date().toISOString()
+                    ...paymentData,
+                    user_id: currentUid
                 });
                 
-                showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
+                showStatus('UPI payment submitted! Awaiting admin verification of transaction ID: ' + transactionId, 'success');
                 
             } catch (error) {
                 console.error('UPI payment error:', error);
-                showStatus('Payment failed. Please try again.', 'error');
+                showStatus('Payment submission failed. Please try again.', 'error');
             }
         }
 
@@ -548,20 +574,21 @@
             showStatus('Processing card payment...', 'pending');
             
             try {
-                // Simulate card payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // Update payment status
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                const paymentData = {
                     status: 'pending_approval',
                     payment_method: 'card',
-                    verified_at: new Date().toISOString()
-                });
+                    amount: currentAmount,
+                    feature: currentFeature,
+                    verified_at: new Date().toISOString(),
+                    submitted_at: new Date().toISOString()
+                };
                 
+                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
                 await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
-                    status: 'pending_approval',
-                    payment_method: 'card',
-                    verified_at: new Date().toISOString()
+                    ...paymentData,
+                    user_id: currentUid
                 });
                 
                 showStatus('Card payment processed! Awaiting admin approval.', 'success');
@@ -575,38 +602,79 @@
         async function processWalletPayment() {
             const walletType = document.getElementById('walletType').value;
             const walletNumber = document.getElementById('walletNumber').value;
+            const transactionId = document.getElementById('walletTransactionId').value;
             
             if (!walletNumber) {
                 showStatus('Please enter your mobile number', 'error');
                 return;
             }
             
+            if (!transactionId) {
+                showStatus('Please enter the transaction ID', 'error');
+                return;
+            }
+            
             showStatus(`Processing ${walletType} payment...`, 'pending');
             
             try {
-                // Simulate wallet payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // Update payment status
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                const paymentData = {
                     status: 'pending_verification',
                     payment_method: walletType,
                     wallet_number: walletNumber,
-                    verified_at: new Date().toISOString()
-                });
+                    transaction_id: transactionId,
+                    amount: currentAmount,
+                    feature: currentFeature,
+                    verified_at: new Date().toISOString(),
+                    submitted_at: new Date().toISOString()
+                };
                 
+                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
                 await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
-                    status: 'pending_verification',
-                    payment_method: walletType,
-                    wallet_number: walletNumber,
-                    verified_at: new Date().toISOString()
+                    ...paymentData,
+                    user_id: currentUid
                 });
                 
-                showStatus(`${walletType} payment initiated! Awaiting verification.`, 'success');
+                showStatus(`${walletType} payment submitted! Awaiting verification of transaction ID: ${transactionId}`, 'success');
                 
             } catch (error) {
                 console.error('Wallet payment error:', error);
-                showStatus('Payment failed. Please try again.', 'error');
+                showStatus('Payment submission failed. Please try again.', 'error');
+            }
+        }
+
+        async function adminVerifyPayment(paymentId, isApproved) {
+            try {
+                const status = isApproved ? 'approved' : 'rejected';
+                const verificationData = {
+                    status: status,
+                    verified_by: 'admin',
+                    verification_timestamp: new Date().toISOString()
+                };
+
+                await mockDb.ref(`users/${currentUid}/purchases_pending/${paymentId}`).update(verificationData);
+                await mockDb.ref(`admin/payments/${paymentId}`).update(verificationData);
+
+                if (isApproved) {
+                    const paymentData = await mockDb.ref(`admin/payments/${paymentId}`).get();
+                    await mockDb.ref(`users/${currentUid}/purchases_completed/${paymentId}`).set({
+                        ...paymentData,
+                        completed_at: new Date().toISOString()
+                    });
+                    await mockDb.ref(`users/${currentUid}/purchases_pending/${paymentId}`).remove();
+                }
+
+                return {
+                    success: true,
+                    message: `Payment ${status} successfully`
+                };
+            } catch (error) {
+                console.error('Verification error:', error);
+                return {
+                    success: false,
+                    message: 'Verification failed: ' + error.message
+                };
             }
         }
 
@@ -625,8 +693,11 @@
                 case 'pending':
                     statusElement.classList.add('status-pending');
                     break;
+                case 'rejected':
+                    statusElement.classList.add('status-rejected');
+                    break;
             }
         }
     </script>
 </body>
-                            </html>
+    </html>
