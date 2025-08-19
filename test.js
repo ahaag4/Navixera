@@ -343,7 +343,6 @@ async function watchAdForPremium() {
   }
 }
 
-
 // Utility functions
 function prettyTS(iso) {
   if (!iso) return '-';
@@ -1175,13 +1174,15 @@ function applyHistoryPipeline(plotPolyline = false) {
   // Calculate and display KPIs
   computeKPIs(filteredHistory);
   
-  // Plot route if requested
-  if (plotPolyline && filteredHistory.length > 1) {
+  // Plot route if requested and allowed by plan
+  if (plotPolyline && filteredHistory.length > 1 && (localPlan.plan !== 'basic' || localPlan.temp_premium)) {
     plotRoute(filteredHistory);
   }
   
-  // Update heatmap
-  updateHeatmap(filteredHistory);
+  // Update heatmap if allowed by plan
+  if (localPlan.plan === 'gold') {
+    updateHeatmap(filteredHistory);
+  }
   
   // Render analytics if available
   if (localPlan.analytics) {
