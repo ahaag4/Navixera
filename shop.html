@@ -3,27 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <title>Simple Store</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <link rel="stylesheet" href="style.css">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <style>
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    body {
+      background: #f8f9fa;
+      color: #333;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2.2rem;
+      color: #222;
+    }
+    #products {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .product {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .product:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    .product img {
+      max-width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 15px;
+    }
+    .product h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .product p {
+      font-size: 1rem;
+      margin-bottom: 15px;
+      color: #444;
+    }
+    button {
+      background: linear-gradient(135deg, #4f46e5, #6d28d9);
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      width: 100%;
+    }
+    button:hover {
+      background: linear-gradient(135deg, #4338ca, #5b21b6);
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6rem; }
+      .product h2 { font-size: 1.1rem; }
+    }
+  </style>
 </head>
 <body>
-  <h1>🛒 Our Products</h1>
+  <h1>🛍️ Our Products</h1>
   <div id="products"></div>
 
   <script>
     // ====== Firebase Config ======
     var firebaseConfig = {
-  apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-  authDomain: "svms-c0232.firebaseapp.com",
-  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-  projectId: "svms-c0232",
-  storageBucket: "svms-c0232.appspot.com",
-  messagingSenderId: "359201898609",
-  appId: "1:359201898609:web:893ef076207abb06471bd0"
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
     firebase.initializeApp(firebaseConfig);
-
     let db = firebase.database();
 
     // Fetch products
@@ -35,9 +115,10 @@
         let p = data[id];
         container.innerHTML += `
           <div class="product">
+            <img src="${p.image || 'https://via.placeholder.com/250'}" alt="${p.name}">
             <h2>${p.name}</h2>
-            <p>Price: ₹${p.price}</p>
-            <button onclick="buyProduct('${id}', '${p.name}', '${p.price}')">Buy</button>
+            <p>₹${p.price}</p>
+            <button onclick="buyProduct('${id}', '${p.name}', '${p.price}')">Buy Now</button>
           </div>
         `;
       }
