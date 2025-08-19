@@ -100,6 +100,7 @@ let localPlan = {
   fleet: false, 
   temp_premium: false 
 };
+let canPlotRoute = false;
 
 // Plan policies
 const PLAN_POLICIES = {
@@ -144,12 +145,148 @@ const PLAN_POLICIES = {
   }
 };
 
+// Map and polyline handling
+let map, liveMarker, baseLayer, baseLayers = {};
+let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
+let customMarkerIcon = null;
+let drawnItems = null, drawControl = null;
+
+function createBaseLayers() {
+  baseLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 });
+  baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 });
+  baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+}
+
+function updateBaseLayer(type) {
+  if (!map) return;
+  if (baseLayer) map.removeLayer(baseLayer);
+  baseLayer = baseLayers[type] || baseLayers.street;
+  baseLayer.addTo(map);
+}
+
+function updateMap(lat, lng, popupText = null) {
+  if (!(typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng))) return;
+  
+  if (!map) {
+    map = L.map('map').setView([lat, lng], 14);
+    createBaseLayers();
+    updateBaseLayer('street');
+    liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
+    setupDrawTools();
+  } else {
+    if (!liveMarker) {
+      liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
+    }
+    liveMarker.setLatLng([lat, lng]);
+  }
+  
+  if (popupText) {
+    if (liveMarker.getPopup()) {
+      liveMarker.setPopupContent(popupText);
+    } else {
+      liveMarker.bindPopup(popupText);
+    }
+    liveMarker.openPopup();
+  }
+}
+
+function clearRouteLayers() {
+  if (routeLayer) { 
+    map.removeLayer(routeLayer); 
+    routeLayer = null; 
+  }
+  if (startMarker) { 
+    map.removeLayer(startMarker); 
+    startMarker = null; 
+  }
+  if (endMarker) { 
+    map.removeLayer(endMarker); 
+    endMarker = null; 
+  }
+}
+
+function plotRoute(list) {
+  if (!map || !list || !list.length || !canPlotRoute) return;
+  
+  clearRouteLayers();
+  
+  // Filter out invalid points and convert to [lat,lng] arrays
+  const validPoints = list
+    .filter(p => isFinite(p.lat) && isFinite(p.lng))
+    .map(p => [p.lat, p.lng]);
+  
+  if (validPoints.length < 2) return;
+  
+  try {
+    // Create the route polyline
+    routeLayer = L.polyline(validPoints, {
+      color: '#2670ff',
+      weight: 4,
+      opacity: 0.7,
+      smoothFactor: 1
+    }).addTo(map);
+    
+    // Create start/end markers
+    const startIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
+    
+    const endIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
+    
+    startMarker = L.marker(validPoints[0], { icon: startIcon })
+      .addTo(map)
+      .bindPopup('Start');
+    
+    endMarker = L.marker(validPoints[validPoints.length - 1], { icon: endIcon })
+      .addTo(map)
+      .bindPopup('End');
+    
+    // Fit bounds to show entire route
+    map.fitBounds(routeLayer.getBounds(), {
+      padding: [50, 50],
+      maxZoom: 16
+    });
+    
+  } catch (e) {
+    console.error('Error plotting route:', e);
+    clearRouteLayers();
+  }
+}
+
+function setupDrawTools() {
+  if (!map) return;
+  if (drawnItems) return;
+  
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+  
+  drawControl = new L.Control.Draw({
+    position: 'topright',
+    draw: {
+      rectangle: true,
+      polygon: true,
+      circle: true,
+      circlemarker: false,
+      marker: false,
+      polyline: false
+    },
+    edit: { featureGroup: drawnItems }
+  });
+}
+
 // Ad handling
 let adTimerInt = null, currentAdIndex = 0, adsList = [];
 
 function showAd(ad, isPremiumAd = false, onComplete = null) {
   adArea.innerHTML = 'Loading ad...';
   console.log('Showing ad:', ad);
+  
   if (ad.type === 'banner') {
     const img = new Image();
     img.src = ad.url;
@@ -202,12 +339,17 @@ function loadAdsForPlan(plan) {
   const policy = PLAN_POLICIES[plan] || PLAN_POLICIES.basic;
   if (policy.ads === 'no-ads') { adArea.style.display = 'none'; adArea.innerHTML = ''; return; }
   adArea.style.display = 'flex';
+  
   db.ref('admin/ads').once('value').then(snapshot => {
     const adsObj = snapshot.val() || {};
     adsList = Object.values(adsObj).filter(ad =>
       ad && ad.active && ad.url && (ad.placement === 'dashboard_top' || ad.placement === 'dashboard_footer')
     );
-    if (policy.ads === 'banner-limited' && adsList.length > 1) { adsList = adsList.slice(0, 1); }
+    
+    if (policy.ads === 'banner-limited' && adsList.length > 1) { 
+      adsList = adsList.slice(0, 1); 
+    }
+    
     if (adsList.length) {
       showAd(adsList[currentAdIndex = 0]);
       adTimerInt = setInterval(() => {
@@ -218,129 +360,6 @@ function loadAdsForPlan(plan) {
       adArea.innerHTML = 'No active ad';
     }
   }).catch(() => { adArea.innerHTML = 'Ad load error'; });
-}
-
-function renderAdsForPlan(plan) { loadAdsForPlan(plan); }
-
-// Watch ad for premium access
-async function watchAdForPremium() {
-  if (!uidGlobal) return alert('Not logged in');
-  
-  const tempPremiumSnap = await db.ref(`users/${uidGlobal}/temp_premium`).once('value');
-  const tempPremium = tempPremiumSnap.val();
-  if (tempPremium && isTempPremiumValid(tempPremium)) {
-    alert('You already have temporary premium access that expires at ' + prettyTS(tempPremium.expiry));
-    return;
-  }
-  
-  const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
-  const adViews = adViewSnap.val() || {};
-  const lastAdView = Object.values(adViews)[0];
-  
-  if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
-    alert('You can only watch an ad for premium access once every 24 hours.');
-    return;
-  }
-
-  const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
-  const ads = adSnap.val() || {};
-  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
-  
-  if (!premiumAd) {
-    alert('No premium ad available at the moment. Try again later.');
-    return;
-  }
-
-  modalContent.innerHTML = `
-    <h2>Watch Ad for 1-Hour Premium Access</h2>
-    <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
-    <div style="position:relative;width:100%;max-width:500px;margin:20px auto;">
-      <video id="premiumVideo" autoplay muted style="width:100%;border-radius:8px;">
-        <source src="${premiumAd.url}" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;">
-        <span id="videoCurrentTime">0:00</span>
-        <span id="videoDuration">1:00</span>
-      </div>
-      <div style="margin-top:8px;text-align:center;">
-        <button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
-        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>
-      </div>
-    </div>
-  `;
-  
-  modalPayUPI.style.display = 'none';
-  modalPayStripe.style.display = 'none';
-  modal.style.display = 'flex';
-  
-  const video = document.getElementById('premiumVideo');
-  const videoCurrentTime = document.getElementById('videoCurrentTime');
-  const videoDuration = document.getElementById('videoDuration');
-  const cancelAdBtn = document.getElementById('cancelAdBtn');
-  const skipAdBtn = document.getElementById('skipAdBtn');
-  
-  // Update time display
-  video.ontimeupdate = () => {
-    videoCurrentTime.textContent = formatTime(video.currentTime);
-    // Enable skip button after 30 seconds
-    if (video.currentTime > 30 && skipAdBtn.disabled) {
-      skipAdBtn.disabled = false;
-    }
-  };
-  
-  video.onloadedmetadata = () => {
-    videoDuration.textContent = formatTime(video.duration);
-  };
-  
-  cancelAdBtn.onclick = () => {
-    modal.style.display = 'none';
-    video.pause();
-  };
-  
-  skipAdBtn.onclick = () => {
-    video.currentTime = video.duration - 1;
-  };
-  
-  video.onended = async () => {
-    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const adViewId = `adview_${uidGlobal}_${Date.now()}`;
-    
-    try {
-      await db.ref(`users/${uidGlobal}/temp_premium`).set({ 
-        expiry, 
-        granted: new Date().toISOString() 
-      });
-      
-      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ 
-        created: new Date().toISOString(), 
-        adId: Object.keys(ads)[0] 
-      });
-      
-      await db.ref(`admin/ad_views/${adViewId}`).set({ 
-        uid: uidGlobal, 
-        adId: Object.keys(ads)[0], 
-        created: new Date().toISOString() 
-      });
-      
-      alert('Premium access granted for 1 hour!');
-      modal.style.display = 'none';
-      
-      const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
-      const userData = userSnap.val() || {};
-      applyPlanToUI(userData);
-      
-    } catch (error) {
-      console.error('Error granting premium access:', error);
-      alert('Failed to grant premium access. Please try again.');
-    }
-  };
-  
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  }
 }
 
 // Utility functions
@@ -413,6 +432,7 @@ function applyPlanToUI(udata) {
   const temp_premium = isTempPremiumValid(udata.temp_premium);
   
   localPlan = { plan, plan_expiry, vehicle_limit, exportCSV, analytics, fleet, temp_premium };
+  canPlotRoute = plan !== 'basic' || temp_premium;
 
   const effectivePlan = temp_premium ? 'silver' : plan;
   planPill.textContent = effectivePlan.toUpperCase() + (temp_premium ? ' (TEMP)' : '');
@@ -546,47 +566,6 @@ function checkAndAutoDowngrade(uid, udata) {
   }
 }
 
-// Map and marker handling
-let map, liveMarker, baseLayer, baseLayers = {};
-let routeLayer = null, startMarker = null, endMarker = null, heatLayer = null;
-let customMarkerIcon = null;
-
-function createBaseLayers() {
-  baseLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 });
-  baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 });
-  baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
-}
-
-function updateBaseLayer(type) {
-  if (!map) return;
-  if (baseLayer) map.removeLayer(baseLayer);
-  baseLayer = baseLayers[type] || baseLayers.street;
-  baseLayer.addTo(map);
-}
-
-function updateMap(lat, lng, popupText = null) {
-  if (!(typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng))) return;
-  if (!map) {
-    map = L.map('map').setView([lat, lng], 14);
-    createBaseLayers();
-    updateBaseLayer('street');
-    liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
-    setupDrawTools();
-  } else {
-    if (!liveMarker) liveMarker = L.marker([lat, lng], customMarkerIcon ? { icon: customMarkerIcon } : undefined).addTo(map);
-    liveMarker.setLatLng([lat, lng]);
-  }
-  if (popupText) liveMarker.bindPopup(popupText).openPopup();
-}
-
-window.focusOnMap = function(lat, lng) {
-  lat = parseFloat(lat); lng = parseFloat(lng);
-  if (!isNaN(lat) && !isNaN(lng)) {
-    updateMap(lat, lng, `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-    map.setView([lat, lng], 15);
-  }
-};
-
 // History handling
 let fullHistory = null;
 let filteredHistory = null;
@@ -667,44 +646,6 @@ function computeKPIs(list) {
   kpiStopsEl.textContent = String(stops);
 }
 
-function clearRouteLayers() {
-  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-  if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
-  if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-}
-
-function plotRoute(list) {
-  if (!map || !list || !list.length) return;
-  clearRouteLayers();
-  
-  const validPoints = list.filter(p => isFinite(p.lat) && isFinite(p.lng));
-  if (validPoints.length < 2) return;
-  
-  const coords = validPoints.map(p => [p.lat, p.lng]);
-  routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
-  
-  const startIcon = L.icon({ 
-    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', 
-    iconSize: [25, 41], 
-    iconAnchor: [12, 41] 
-  });
-  
-  const endIcon = L.icon({ 
-    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', 
-    iconSize: [25, 41], 
-    iconAnchor: [12, 41] 
-  });
-  
-  startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
-  endMarker = L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map).bindPopup('End');
-  
-  try {
-    map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
-  } catch (e) {
-    console.error('Error fitting bounds:', e);
-  }
-}
-
 function updateHeatmap(list) {
   if (!map) return;
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
@@ -746,6 +687,38 @@ function applyDateFilter(list) {
     if (endDate && p.ts > endMs) return false;
     return true;
   });
+}
+
+// History pipeline
+function applyHistoryPipeline(plotPolyline = false) {
+  if (!fullHistory) {
+    historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
+    return;
+  }
+  
+  // Apply date filter
+  filteredHistory = applyDateFilter(fullHistory);
+  
+  // Render history table
+  renderHistoryTable(filteredHistory);
+  
+  // Calculate and display KPIs
+  computeKPIs(filteredHistory);
+  
+  // Plot route if requested and allowed
+  if (plotPolyline && canPlotRoute) {
+    plotRoute(filteredHistory);
+  }
+  
+  // Update heatmap if allowed
+  if (localPlan.plan === 'gold') {
+    updateHeatmap(filteredHistory);
+  }
+  
+  // Render analytics if available
+  if (localPlan.analytics) {
+    renderAnalyticsChart(filteredHistory);
+  }
 }
 
 // Payment handling
@@ -904,27 +877,7 @@ function maybeNotifyBattery(battPercent) {
 }
 
 // Geofence handling
-let drawControl, drawnItems;
 let geofenceState = { lastInsideAny: null };
-
-function setupDrawTools() {
-  if (!map) return;
-  if (drawnItems) return;
-  drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-  drawControl = new L.Control.Draw({
-    position: 'topright',
-    draw: {
-      rectangle: true,
-      polygon: true,
-      circle: true,
-      circlemarker: false,
-      marker: false,
-      polyline: false
-    },
-    edit: { featureGroup: drawnItems }
-  });
-}
 
 function enableDrawing() {
   if (!map || !drawControl) return;
@@ -1158,35 +1111,124 @@ async function renderPendingPayments() {
   });
 }
 
-// History pipeline
-function applyHistoryPipeline(plotPolyline = false) {
-  if (!fullHistory) {
-    historyTbody.innerHTML = '<tr><td colspan="3">No history</td></tr>';
+// Watch ad for premium access
+async function watchAdForPremium() {
+  if (!uidGlobal) return alert('Not logged in');
+  
+  const tempPremiumSnap = await db.ref(`users/${uidGlobal}/temp_premium`).once('value');
+  const tempPremium = tempPremiumSnap.val();
+  if (tempPremium && isTempPremiumValid(tempPremium)) {
+    alert('You already have temporary premium access that expires at ' + prettyTS(tempPremium.expiry));
     return;
   }
   
-  // Apply date filter
-  filteredHistory = applyDateFilter(fullHistory);
+  const adViewSnap = await db.ref(`users/${uidGlobal}/ad_views`).orderByChild('created').limitToLast(1).once('value');
+  const adViews = adViewSnap.val() || {};
+  const lastAdView = Object.values(adViews)[0];
   
-  // Render history table
-  renderHistoryTable(filteredHistory);
-  
-  // Calculate and display KPIs
-  computeKPIs(filteredHistory);
-  
-  // Plot route if requested and allowed by plan
-  if (plotPolyline && filteredHistory.length > 1 && (localPlan.plan !== 'basic' || localPlan.temp_premium)) {
-    plotRoute(filteredHistory);
+  if (lastAdView && Date.now() - Date.parse(lastAdView.created) < 24 * 60 * 60 * 1000) {
+    alert('You can only watch an ad for premium access once every 24 hours.');
+    return;
   }
+
+  const adSnap = await db.ref('admin/ads').orderByChild('placement').equalTo('premium_access').once('value');
+  const ads = adSnap.val() || {};
+  const premiumAd = Object.values(ads).find(ad => ad.active && ad.type === 'video' && ad.url);
   
-  // Update heatmap if allowed by plan
-  if (localPlan.plan === 'gold') {
-    updateHeatmap(filteredHistory);
+  if (!premiumAd) {
+    alert('No premium ad available at the moment. Try again later.');
+    return;
   }
+
+  modalContent.innerHTML = `
+    <h2>Watch Ad for 1-Hour Premium Access</h2>
+    <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
+    <div style="position:relative;width:100%;max-width:500px;margin:20px auto;">
+      <video id="premiumVideo" autoplay muted style="width:100%;border-radius:8px;">
+        <source src="${premiumAd.url}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span id="videoCurrentTime">0:00</span>
+        <span id="videoDuration">1:00</span>
+      </div>
+      <div style="margin-top:8px;text-align:center;">
+        <button id="cancelAdBtn" class="btn btn-danger" style="margin-right:10px;">Cancel</button>
+        <button id="skipAdBtn" class="btn btn-primary" disabled>Skip Ad</button>
+      </div>
+    </div>
+  `;
   
-  // Render analytics if available
-  if (localPlan.analytics) {
-    renderAnalyticsChart(filteredHistory);
+  modalPayUPI.style.display = 'none';
+  modalPayStripe.style.display = 'none';
+  modal.style.display = 'flex';
+  
+  const video = document.getElementById('premiumVideo');
+  const videoCurrentTime = document.getElementById('videoCurrentTime');
+  const videoDuration = document.getElementById('videoDuration');
+  const cancelAdBtn = document.getElementById('cancelAdBtn');
+  const skipAdBtn = document.getElementById('skipAdBtn');
+  
+  // Update time display
+  video.ontimeupdate = () => {
+    videoCurrentTime.textContent = formatTime(video.currentTime);
+    // Enable skip button after 30 seconds
+    if (video.currentTime > 30 && skipAdBtn.disabled) {
+      skipAdBtn.disabled = false;
+    }
+  };
+  
+  video.onloadedmetadata = () => {
+    videoDuration.textContent = formatTime(video.duration);
+  };
+  
+  cancelAdBtn.onclick = () => {
+    modal.style.display = 'none';
+    video.pause();
+  };
+  
+  skipAdBtn.onclick = () => {
+    video.currentTime = video.duration - 1;
+  };
+  
+  video.onended = async () => {
+    const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const adViewId = `adview_${uidGlobal}_${Date.now()}`;
+    
+    try {
+      await db.ref(`users/${uidGlobal}/temp_premium`).set({ 
+        expiry, 
+        granted: new Date().toISOString() 
+      });
+      
+      await db.ref(`users/${uidGlobal}/ad_views/${adViewId}`).set({ 
+        created: new Date().toISOString(), 
+        adId: Object.keys(ads)[0] 
+      });
+      
+      await db.ref(`admin/ad_views/${adViewId}`).set({ 
+        uid: uidGlobal, 
+        adId: Object.keys(ads)[0], 
+        created: new Date().toISOString() 
+      });
+      
+      alert('Premium access granted for 1 hour!');
+      modal.style.display = 'none';
+      
+      const userSnap = await db.ref(`users/${uidGlobal}`).once('value');
+      const userData = userSnap.val() || {};
+      applyPlanToUI(userData);
+      
+    } catch (error) {
+      console.error('Error granting premium access:', error);
+      alert('Failed to grant premium access. Please try again.');
+    }
+  };
+  
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
 
@@ -1199,6 +1241,15 @@ modalClose.onclick = () => {
 modalPayUPI.onclick = () => buyFeatureWithUPI(currentFeature, currentAmount);
 modalPayStripe.onclick = () => buyFeatureWithStripe(currentFeature, currentAmount);
 
+window.focusOnMap = function(lat, lng) {
+  lat = parseFloat(lat); lng = parseFloat(lng);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    updateMap(lat, lng, `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    map.setView([lat, lng], 15);
+  }
+};
+
+// Initialize the app
 let udata = null;
 auth.onAuthStateChanged(async (user) => {
   if (!user) { window.location.href = 'login.html'; return; }
