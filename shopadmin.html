@@ -3,31 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body {
+      background: #f8f9fa;
+      color: #333;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #222;
+    }
+    h2 { margin: 20px 0 10px; }
+    form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 500px;
+      margin-bottom: 30px;
+    }
+    input, textarea {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 100%;
+    }
+    button {
+      background: linear-gradient(135deg, #4f46e5, #6d28d9);
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: linear-gradient(135deg, #4338ca, #5b21b6);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    th {
+      background: #f1f3f9;
+      font-weight: 600;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    @media(max-width: 768px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      tr { margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 8px; }
+      td { border: none; display: flex; justify-content: space-between; padding: 8px 0; }
+      td:before { content: attr(data-label); font-weight: bold; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Admin Panel</h1>
+  <h1>🛠 Admin Panel</h1>
 
   <h2>Add Product</h2>
   <form id="addProductForm">
-    <input type="text" id="pname" placeholder="Product Name" required><br>
-    <input type="number" id="pprice" placeholder="Price" required><br>
+    <input type="text" id="pname" placeholder="Product Name" required>
+    <input type="number" id="pprice" placeholder="Price (₹)" required>
+    <input type="text" id="pimage" placeholder="Image URL" required>
+    <textarea id="pdesc" placeholder="Description" rows="3" required></textarea>
+    <input type="number" id="pstock" placeholder="Stock Quantity" required>
     <button type="submit">Add Product</button>
   </form>
 
   <h2>Orders</h2>
-  <div id="orders"></div>
+  <table id="ordersTable">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Price</th>
+        <th>Customer</th>
+        <th>Address</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="orders"></tbody>
+  </table>
 
   <script>
+    // ===== Firebase Config =====
     var firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-  authDomain: "svms-c0232.firebaseapp.com",
-  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-  projectId: "svms-c0232",
-  storageBucket: "svms-c0232.appspot.com",
-  messagingSenderId: "359201898609",
-  appId: "1:359201898609:web:893ef076207abb06471bd0"
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
     firebase.initializeApp(firebaseConfig);
     let db = firebase.database();
@@ -37,11 +133,15 @@
       e.preventDefault();
       let product = {
         name: document.getElementById("pname").value,
-        price: document.getElementById("pprice").value
+        price: document.getElementById("pprice").value,
+        image: document.getElementById("pimage").value,
+        description: document.getElementById("pdesc").value,
+        stock: document.getElementById("pstock").value
       };
       let newKey = db.ref("products").push().key;
       db.ref("products/" + newKey).set(product);
-      alert("Product added!");
+      alert("✅ Product added!");
+      document.getElementById("addProductForm").reset();
     });
 
     // Show orders
@@ -52,13 +152,13 @@
       for (let id in data) {
         let o = data[id];
         ordersDiv.innerHTML += `
-          <div>
-            <b>${o.productName}</b> - ₹${o.price}<br>
-            Customer: ${o.email}<br>
-            Address: ${o.address}, ${o.state}, ${o.country}<br>
-            Status: ${o.status}
-            <hr>
-          </div>
+          <tr>
+            <td data-label="Product">${o.productName}</td>
+            <td data-label="Price">₹${o.price}</td>
+            <td data-label="Customer">${o.email}</td>
+            <td data-label="Address">${o.address}, ${o.state}, ${o.country}</td>
+            <td data-label="Status">${o.status}</td>
+          </tr>
         `;
       }
     });
