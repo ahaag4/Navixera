@@ -422,7 +422,7 @@
             document.getElementById('totalAmount').textContent = `₹${amount}`;
             
             // Generate UPI QR code (simplified - in real app, use a QR code library)
-            const upiId = 'svms.payments@upi';
+            const upiId = 'aalokshukla94@okhdfcbank';
             const qrAmount = amount;
             const qrUrl = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
             document.getElementById('upiQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`;
