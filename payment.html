@@ -170,6 +170,18 @@
             padding: 10px;
         }
         
+        .transaction-id-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .transaction-id-section.active {
+            display: block;
+        }
+        
         .pay-button {
             width: 100%;
             padding: 15px;
@@ -190,6 +202,15 @@
         .pay-button:disabled {
             background: var(--secondary);
             cursor: not-allowed;
+        }
+        
+        .submit-transaction-button {
+            background: var(--info);
+            margin-top: 10px;
+        }
+        
+        .submit-transaction-button:hover {
+            background: #138496;
         }
         
         .status-message {
@@ -313,6 +334,19 @@
                     <button class="pay-button" onclick="processUPIPayment()">
                         Verify UPI Payment
                     </button>
+                    
+                    <div class="transaction-id-section" id="transactionIdSection">
+                        <div class="form-group">
+                            <label>Transaction ID (Optional)</label>
+                            <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
+                            <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
+                                If you've already made the payment, enter your transaction ID for faster verification
+                            </p>
+                        </div>
+                        <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">
+                            Submit Transaction ID
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Card Payment Form -->
@@ -528,9 +562,47 @@
                 
                 showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
                 
+                // Show transaction ID section for users who have already made payment
+                document.getElementById('transactionIdSection').classList.add('active');
+                
             } catch (error) {
                 console.error('UPI payment error:', error);
                 showStatus('Payment failed. Please try again.', 'error');
+            }
+        }
+
+        async function submitTransactionId() {
+            const transactionId = document.getElementById('transactionId').value;
+            
+            if (!transactionId) {
+                showStatus('Please enter a transaction ID', 'error');
+                return;
+            }
+            
+            showStatus('Submitting transaction ID for verification...', 'pending');
+            
+            try {
+                // Simulate API call to submit transaction ID
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Update payment status with transaction ID
+                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                    transaction_id: transactionId,
+                    status: 'pending_approval',
+                    transaction_submitted_at: new Date().toISOString()
+                });
+                
+                await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
+                    transaction_id: transactionId,
+                    status: 'pending_approval',
+                    transaction_submitted_at: new Date().toISOString()
+                });
+                
+                showStatus('Transaction ID submitted successfully! Admin will verify your payment shortly.', 'success');
+                
+            } catch (error) {
+                console.error('Transaction ID submission error:', error);
+                showStatus('Failed to submit transaction ID. Please try again.', 'error');
             }
         }
 
@@ -629,4 +701,4 @@
         }
     </script>
 </body>
-                            </html>
+    </html>
