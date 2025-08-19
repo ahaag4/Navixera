@@ -12,19 +12,14 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
-  <!-- Styles -->
   <style>
-    * {
-      margin: 0; padding: 0; box-sizing: border-box;
-      font-family: 'Inter', sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body {
       background: #f8f9fa;
       color: #333;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
       padding: 20px;
     }
     h1 {
@@ -40,24 +35,25 @@
       text-align: center;
       margin-bottom: 25px;
       width: 100%;
-      max-width: 400px;
+      max-width: 450px;
     }
-    #productDetails h3 {
-      font-size: 1.3rem;
-      font-weight: 600;
-      margin-bottom: 10px;
+    #productDetails img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 15px;
     }
-    #productDetails p {
-      font-size: 1.1rem;
-      color: #444;
-    }
+    #productDetails h3 { font-size: 1.4rem; margin-bottom: 8px; }
+    #productDetails p { font-size: 1rem; color: #555; }
+
     form {
       background: #fff;
       padding: 25px;
       border-radius: 16px;
       box-shadow: 0 6px 16px rgba(0,0,0,0.1);
       width: 100%;
-      max-width: 400px;
+      max-width: 450px;
       display: flex;
       flex-direction: column;
       gap: 15px;
@@ -69,10 +65,9 @@
       font-size: 1rem;
       transition: border 0.2s ease;
     }
-    input:focus {
-      border-color: #4f46e5;
-      outline: none;
-    }
+    input:focus { border-color: #4f46e5; outline: none; }
+    input:invalid { border-color: #e11d48; }
+
     button {
       background: linear-gradient(135deg, #4f46e5, #6d28d9);
       color: white;
@@ -84,9 +79,9 @@
       cursor: pointer;
       transition: background 0.3s ease;
     }
-    button:hover {
-      background: linear-gradient(135deg, #4338ca, #5b21b6);
-    }
+    button:hover { background: linear-gradient(135deg, #4338ca, #5b21b6); }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+
     #msg {
       margin-top: 20px;
       font-weight: 600;
@@ -105,16 +100,18 @@
 
   <form id="checkoutForm">
     <input type="email" id="email" placeholder="Email" required>
-    <input type="text" id="address" placeholder="Address" required>
-    <input type="text" id="country" placeholder="Country" required>
+    <input type="text" id="phone" placeholder="Phone Number" required>
+    <input type="text" id="address" placeholder="Full Address" required>
+    <input type="text" id="zipcode" placeholder="Zip Code" required>
     <input type="text" id="state" placeholder="State" required>
+    <input type="text" id="country" placeholder="Country" required>
     <button type="submit">Submit Order</button>
   </form>
 
   <p id="msg"></p>
 
   <script>
-    // ====== Firebase Config ======
+    // Firebase Config
     var firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -129,32 +126,55 @@
 
     // Load selected product
     let product = JSON.parse(localStorage.getItem("product"));
-    if (product) {
-      document.getElementById("productDetails").innerHTML =
-        `<h3>${product.name}</h3><p>Price: ₹${product.price}</p>`;
+    if (!product) {
+      alert("No product selected! Redirecting...");
+      window.location = "index.html"; // go back to store
+    } else {
+      document.getElementById("productDetails").innerHTML = `
+        <img src="${product.image || 'https://via.placeholder.com/250'}" alt="${product.name}">
+        <h3>${product.name}</h3>
+        <p>Price: ₹${Number(product.price).toFixed(2)}</p>
+      `;
     }
 
     // Handle order submit
-    document.getElementById("checkoutForm").addEventListener("submit", function(e){
+    const form = document.getElementById("checkoutForm");
+    const msg = document.getElementById("msg");
+    const submitBtn = form.querySelector("button");
+
+    form.addEventListener("submit", function(e){
       e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Submitting...";
 
       let order = {
         productId: product.id,
         productName: product.name,
-        price: product.price,
+        price: Number(product.price),
         email: document.getElementById("email").value,
+        phone: document.getElementById("phone").value,
         address: document.getElementById("address").value,
-        country: document.getElementById("country").value,
+        zipcode: document.getElementById("zipcode").value,
         state: document.getElementById("state").value,
-        status: "Pending"
+        country: document.getElementById("country").value,
+        status: "Pending",
+        createdAt: new Date().toISOString()
       };
 
       let newOrderKey = db.ref("orders").push().key;
-      db.ref("orders/" + newOrderKey).set(order);
-
-      document.getElementById("msg").innerText =
-        "✅ Order submitted! Admin will verify and send you payment link.";
-      document.getElementById("checkoutForm").reset();
+      db.ref("orders/" + newOrderKey).set(order, (err) => {
+        if (err) {
+          msg.style.color = "red";
+          msg.innerText = "❌ Error placing order. Try again.";
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Submit Order";
+        } else {
+          msg.style.color = "green";
+          msg.innerText = "✅ Order submitted! Admin will verify and send payment link.";
+          form.reset();
+          localStorage.removeItem("product");
+        }
+      });
     });
   </script>
 </body>
