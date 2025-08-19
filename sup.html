@@ -6,6 +6,7 @@
   <title>Super Admin - SVMS</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {background:#f8f9fa}
     .navbar {background:#0d6efd}
@@ -21,6 +22,114 @@
     .clickable-ad:hover { transform: scale(1.02); }
     .ad-container { position: relative; display: inline-block; }
     .ad-error { color: #721c24; font-size: 12px; }
+    
+    /* Payment Link Generator Styles */
+    .payment-link-container {
+      margin-top: 20px;
+      background: #f8f9ff;
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px dashed #2670ff;
+    }
+    
+    .payment-link {
+      font-size: 16px;
+      word-break: break-all;
+      margin-bottom: 15px;
+      color: #2670ff;
+      font-weight: 500;
+    }
+    
+    .btn-copy {
+      background: #28a745;
+    }
+    
+    .btn-share {
+      background: #6c757d;
+    }
+    
+    .btn-copy:hover {
+      background: #218838;
+    }
+    
+    .btn-share:hover {
+      background: #5a6268;
+    }
+    
+    .payment-preview {
+      background: #f8f9ff;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    
+    .preview-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .preview-total {
+      font-weight: bold;
+      font-size: 18px;
+      color: #2670ff;
+    }
+    
+    .link-item {
+      padding: 15px;
+      background: #f8f9ff;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .link-details {
+      flex: 1;
+    }
+    
+    .link-actions {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .status-paid {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      background: #28a745;
+      color: white;
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transform: translateX(100%);
+      transition: transform 0.3s;
+      z-index: 1000;
+    }
+    
+    .notification.show {
+      transform: translateX(0);
+    }
   </style>
 </head>
 <body>
@@ -79,6 +188,103 @@
         </div>
       </div>
     </div>
+    
+    <!-- Payment Link Generator -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Payment Link Generator</h5>
+        <div class="form-group">
+          <label for="productName">Product/Service Name</label>
+          <input type="text" id="productName" class="form-control" placeholder="e.g., Premium Subscription">
+        </div>
+        
+        <div class="form-group">
+          <label for="amount">Amount (₹)</label>
+          <input type="number" id="amount" class="form-control" placeholder="0.00" min="0" step="0.01">
+        </div>
+        
+        <div class="form-group">
+          <label for="currency">Currency</label>
+          <select id="currency" class="form-control">
+            <option value="INR">Indian Rupee (INR)</option>
+            <option value="USD">US Dollar (USD)</option>
+            <option value="EUR">Euro (EUR)</option>
+            <option value="GBP">British Pound (GBP)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea id="description" class="form-control" rows="3" placeholder="Description of the product or service"></textarea>
+        </div>
+        
+        <button id="generateBtn" class="btn btn-primary">Generate Payment Link</button>
+        
+        <div class="payment-link-container" id="linkContainer" style="display: none;">
+          <h6>Your Payment Link</h6>
+          <p class="payment-link" id="paymentLink"></p>
+          <div class="action-buttons">
+            <button class="btn btn-success btn-sm me-1" id="copyBtn"><i class="fas fa-copy"></i> Copy Link</button>
+            <button class="btn btn-secondary btn-sm" id="shareBtn"><i class="fas fa-share-alt"></i> Share</button>
+          </div>
+        </div>
+        
+        <div class="mt-4">
+          <h6>Recent Payment Links</h6>
+          <div id="recentLinksList">
+            <p class="text-muted">No payment links generated yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- E-commerce Product Management -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>E-commerce Product Management</h5>
+        
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <h6>Add Product</h6>
+            <form id="addProductForm">
+              <div class="form-group mb-2">
+                <input type="text" id="pname" class="form-control" placeholder="Product Name" required>
+              </div>
+              <div class="form-group mb-2">
+                <input type="number" id="pprice" class="form-control" placeholder="Price (₹)" required>
+              </div>
+              <div class="form-group mb-2">
+                <input type="text" id="pimage" class="form-control" placeholder="Image URL" required>
+              </div>
+              <div class="form-group mb-2">
+                <textarea id="pdesc" class="form-control" placeholder="Description" rows="3" required></textarea>
+              </div>
+              <div class="form-group mb-2">
+                <input type="number" id="pstock" class="form-control" placeholder="Stock Quantity" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Add Product</button>
+            </form>
+          </div>
+        </div>
+        
+        <h6>Orders</h6>
+        <div class="table-responsive">
+          <table class="table table-bordered" id="ordersTable">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Customer</th>
+                <th>Address</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="orders"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
     <!-- Ads Management -->
     <div class="card mb-4">
       <div class="card-body">
@@ -148,6 +354,9 @@
       </div>
     </div>
   </div>
+  
+  <div class="notification" id="notification">Link copied to clipboard!</div>
+
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -220,6 +429,9 @@ function init(adminUid) {
   loadPendingSubscriptions();
   loadPurchaseRequests();
   loadAds();
+  setupPaymentLinkGenerator();
+  setupEcommerce();
+  
   document.getElementById('uploadAdBtn').onclick = handleUploadAd;
   document.getElementById('loadHistoryBtn').onclick = handleLoadHistory;
   logDebug('Initialized for admin:', adminUid);
@@ -491,6 +703,213 @@ window.rejectPurchase = function(paymentId) {
       logDebug('rejectPurchase error:', err);
     });
 };
+
+// Payment Link Generator
+function setupPaymentLinkGenerator() {
+  const generateBtn = document.getElementById('generateBtn');
+  const productInput = document.getElementById('productName');
+  const amountInput = document.getElementById('amount');
+  const currencySelect = document.getElementById('currency');
+  const descriptionInput = document.getElementById('description');
+  const linkContainer = document.getElementById('linkContainer');
+  const paymentLink = document.getElementById('paymentLink');
+  const copyBtn = document.getElementById('copyBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const notification = document.getElementById('notification');
+  
+  // Generate payment link
+  generateBtn.addEventListener('click', function() {
+    const product = productInput.value.trim();
+    const amount = amountInput.value.trim();
+    
+    if (!product) {
+      alert('Please enter a product/service name');
+      productInput.focus();
+      return;
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      alert('Please enter a valid amount');
+      amountInput.focus();
+      return;
+    }
+    
+    // Generate a unique payment ID
+    const paymentId = 'pay_' + Math.random().toString(36).substr(2, 9);
+    
+    // Create payment link
+    const baseUrl = window.location.href.replace(/[^/]*$/, '');
+    const link = `${baseUrl}payment.html?payment_id=${paymentId}&product=${encodeURIComponent(product)}&amount=${amount}&currency=${currencySelect.value}&description=${encodeURIComponent(descriptionInput.value)}`;
+    
+    // Display the link
+    paymentLink.textContent = link;
+    linkContainer.style.display = 'block';
+    
+    // Save to recent links
+    saveToRecentLinks(paymentId, product, amount, currencySelect.value, descriptionInput.value);
+    
+    // Scroll to link
+    linkContainer.scrollIntoView({ behavior: 'smooth' });
+  });
+  
+  // Copy link to clipboard
+  copyBtn.addEventListener('click', function() {
+    const tempTextArea = document.createElement('textarea');
+    tempTextArea.value = paymentLink.textContent;
+    document.body.appendChild(tempTextArea);
+    tempTextArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempTextArea);
+    
+    showNotification('Link copied to clipboard!');
+  });
+  
+  // Share link
+  shareBtn.addEventListener('click', function() {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Payment Link',
+        text: `Please make a payment for ${productInput.value}`,
+        url: paymentLink.textContent
+      })
+      .catch(error => {
+        console.log('Error sharing:', error);
+      });
+    } else {
+      showNotification('Web Share API not supported in your browser');
+    }
+  });
+  
+  // Show notification
+  function showNotification(message) {
+    notification.textContent = message;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 3000);
+  }
+  
+  // Save to recent links
+  function saveToRecentLinks(id, product, amount, currency, description) {
+    let recentLinks = JSON.parse(localStorage.getItem('paymentLinks')) || [];
+    
+    // Add new link to beginning of array
+    recentLinks.unshift({
+      id: id,
+      product: product,
+      amount: amount,
+      currency: currency,
+      description: description,
+      date: new Date().toISOString(),
+      status: Math.random() > 0.5 ? 'paid' : 'pending' // Random status for demo
+    });
+    
+    // Keep only the last 5 links
+    if (recentLinks.length > 5) {
+      recentLinks = recentLinks.slice(0, 5);
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('paymentLinks', JSON.stringify(recentLinks));
+    
+    // Update UI
+    displayRecentLinks();
+  }
+  
+  // Display recent links
+  function displayRecentLinks() {
+    const recentLinksList = document.getElementById('recentLinksList');
+    const recentLinks = JSON.parse(localStorage.getItem('paymentLinks')) || [];
+    
+    if (recentLinks.length === 0) {
+      recentLinksList.innerHTML = '<p class="text-muted">No payment links generated yet</p>';
+      return;
+    }
+    
+    recentLinksList.innerHTML = '';
+    
+    recentLinks.forEach(link => {
+      const linkElement = document.createElement('div');
+      linkElement.className = 'link-item';
+      
+      linkElement.innerHTML = `
+        <div class="link-details">
+          <h6>${link.product}</h6>
+          <p>${formatCurrency(link.amount, link.currency)} • ${new Date(link.date).toLocaleDateString()}</p>
+        </div>
+        <div class="link-actions">
+          <span class="status-badge status-${link.status}">${link.status}</span>
+        </div>
+      `;
+      
+      recentLinksList.appendChild(linkElement);
+    });
+  }
+  
+  // Format currency
+  function formatCurrency(amount, currency) {
+    const numericAmount = parseFloat(amount) || 0;
+    
+    switch(currency) {
+      case 'USD':
+        return '$' + numericAmount.toFixed(2);
+      case 'EUR':
+        return '€' + numericAmount.toFixed(2);
+      case 'GBP':
+        return '£' + numericAmount.toFixed(2);
+      default:
+        return '₹' + numericAmount.toFixed(2);
+    }
+  }
+  
+  // Initialize
+  displayRecentLinks();
+}
+
+// E-commerce Product Management
+function setupEcommerce() {
+  // Add product
+  document.getElementById("addProductForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    let product = {
+      name: document.getElementById("pname").value,
+      price: document.getElementById("pprice").value,
+      image: document.getElementById("pimage").value,
+      description: document.getElementById("pdesc").value,
+      stock: document.getElementById("pstock").value
+    };
+    let newKey = db.ref("products").push().key;
+    db.ref("products/" + newKey).set(product);
+    alert("✅ Product added!");
+    document.getElementById("addProductForm").reset();
+  });
+
+  // Show orders
+  db.ref("orders").on("value", snapshot => {
+    let data = snapshot.val();
+    let ordersDiv = document.getElementById("orders");
+    ordersDiv.innerHTML = "";
+    
+    if (!data) {
+      ordersDiv.innerHTML = '<tr><td colspan="5" class="text-muted">No orders found</td></tr>';
+      return;
+    }
+    
+    for (let id in data) {
+      let o = data[id];
+      ordersDiv.innerHTML += `
+        <tr>
+          <td data-label="Product">${o.productName || 'N/A'}</td>
+          <td data-label="Price">₹${o.price || '0'}</td>
+          <td data-label="Customer">${o.email || 'N/A'}</td>
+          <td data-label="Address">${o.address || 'N/A'}, ${o.state || ''}, ${o.country || ''}</td>
+          <td data-label="Status">${o.status || 'Pending'}</td>
+        </tr>
+      `;
+    }
+  });
+}
 
 // Ads Management
 function loadAds() {
@@ -802,4 +1221,4 @@ function deleteHistoryByUser(uid) {
 }
   </script>
 </body>
-  </html>
+                  </html>
