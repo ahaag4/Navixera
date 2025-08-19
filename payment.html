@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - SVMS</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        :root {
+            --primary: #2670ff;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .payment-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+        }
+        
+        .payment-header {
+            background: var(--primary);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .payment-header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .payment-header p {
+            opacity: 0.9;
+        }
+        
+        .payment-content {
+            padding: 30px;
+        }
+        
+        .payment-details {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            font-size: 18px;
+            color: var(--primary);
+        }
+        
+        .payment-methods {
+            margin-bottom: 25px;
+        }
+        
+        .payment-methods h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+        
+        .method-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .method-tab {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .method-tab:hover {
+            border-color: var(--primary);
+        }
+        
+        .method-tab.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+        
+        .method-tab i {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .payment-form {
+            display: none;
+        }
+        
+        .payment-form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .upi-qr {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .upi-qr img {
+            max-width: 200px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+        }
+        
+        .pay-button {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .pay-button:hover {
+            background: #1a5fd0;
+        }
+        
+        .pay-button:disabled {
+            background: var(--secondary);
+            cursor: not-allowed;
+        }
+        
+        .status-message {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            display: block;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-button:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .payment-container {
+                margin: 10px;
+            }
+            
+            .method-tabs {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="payment-header">
+            <h1>Complete Your Payment</h1>
+            <p>Secure payment processing</p>
+        </div>
+        
+        <div class="payment-content">
+            <div class="payment-details">
+                <div class="detail-row">
+                    <span>Feature:</span>
+                    <span id="featureName">-</span>
+                </div>
+                <div class="detail-row">
+                    <span>Amount:</span>
+                    <span id="amount">₹0</span>
+                </div>
+                <div class="detail-row">
+                    <span>Duration:</span>
+                    <span id="duration">-</span>
+                </div>
+                <div class="detail-row">
+                    <span>Total:</span>
+                    <span id="totalAmount">₹0</span>
+                </div>
+            </div>
+            
+            <div class="payment-methods">
+                <h3>Choose Payment Method</h3>
+                <div class="method-tabs">
+                    <div class="method-tab active" data-method="upi">
+                        <i class="fas fa-mobile-alt"></i>
+                        <div>UPI</div>
+                    </div>
+                    <div class="method-tab" data-method="card">
+                        <i class="fas fa-credit-card"></i>
+                        <div>Card</div>
+                    </div>
+                    <div class="method-tab" data-method="wallet">
+                        <i class="fas fa-wallet"></i>
+                        <div>Wallet</div>
+                    </div>
+                </div>
+                
+                <!-- UPI Payment Form -->
+                <div class="payment-form active" id="upiForm">
+                    <div class="upi-qr">
+                        <img id="upiQrCode" src="" alt="UPI QR Code">
+                        <p>Scan this QR code to pay using any UPI app</p>
+                    </div>
+                    <div class="form-group">
+                        <label>UPI ID (for verification)</label>
+                        <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
+                    </div>
+                    <button class="pay-button" onclick="processUPIPayment()">
+                        Verify UPI Payment
+                    </button>
+                </div>
+                
+                <!-- Card Payment Form -->
+                <div class="payment-form" id="cardForm">
+                    <div class="form-group">
+                        <label>Card Number</label>
+                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19">
+                    </div>
+                    <div style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Expiry Date</label>
+                            <input type="text" id="expiryDate" placeholder="MM/YY" maxlength="5">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>CVV</label>
+                            <input type="text" id="cvv" placeholder="123" maxlength="3">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cardholder Name</label>
+                        <input type="text" id="cardName" placeholder="John Doe">
+                    </div>
+                    <button class="pay-button" onclick="processCardPayment()">
+                        Pay with Card
+                    </button>
+                </div>
+                
+                <!-- Wallet Payment Form -->
+                <div class="payment-form" id="walletForm">
+                    <div class="form-group">
+                        <label>Select Wallet</label>
+                        <select id="walletType" class="form-group input">
+                            <option value="phonepe">PhonePe</option>
+                            <option value="gpay">Google Pay</option>
+                            <option value="paytm">Paytm</option>
+                            <option value="amazonpay">Amazon Pay</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="walletNumber" placeholder="+91 9876543210">
+                    </div>
+                    <button class="pay-button" onclick="processWalletPayment()">
+                        Pay with Wallet
+                    </button>
+                </div>
+            </div>
+            
+            <div class="status-message" id="statusMessage"></div>
+            
+            <a href="dashboard.html" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+            authDomain: "svms-c0232.firebaseapp.com",
+            databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+            projectId: "svms-c0232",
+            storageBucket: "svms-c0232.appspot.com",
+            messagingSenderId: "359201898609",
+            appId: "1:359201898609:web:893ef076207abb06471bd0"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        const stripe = Stripe('pk_test_51J3fG2I8k3z9e4rX0q0s6xX8');
+
+        let currentPaymentId = null;
+        let currentFeature = null;
+        let currentAmount = 0;
+        let currentUid = null;
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        currentPaymentId = urlParams.get('paymentId');
+        const feature = urlParams.get('feature');
+        const amount = urlParams.get('amount');
+
+        // Initialize payment page
+        document.addEventListener('DOMContentLoaded', function() {
+            auth.onAuthStateChanged(user => {
+                if (!user) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                currentUid = user.uid;
+                initializePayment(feature, amount);
+            });
+        });
+
+        function initializePayment(feature, amount) {
+            currentFeature = feature;
+            currentAmount = parseFloat(amount);
+            
+            // Update UI
+            document.getElementById('featureName').textContent = getFeatureName(feature);
+            document.getElementById('amount').textContent = `₹${amount}`;
+            document.getElementById('duration').textContent = getFeatureDuration(feature);
+            document.getElementById('totalAmount').textContent = `₹${amount}`;
+            
+            // Generate UPI QR code (simplified - in real app, use a QR code library)
+            const upiId = 'svms.payments@upi';
+            const qrAmount = amount;
+            const qrUrl = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
+            document.getElementById('upiQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`;
+            
+            // Setup payment method tabs
+            setupMethodTabs();
+        }
+
+        function getFeatureName(feature) {
+            const features = {
+                'export': 'CSV Export Access',
+                'analytics': 'Advanced Analytics',
+                'fleet': 'Fleet Management',
+                'silver': 'Silver Plan Upgrade',
+                'gold': 'Gold Plan Upgrade'
+            };
+            return features[feature] || feature;
+        }
+
+        function getFeatureDuration(feature) {
+            const durations = {
+                'export': '24 hours',
+                'analytics': '30 days',
+                'fleet': '30 days',
+                'silver': '30 days',
+                'gold': '30 days'
+            };
+            return durations[feature] || 'Lifetime';
+        }
+
+        function setupMethodTabs() {
+            const tabs = document.querySelectorAll('.method-tab');
+            const forms = document.querySelectorAll('.payment-form');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and forms
+                    tabs.forEach(t => t.classList.remove('active'));
+                    forms.forEach(f => f.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    tab.classList.add('active');
+                    
+                    // Show corresponding form
+                    const method = tab.getAttribute('data-method');
+                    document.getElementById(method + 'Form').classList.add('active');
+                });
+            });
+        }
+
+        async function processUPIPayment() {
+            const upiId = document.getElementById('upiId').value;
+            
+            if (!upiId || !upiId.includes('@')) {
+                showStatus('Please enter a valid UPI ID', 'error');
+                return;
+            }
+            
+            showStatus('Processing UPI payment...', 'pending');
+            
+            try {
+                // Simulate UPI payment processing
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Update payment status in database
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                    upi_id: upiId,
+                    status: 'pending_verification',
+                    payment_method: 'upi',
+                    verified_at: new Date().toISOString()
+                });
+                
+                await db.ref(`admin/payments/${currentPaymentId}`).update({
+                    upi_id: upiId,
+                    status: 'pending_verification',
+                    payment_method: 'upi',
+                    verified_at: new Date().toISOString()
+                });
+                
+                showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
+                
+            } catch (error) {
+                console.error('UPI payment error:', error);
+                showStatus('Payment failed. Please try again.', 'error');
+            }
+        }
+
+        async function processCardPayment() {
+            const cardNumber = document.getElementById('cardNumber').value;
+            const expiryDate = document.getElementById('expiryDate').value;
+            const cvv = document.getElementById('cvv').value;
+            const cardName = document.getElementById('cardName').value;
+            
+            if (!cardNumber || !expiryDate || !cvv || !cardName) {
+                showStatus('Please fill all card details', 'error');
+                return;
+            }
+            
+            showStatus('Processing card payment...', 'pending');
+            
+            try {
+                // Create payment intent with Stripe
+                const response = await fetch('http://localhost:3000/create-payment-intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: Math.round(currentAmount * 100),
+                        currency: 'inr',
+                        feature: currentFeature,
+                        uid: currentUid
+                    })
+                });
+                
+                const { clientSecret } = await response.json();
+                
+                // Confirm card payment
+                const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                    payment_method: {
+                        card: {
+                            number: cardNumber,
+                            exp_month: expiryDate.split('/')[0],
+                            exp_year: expiryDate.split('/')[1],
+                            cvc: cvv
+                        },
+                        billing_details: {
+                            name: cardName
+                        }
+                    }
+                });
+                
+                if (error) {
+                    throw new Error(error.message);
+                }
+                
+                // Update payment status
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                    status: 'pending_approval',
+                    payment_method: 'card',
+                    payment_intent_id: paymentIntent.id,
+                    verified_at: new Date().toISOString()
+                });
+                
+                await db.ref(`admin/payments/${currentPaymentId}`).update({
+                    status: 'pending_approval',
+                    payment_method: 'card',
+                    payment_intent_id: paymentIntent.id,
+                    verified_at: new Date().toISOString()
+                });
+                
+                showStatus('Card payment processed! Awaiting admin approval.', 'success');
+                
+            } catch (error) {
+                console.error('Card payment error:', error);
+                showStatus('Payment failed: ' + error.message, 'error');
+            }
+        }
+
+        async function processWalletPayment() {
+            const walletType = document.getElementById('walletType').value;
+            const walletNumber = document.getElementById('walletNumber').value;
+            
+            if (!walletNumber) {
+                showStatus('Please enter your mobile number', 'error');
+                return;
+            }
+            
+            showStatus(`Processing ${walletType} payment...`, 'pending');
+            
+            try {
+                // Simulate wallet payment processing
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Update payment status
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                    status: 'pending_verification',
+                    payment_method: walletType,
+                    wallet_number: walletNumber,
+                    verified_at: new Date().toISOString()
+                });
+                
+                await db.ref(`admin/payments/${currentPaymentId}`).update({
+                    status: 'pending_verification',
+                    payment_method: walletType,
+                    wallet_number: walletNumber,
+                    verified_at: new Date().toISOString()
+                });
+                
+                showStatus(`${walletType} payment initiated! Awaiting verification.`, 'success');
+                
+            } catch (error) {
+                console.error('Wallet payment error:', error);
+                showStatus('Payment failed. Please try again.', 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = 'status-message';
+            
+            switch (type) {
+                case 'success':
+                    statusElement.classList.add('status-success');
+                    break;
+                case 'error':
+                    statusElement.classList.add('status-error');
+                    break;
+                case 'pending':
+                    statusElement.classList.add('status-pending');
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
