@@ -131,7 +131,7 @@
       window.location = "shop.html"; // go back to store
     } else {
       document.getElementById("productDetails").innerHTML = `
-        <img src="${p.image || 'https://via.placeholder.com/250'}" alt="${product.name}">
+        <img src="${product.image || 'https://via.placeholder.com/250'}" alt="${product.name}">
         <h3>${product.name}</h3>
         <p>Price: ₹${Number(product.price).toFixed(2)}</p>
       `;
