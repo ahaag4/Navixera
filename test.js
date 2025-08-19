@@ -1335,9 +1335,9 @@ clearFilterBtn.addEventListener('click', () => {
 });
 
 exportCSVBtn.addEventListener('click', () => exportHistoryCSV(filteredHistory));
-buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 2));
-buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 5));
-buyFleetBtn.addEventListener('click', () => showPurchaseModal('fleet', 30));
+buyExportBtn.addEventListener('click', () => showPurchaseModal('export', 49));
+buyAnalyticsBtn.addEventListener('click', () => showPurchaseModal('analytics', 79));
+buyFleetBtn.addEventListener('click', () => showPurchaseModal('fleet', 79));
 addVehicleBtn.addEventListener('click', addVehicle);
 watchAdBtn.addEventListener('click', watchAdForPremium);
 
