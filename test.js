@@ -342,7 +342,14 @@ async function watchAdForPremium() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
-
+// When an ad is displayed to a user
+function trackAdImpression(adId) {
+  db.ref(`admin/ads/${adId}/impressions`).transaction(current => (current || 0) + 1);
+}
+// When a user clicks on an ad
+function trackAdClick(adId) {
+  db.ref(`admin/ads/${adId}/clicks`).transaction(current => (current || 0) + 1);
+}
 // Utility functions
 function prettyTS(iso) {
   if (!iso) return '-';
