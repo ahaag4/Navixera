@@ -570,7 +570,12 @@ Waiting for transaction submission...
             
             try {
                 // Create initial payment record
-                
+                const paymentData = {
+                    upi_id: upiId,
+                    status: 'pending',
+                    payment_method: 'upi',
+                    
+                };
                 
                 // Save to user's pending purchases
                 await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
