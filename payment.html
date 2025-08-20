@@ -634,7 +634,7 @@ Waiting for transaction submission...
                 
                 updates[`users/${currentUid}/purchases_completed/${currentPaymentId}`] = {
                     ...payment,
-                    status: 'approved',
+                    status: 'pending,
                     transaction_id: transactionId,
                     approved_at: new Date().toISOString()
                 };
@@ -645,7 +645,7 @@ Waiting for transaction submission...
                 updateDebugInfo("Firebase updates successful!\n" +
                     `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
                     `Admin path: admin/payments/${currentPaymentId}\n` +
-                    `Status set to: approved\n` +
+                    `Status set to: pending\n` +
                     `Transaction ID: ${transactionId}`);
                 
                 showStatus('Transaction ID submitted successfully! Your payment has been approved.', 'success');
