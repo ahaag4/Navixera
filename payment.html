@@ -220,17 +220,20 @@
         <div class="detail-row"><span>Total:</span> <span id="totalAmount">₹0</span></div>
       </div>
 
-      <!-- UPI Payment Form -->
-      <div class="payment-form" id="upiForm">
-        <div class="upi-qr">
-          <img id="upiQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=svms-payments@oksbi&pn=SVMS%20Payments&am=999&cu=INR" alt="UPI QR Code">
-          <p>Scan this QR code to pay using any UPI app</p>
-        </div>
-        <div class="form-group">
-          <label>UPI ID (for verification)</label>
-          <input type="text" id="upiId" placeholder="yourname@upi">
-        </div>
-        <button class="pay-button" onclick="processUPIPayment()">Verify UPI Payment</button>
+                      <!-- UPI Payment Form -->
+                <div class="payment-form active" id="upiForm">
+                    <div class="upi-qr">
+                        <img id="upiQrCode" src="" alt="UPI QR Code">
+                        <p>Scan this QR code to pay using any UPI app</p>
+                    </div>
+                    <div class="form-group">
+                        <label>UPI ID (for verification)</label>
+                        <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
+                    </div>
+                    <button class="pay-button" onclick="processUPIPayment()">
+                        Verify UPI Payment
+                    </button>
+                </div>
         
         <div class="transaction-id-section" id="transactionIdSection">
           <div class="form-group">
@@ -297,7 +300,21 @@
       document.getElementById('duration').textContent = getFeatureDuration(feature);
       document.getElementById('totalAmount').textContent = `₹${amount}`;
     }
+            // Generate UPI QR code using a simple QR code generator
+            const upiId = 'aalokshukla94@okhdfcbank';
+            const qrAmount = amount;
+            const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
+            
+            // Using a simple QR code generation method
+            const qrCodeUrl = generateQRCode(qrData);
+            document.getElementById('upiQrCode').src = qrCodeUrl;
+            document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
+            
 
+        function generateQRCode(text) {
+            // Simple QR code generation using an online service
+            return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+    }
     function getFeatureName(feature) {
       const features = {
         'export': 'CSV Export Access',
