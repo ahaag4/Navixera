@@ -396,7 +396,7 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
-        // Initialize with mock data
+        // Initialize variables
         let currentPaymentId = "-";
         let currentFeature = "-";
         let currentAmount = 0;
@@ -424,15 +424,21 @@
             });
 
             // Add event listener for UPI button
-            document.getElementById('upiPayButton').addEventListener('click', () => {
-                console.log('Verify UPI Payment button clicked');
-                processUPIPayment();
-            });
+            const upiButton = document.getElementById('upiPayButton');
+            if (upiButton) {
+                upiButton.addEventListener('click', () => {
+                    console.log('Verify UPI Payment button clicked');
+                    processUPIPayment();
+                });
+            } else {
+                console.error('UPI Pay Button not found');
+            }
         });
 
         function initializePayment(feature, amount) {
             currentFeature = feature;
             currentAmount = parseFloat(amount);
+            console.log('Initializing payment:', { feature, amount });
             
             // Update UI
             document.getElementById('featureName').textContent = getFeatureName(feature);
@@ -497,7 +503,7 @@
             const upiId = document.getElementById('upiId').value;
             const transactionId = document.getElementById('upiTransactionId').value;
 
-            console.log('UPI ID:', upiId, 'Transaction ID:', transactionId);
+            console.log('UPI Payment Inputs:', { upiId, transactionId, currentUid, currentPaymentId });
 
             if (!upiId) {
                 showStatus('Please enter a UPI ID', 'error');
@@ -505,21 +511,32 @@
             }
 
             if (!transactionId) {
-                showStatus('Please enter a valid Transaction ID', 'error');
+                showStatus('Please enter a Transaction ID', 'error');
+                return;
+            }
+
+            if (!currentUid) {
+                showStatus('User not authenticated', 'error');
+                console.error('No authenticated user');
+                return;
+            }
+
+            if (currentPaymentId === '-') {
+                showStatus('Invalid payment ID', 'error');
+                console.error('Invalid payment ID:', currentPaymentId);
                 return;
             }
 
             showStatus('Processing UPI payment...', 'pending');
 
             try {
-                // Simulate UPI payment processing
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
                 const paymentData = {
                     upi_id: upiId,
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: 'upi',
+                    feature: currentFeature,
+                    amount: currentAmount,
                     verified_at: new Date().toISOString()
                 };
                 console.log('Writing UPI Payment Data:', {
@@ -529,15 +546,15 @@
                 });
 
                 // Write to Firebase
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).update(paymentData);
+                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to admin path');
 
                 showStatus('UPI payment approved! You will receive access soon.', 'success');
 
             } catch (error) {
-                console.error('UPI payment error:', error.message);
+                console.error('UPI payment error:', error.message, error.code);
                 showStatus(`Payment failed: ${error.message}`, 'error');
             }
         }
@@ -549,7 +566,7 @@
             const cardName = document.getElementById('cardName').value;
             const transactionId = document.getElementById('cardTransactionId').value;
 
-            console.log('Card Details:', { cardNumber, expiryDate, cvv, cardName, transactionId });
+            console.log('Card Payment Inputs:', { cardNumber, expiryDate, cvv, cardName, transactionId });
 
             if (!cardNumber || !expiryDate || !cvv || !cardName) {
                 showStatus('Please fill all card details', 'error');
@@ -557,19 +574,29 @@
             }
 
             if (!transactionId) {
-                showStatus('Please enter a valid Transaction ID', 'error');
+                showStatus('Please enter a Transaction ID', 'error');
+                return;
+            }
+
+            if (!currentUid) {
+                showStatus('User not authenticated', 'error');
+                return;
+            }
+
+            if (currentPaymentId === '-') {
+                showStatus('Invalid payment ID', 'error');
                 return;
             }
 
             showStatus('Processing card payment...', 'pending');
 
             try {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
                 const paymentData = {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: 'card',
+                    feature: currentFeature,
+                    amount: currentAmount,
                     verified_at: new Date().toISOString()
                 };
                 console.log('Writing Card Payment Data:', {
@@ -578,15 +605,15 @@
                     data: paymentData
                 });
 
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).update(paymentData);
+                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to admin path');
 
                 showStatus('Card payment approved! You will receive access soon.', 'success');
 
             } catch (error) {
-                console.error('Card payment error:', error.message);
+                console.error('Card payment error:', error.message, error.code);
                 showStatus(`Payment failed: ${error.message}`, 'error');
             }
         }
@@ -596,7 +623,7 @@
             const walletNumber = document.getElementById('walletNumber').value;
             const transactionId = document.getElementById('walletTransactionId').value;
 
-            console.log('Wallet Details:', { walletType, walletNumber, transactionId });
+            console.log('Wallet Payment Inputs:', { walletType, walletNumber, transactionId });
 
             if (!walletNumber) {
                 showStatus('Please enter your mobile number', 'error');
@@ -604,20 +631,30 @@
             }
 
             if (!transactionId) {
-                showStatus('Please enter a valid Transaction ID', 'error');
+                showStatus('Please enter a Transaction ID', 'error');
+                return;
+            }
+
+            if (!currentUid) {
+                showStatus('User not authenticated', 'error');
+                return;
+            }
+
+            if (currentPaymentId === '-') {
+                showStatus('Invalid payment ID', 'error');
                 return;
             }
 
             showStatus(`Processing ${walletType} payment...`, 'pending');
 
             try {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
                 const paymentData = {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: walletType,
                     wallet_number: walletNumber,
+                    feature: currentFeature,
+                    amount: currentAmount,
                     verified_at: new Date().toISOString()
                 };
                 console.log('Writing Wallet Payment Data:', {
@@ -626,15 +663,15 @@
                     data: paymentData
                 });
 
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update(paymentData);
+                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).update(paymentData);
+                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
                 console.log('Successfully wrote to admin path');
 
                 showStatus(`${walletType} payment approved! You will receive access soon.`, 'success');
 
             } catch (error) {
-                console.error('Wallet payment error:', error.message);
+                console.error('Wallet payment error:', error.message, error.code);
                 showStatus(`Payment failed: ${error.message}`, 'error');
             }
         }
