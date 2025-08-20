@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment - SVMS</title>
+    <title>Payment Processing - SVMS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+    <!-- Firebase App SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Auth SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Database SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         :root {
             --primary: #2670ff;
@@ -196,6 +198,15 @@
             cursor: not-allowed;
         }
         
+        .submit-transaction-button {
+            background: var(--info);
+            margin-top: 10px;
+        }
+        
+        .submit-transaction-button:hover {
+            background: #138496;
+        }
+        
         .status-message {
             text-align: center;
             padding: 20px;
@@ -249,6 +260,46 @@
             text-decoration: underline;
         }
         
+        .firebase-debug {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .firebase-debug h4 {
+            margin-bottom: 10px;
+            color: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .debug-content {
+            white-space: pre-wrap;
+        }
+        
+        .debug-toggle {
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        .transaction-id-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .transaction-id-section.active {
+            display: block;
+        }
+        
         @media (max-width: 768px) {
             .payment-container {
                 margin: 10px;
@@ -271,19 +322,19 @@
             <div class="payment-details">
                 <div class="detail-row">
                     <span>Feature:</span>
-                    <span id="featureName">-</span>
+                    <span id="featureName">Gold Plan Upgrade</span>
                 </div>
                 <div class="detail-row">
                     <span>Amount:</span>
-                    <span id="amount">₹0</span>
+                    <span id="amount">₹999</span>
                 </div>
                 <div class="detail-row">
                     <span>Duration:</span>
-                    <span id="duration">-</span>
+                    <span id="duration">30 days</span>
                 </div>
                 <div class="detail-row">
                     <span>Total:</span>
-                    <span id="totalAmount">₹0</span>
+                    <span id="totalAmount">₹999</span>
                 </div>
             </div>
             
@@ -307,18 +358,29 @@
                 <!-- UPI Payment Form -->
                 <div class="payment-form active" id="upiForm">
                     <div class="upi-qr">
-                        <img id="upiQrCode" src="" alt="UPI QR Code">
+                        <img id="upiQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=svms-payments@oksbi&pn=SVMS%20Payments&am=999&cu=INR" alt="UPI QR Code">
                         <p>Scan this QR code to pay using any UPI app</p>
                     </div>
                     <div class="form-group">
                         <label>UPI ID (for verification)</label>
-                        <input type="text" id="upiId" placeholder="yourname@upi">
+                        <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
                     </div>
-                    <div class="form-group">
-                        <label>Transaction ID</label>
-                        <input type="text" id="upiTransactionId" placeholder="Enter UPI Transaction ID">
+                    <button class="pay-button" onclick="processUPIPayment()">
+                        Verify UPI Payment
+                    </button>
+                    
+                    <div class="transaction-id-section" id="transactionIdSection">
+                        <div class="form-group">
+                            <label>Transaction ID</label>
+                            <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
+                            <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
+                                If you've already made the payment, enter your transaction ID for faster verification
+                            </p>
+                        </div>
+                        <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">
+                            Submit Transaction ID
+                        </button>
                     </div>
-                    <button class="pay-button" id="upiPayButton">Verify UPI Payment</button>
                 </div>
                 
                 <!-- Card Payment Form -->
@@ -341,11 +403,9 @@
                         <label>Cardholder Name</label>
                         <input type="text" id="cardName" placeholder="John Doe">
                     </div>
-                    <div class="form-group">
-                        <label>Transaction ID</label>
-                        <input type="text" id="cardTransactionId" placeholder="Enter Card Transaction ID">
-                    </div>
-                    <button class="pay-button" onclick="processCardPayment()">Pay with Card</button>
+                    <button class="pay-button" onclick="processCardPayment()">
+                        Pay with Card
+                    </button>
                 </div>
                 
                 <!-- Wallet Payment Form -->
@@ -363,15 +423,23 @@
                         <label>Mobile Number</label>
                         <input type="tel" id="walletNumber" placeholder="+91 9876543210">
                     </div>
-                    <div class="form-group">
-                        <label>Transaction ID</label>
-                        <input type="text" id="walletTransactionId" placeholder="Enter Wallet Transaction ID">
-                    </div>
-                    <button class="pay-button" onclick="processWalletPayment()">Pay with Wallet</button>
+                    <button class="pay-button" onclick="processWalletPayment()">
+                        Pay with Wallet
+                    </button>
                 </div>
             </div>
             
             <div class="status-message" id="statusMessage"></div>
+            
+            <div class="firebase-debug">
+                <h4>
+                    Firebase Debug Info
+                    <span class="debug-toggle" onclick="toggleDebug()">−</span>
+                </h4>
+                <div class="debug-content" id="debugContent">
+Waiting for transaction submission...
+                </div>
+            </div>
             
             <a href="dashboard.html" class="back-button">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
@@ -393,52 +461,44 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const auth = firebase.auth();
+        const database = firebase.database();
 
-        // Initialize variables
-        let currentPaymentId = "-";
-        let currentFeature = "-";
-        let currentAmount = 0;
+        // Initialize with mock data
+        let currentPaymentId = "pay_" + Math.floor(Math.random() * 1000000);
+        let currentFeature = "gold";
+        let currentAmount = 999;
         let currentUid = null;
-
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
-        if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
-        if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
-        console.log('URL Params:', { paymentId: currentPaymentId, feature: currentFeature, amount: currentAmount });
+        let paymentObj = null;
 
         // Initialize payment page
         document.addEventListener('DOMContentLoaded', function() {
-            auth.onAuthStateChanged(user => {
-                console.log('Auth state:', user ? user.uid : 'No user');
-                if (!user) {
+            // Check if user is logged in
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (user) {
+                    currentUid = user.uid;
+                    paymentObj = {
+                        uid: currentUid,
+                        feature: currentFeature,
+                        amount: currentAmount,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    initializePayment(currentFeature, currentAmount);
+                    updateDebugInfo("User authenticated: " + currentUid);
+                } else {
+                    // Redirect to login if not authenticated
                     alert("Please log in first");
                     window.location.href = 'login.html';
-                    return;
                 }
-                
-                currentUid = user.uid;
-                initializePayment(currentFeature, currentAmount);
             });
-
-            // Add event listener for UPI button
-            const upiButton = document.getElementById('upiPayButton');
-            if (upiButton) {
-                upiButton.addEventListener('click', () => {
-                    console.log('Verify UPI Payment button clicked');
-                    processUPIPayment();
-                });
-            } else {
-                console.error('UPI Pay Button not found');
-            }
+            
+            // Setup payment method tabs
+            setupMethodTabs();
         });
 
         function initializePayment(feature, amount) {
             currentFeature = feature;
             currentAmount = parseFloat(amount);
-            console.log('Initializing payment:', { feature, amount });
             
             // Update UI
             document.getElementById('featureName').textContent = getFeatureName(feature);
@@ -446,20 +506,7 @@
             document.getElementById('duration').textContent = getFeatureDuration(feature);
             document.getElementById('totalAmount').textContent = `₹${amount}`;
             
-            // Generate UPI QR code
-            const upiId = 'aalokshukla94@okhdfcbank';
-            const qrAmount = amount;
-            const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
-            const qrCodeUrl = generateQRCode(qrData);
-            document.getElementById('upiQrCode').src = qrCodeUrl;
-            document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
-            
-            // Setup payment method tabs
-            setupMethodTabs();
-        }
-
-        function generateQRCode(text) {
-            return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+            updateDebugInfo("Payment initialized with ID: " + currentPaymentId);
         }
 
         function getFeatureName(feature) {
@@ -490,9 +537,14 @@
             
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and forms
                     tabs.forEach(t => t.classList.remove('active'));
                     forms.forEach(f => f.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
                     tab.classList.add('active');
+                    
+                    // Show corresponding form
                     const method = tab.getAttribute('data-method');
                     document.getElementById(method + 'Form').classList.add('active');
                 });
@@ -501,61 +553,106 @@
 
         async function processUPIPayment() {
             const upiId = document.getElementById('upiId').value;
-            const transactionId = document.getElementById('upiTransactionId').value;
-
-            console.log('UPI Payment Inputs:', { upiId, transactionId, currentUid, currentPaymentId });
-
-            if (!upiId) {
-                showStatus('Please enter a UPI ID', 'error');
+            
+            if (!upiId || !upiId.includes('@')) {
+                showStatus('Please enter a valid UPI ID', 'error');
                 return;
             }
-
-            if (!transactionId) {
-                showStatus('Please enter a Transaction ID', 'error');
-                return;
-            }
-
-            if (!currentUid) {
-                showStatus('User not authenticated', 'error');
-                console.error('No authenticated user');
-                return;
-            }
-
-            if (currentPaymentId === '-') {
-                showStatus('Invalid payment ID', 'error');
-                console.error('Invalid payment ID:', currentPaymentId);
-                return;
-            }
-
+            
             showStatus('Processing UPI payment...', 'pending');
-
+            updateDebugInfo("UPI payment initiated with ID: " + upiId);
+            
             try {
+                // Create initial payment record
                 const paymentData = {
                     upi_id: upiId,
-                    transaction_id: transactionId,
-                    status: 'approved',
+                    status: 'pending_verification',
                     payment_method: 'upi',
+                    created_at: new Date().toISOString(),
                     feature: currentFeature,
                     amount: currentAmount,
-                    verified_at: new Date().toISOString()
+                    user_id: currentUid
                 };
-                console.log('Writing UPI Payment Data:', {
-                    userPath: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    adminPath: `admin/payments/${currentPaymentId}`,
-                    data: paymentData
+                
+                // Save to user's pending purchases
+                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
+                
+                // Save to admin payments
+                await database.ref(`admin/payments/${currentPaymentId}`).set({
+                    ...paymentData,
+                    user_id: currentUid
                 });
-
-                // Write to Firebase
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to admin path');
-
-                showStatus('UPI payment approved! You will receive access soon.', 'success');
-
+                
+                updateDebugInfo("Payment record created in Firebase:\n" + 
+                    `users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
+                    `admin/payments/${currentPaymentId}`);
+                
+                showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
+                
+                // Show transaction ID section for users who have already made payment
+                document.getElementById('transactionIdSection').classList.add('active');
+                
             } catch (error) {
-                console.error('UPI payment error:', error.message, error.code);
-                showStatus(`Payment failed: ${error.message}`, 'error');
+                console.error('UPI payment error:', error);
+                showStatus('Payment failed. Please try again.', 'error');
+                updateDebugInfo("UPI payment error: " + error.message);
+            }
+        }
+
+        async function submitTransactionId() {
+            const transactionId = document.getElementById('transactionId').value;
+            
+            if (!transactionId) {
+                showStatus('Please enter a transaction ID', 'error');
+                updateDebugInfo("Transaction ID submission failed: No transaction ID provided");
+                return;
+            }
+            
+            showStatus('Submitting transaction ID for verification...', 'pending');
+            updateDebugInfo("Submitting transaction ID: " + transactionId);
+            
+            try {
+                // Create updates object for Firebase
+                const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/approved_at`] = new Date().toISOString();
+                
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
+                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`admin/payments/${currentPaymentId}/approved_at`] = new Date().toISOString();
+                
+                // Also add to completed purchases
+                const paymentData = await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).once('value');
+                const payment = paymentData.val();
+                
+                updates[`users/${currentUid}/purchases_completed/${currentPaymentId}`] = {
+                    ...payment,
+                    status: 'approved',
+                    transaction_id: transactionId,
+                    approved_at: new Date().toISOString()
+                };
+                
+                // Update all paths in Firebase
+                await database.ref().update(updates);
+                
+                updateDebugInfo("Firebase updates successful!\n" +
+                    `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
+                    `Admin path: admin/payments/${currentPaymentId}\n` +
+                    `Status set to: approved\n` +
+                    `Transaction ID: ${transactionId}`);
+                
+                showStatus('Transaction ID submitted successfully! Your payment has been approved.', 'success');
+                
+                // Hide the transaction ID section after successful submission
+                setTimeout(() => {
+                    document.getElementById('transactionIdSection').classList.remove('active');
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Transaction ID submission error:', error);
+                showStatus('Failed to submit transaction ID. Please try again.', 'error');
+                updateDebugInfo("Transaction ID submission error: " + error.message);
             }
         }
 
@@ -564,115 +661,81 @@
             const expiryDate = document.getElementById('expiryDate').value;
             const cvv = document.getElementById('cvv').value;
             const cardName = document.getElementById('cardName').value;
-            const transactionId = document.getElementById('cardTransactionId').value;
-
-            console.log('Card Payment Inputs:', { cardNumber, expiryDate, cvv, cardName, transactionId });
-
+            
             if (!cardNumber || !expiryDate || !cvv || !cardName) {
                 showStatus('Please fill all card details', 'error');
                 return;
             }
-
-            if (!transactionId) {
-                showStatus('Please enter a Transaction ID', 'error');
-                return;
-            }
-
-            if (!currentUid) {
-                showStatus('User not authenticated', 'error');
-                return;
-            }
-
-            if (currentPaymentId === '-') {
-                showStatus('Invalid payment ID', 'error');
-                return;
-            }
-
+            
             showStatus('Processing card payment...', 'pending');
-
+            
             try {
+                // Create payment record
                 const paymentData = {
-                    transaction_id: transactionId,
-                    status: 'approved',
+                    status: 'pending_approval',
                     payment_method: 'card',
+                    created_at: new Date().toISOString(),
                     feature: currentFeature,
                     amount: currentAmount,
-                    verified_at: new Date().toISOString()
+                    user_id: currentUid
                 };
-                console.log('Writing Card Payment Data:', {
-                    userPath: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    adminPath: `admin/payments/${currentPaymentId}`,
-                    data: paymentData
+                
+                // Save to user's pending purchases
+                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
+                
+                // Save to admin payments
+                await database.ref(`admin/payments/${currentPaymentId}`).set({
+                    ...paymentData,
+                    user_id: currentUid
                 });
-
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to admin path');
-
-                showStatus('Card payment approved! You will receive access soon.', 'success');
-
+                
+                updateDebugInfo("Card payment processed successfully");
+                showStatus('Card payment processed! Awaiting admin approval.', 'success');
+                
             } catch (error) {
-                console.error('Card payment error:', error.message, error.code);
-                showStatus(`Payment failed: ${error.message}`, 'error');
+                console.error('Card payment error:', error);
+                showStatus('Payment failed: ' + error.message, 'error');
             }
         }
 
         async function processWalletPayment() {
             const walletType = document.getElementById('walletType').value;
             const walletNumber = document.getElementById('walletNumber').value;
-            const transactionId = document.getElementById('walletTransactionId').value;
-
-            console.log('Wallet Payment Inputs:', { walletType, walletNumber, transactionId });
-
+            
             if (!walletNumber) {
                 showStatus('Please enter your mobile number', 'error');
                 return;
             }
-
-            if (!transactionId) {
-                showStatus('Please enter a Transaction ID', 'error');
-                return;
-            }
-
-            if (!currentUid) {
-                showStatus('User not authenticated', 'error');
-                return;
-            }
-
-            if (currentPaymentId === '-') {
-                showStatus('Invalid payment ID', 'error');
-                return;
-            }
-
+            
             showStatus(`Processing ${walletType} payment...`, 'pending');
-
+            
             try {
+                // Create payment record
                 const paymentData = {
-                    transaction_id: transactionId,
-                    status: 'approved',
+                    status: 'pending_verification',
                     payment_method: walletType,
                     wallet_number: walletNumber,
+                    created_at: new Date().toISOString(),
                     feature: currentFeature,
                     amount: currentAmount,
-                    verified_at: new Date().toISOString()
+                    user_id: currentUid
                 };
-                console.log('Writing Wallet Payment Data:', {
-                    userPath: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    adminPath: `admin/payments/${currentPaymentId}`,
-                    data: paymentData
+                
+                // Save to user's pending purchases
+                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
+                
+                // Save to admin payments
+                await database.ref(`admin/payments/${currentPaymentId}`).set({
+                    ...paymentData,
+                    user_id: currentUid
                 });
-
-                await db.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to users path');
-                await db.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
-                console.log('Successfully wrote to admin path');
-
-                showStatus(`${walletType} payment approved! You will receive access soon.`, 'success');
-
+                
+                updateDebugInfo(`${walletType} payment processed successfully`);
+                showStatus(`${walletType} payment initiated! Awaiting verification.`, 'success');
+                
             } catch (error) {
-                console.error('Wallet payment error:', error.message, error.code);
-                showStatus(`Payment failed: ${error.message}`, 'error');
+                console.error('Wallet payment error:', error);
+                showStatus('Payment failed. Please try again.', 'error');
             }
         }
 
@@ -693,6 +756,24 @@
                     break;
             }
         }
+        
+        function updateDebugInfo(message) {
+            const debugElement = document.getElementById('debugContent');
+            debugElement.textContent = message;
+        }
+        
+        function toggleDebug() {
+            const debugElement = document.getElementById('debugContent');
+            const toggleElement = document.querySelector('.debug-toggle');
+            
+            if (debugElement.style.display === 'none') {
+                debugElement.style.display = 'block';
+                toggleElement.textContent = '−';
+            } else {
+                debugElement.style.display = 'none';
+                toggleElement.textContent = '+';
+            }
+        }
     </script>
 </body>
-</html>
+    </html>
