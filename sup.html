@@ -714,7 +714,7 @@ function loadPurchaseRequests() {
       any = true;
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${escapeHtml(payment.user_email || payment.uid || 'N/A')}</td>
+        <td>${escapeHtml(payment.user || payment.uid || 'N/A')}</td>
         <td>${escapeHtml(payment.feature || 'N/A')}</td>
         <td>${payment.currency === 'inr' ? '₹' : '$'}${payment.amount || '0'}</td>
         <td>${escapeHtml(payment.payment_method || 'N/A')}</td>
