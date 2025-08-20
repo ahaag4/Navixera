@@ -357,7 +357,7 @@
         };
 
         // Save to both user and admin paths
-        await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
+        await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`);
         await database.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
 
         showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
