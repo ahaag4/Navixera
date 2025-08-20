@@ -470,12 +470,11 @@ Waiting for transaction submission...
         let currentUid = null;
         let paymentObj = null;
 
-        // Get URL parameters
+                // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
         if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
         if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
-        
         // Initialize payment page
         document.addEventListener('DOMContentLoaded', function() {
             // Check if user is logged in
@@ -579,7 +578,6 @@ Waiting for transaction submission...
                     status: 'pending',
                     user: currentUid,
                     upi_id: upiId,
-                    
                 };
                 
                 // Save to user's pending purchases
@@ -620,13 +618,26 @@ Waiting for transaction submission...
             updateDebugInfo("Submitting transaction ID: " + transactionId);
             
             try {
-                // Create updates object for Firebase - KEEP STATUS AS PENDING
+                // Create updates object for Firebase
                 const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
                 updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
-                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/approved_at`] = new Date().toISOString();
                 
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
                 updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
-                updates[`admin/payments/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
+                updates[`admin/payments/${currentPaymentId}/approved_at`] = new Date().toISOString();
+                
+                // Also add to completed purchases
+                const paymentData = await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).once('value');
+                const payment = paymentData.val();
+                
+                updates[`users/${currentUid}/purchases_completed/${currentPaymentId}`] = {
+                    ...payment,
+                    status: 'approved',
+                    transaction_id: transactionId,
+                    approved_at: new Date().toISOString()
+                };
                 
                 // Update all paths in Firebase
                 await database.ref().update(updates);
@@ -634,10 +645,10 @@ Waiting for transaction submission...
                 updateDebugInfo("Firebase updates successful!\n" +
                     `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
                     `Admin path: admin/payments/${currentPaymentId}\n` +
-                    `Status remains: pending_verification\n` +
+                    `Status set to: approved\n` +
                     `Transaction ID: ${transactionId}`);
                 
-                showStatus('Transaction ID submitted successfully! Admin will verify your payment shortly.', 'success');
+                showStatus('Transaction ID submitted successfully! Your payment has been approved.', 'success');
                 
                 // Hide the transaction ID section after successful submission
                 setTimeout(() => {
@@ -771,4 +782,4 @@ Waiting for transaction submission...
         }
     </script>
 </body>
-                                             </html>
+    </html>
