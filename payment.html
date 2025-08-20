@@ -470,6 +470,12 @@ Waiting for transaction submission...
         let currentUid = null;
         let paymentObj = null;
 
+                // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
+        if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
+        if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
+        
         // Initialize payment page
         document.addEventListener('DOMContentLoaded', function() {
             // Check if user is logged in
