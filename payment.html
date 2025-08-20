@@ -342,7 +342,7 @@
           upi_id: upiId
         };
 
-        await database.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
+        await database.ref(`admin/payments/${currentPaymentId}`);
 
         showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
         document.getElementById('transactionIdSection').classList.add('active');
