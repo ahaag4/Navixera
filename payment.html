@@ -464,7 +464,7 @@ Waiting for transaction submission...
         const database = firebase.database();
 
         // Initialize with mock data
-        let currentPaymentId = "upi_"+${uidGlobal}_${Date.now()};
+        let currentPaymentId = "pay_" + Math.floor(Math.random() * 1000000);
         let currentFeature = "-";
         let currentAmount = 0;
         let currentUid = null;
