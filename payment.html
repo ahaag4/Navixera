@@ -337,7 +337,7 @@
                     
                     <div class="transaction-id-section" id="transactionIdSection">
                         <div class="form-group">
-                            <label>Transaction ID (Optional)</label>
+                            <label>Transaction ID</label>
                             <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
                             <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
                                 If you've already made the payment, enter your transaction ID for faster verification
@@ -404,7 +404,7 @@
     </div>
 
     <script>
-        // Firebase configuration (mock version since we don't have actual Firebase)
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
             authDomain: "svms-c0232.firebaseapp.com",
@@ -415,7 +415,8 @@
             appId: "1:359201898609:web:893ef076207abb06471bd0"
         };
 
-        // Mock Firebase functionality for demonstration
+        // Initialize Firebase (mock version since we don't have actual Firebase)
+        // In a real implementation, you would initialize Firebase with the config above
         const mockAuth = {
             onAuthStateChanged: (callback) => {
                 // Simulate a logged-in user after a short delay
@@ -429,6 +430,10 @@
                     update: (data) => {
                         console.log("Mock DB update:", path, data);
                         return Promise.resolve();
+                    },
+                    set: (data) => {
+                        console.log("Mock DB set:", path, data);
+                        return Promise.resolve();
                     }
                 };
             }
@@ -439,6 +444,7 @@
         let currentFeature = "-";
         let currentAmount = 0;
         let currentUid = null;
+        let paymentObj = null;
 
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -456,6 +462,13 @@
                 }
                 
                 currentUid = user.uid;
+                paymentObj = {
+                    uid: currentUid,
+                    feature: currentFeature,
+                    amount: currentAmount,
+                    createdAt: new Date().toISOString()
+                };
+                
                 initializePayment(currentFeature, currentAmount);
             });
         });
@@ -582,23 +595,44 @@
             showStatus('Submitting transaction ID for verification...', 'pending');
             
             try {
-                // Simulate API call to submit transaction ID
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                // Create updates object for Firebase
+                const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/approved_at`] = new Date().toISOString();
                 
-                // Update payment status with transaction ID
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
+                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`admin/payments/${currentPaymentId}/approved_at`] = new Date().toISOString();
+                
+                // Also add to completed purchases
+                updates[`users/${currentUid}/purchases_completed/${currentPaymentId}`] = {
+                    feature: currentFeature,
+                    amount: currentAmount,
+                    payment_method: 'upi',
+                    transaction_id: transactionId,
+                    purchased_at: new Date().toISOString(),
+                    status: 'approved'
+                };
+                
+                // Update all paths in Firebase
+                for (const path in updates) {
+                    await mockDb.ref(path).set(updates[path]);
+                }
+                
+                // Remove from pending purchases
                 await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                    status: 'approved',
                     transaction_id: transactionId,
-                    status: 'pending_approval',
-                    transaction_submitted_at: new Date().toISOString()
+                    approved_at: new Date().toISOString()
                 });
                 
-                await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
-                    transaction_id: transactionId,
-                    status: 'pending_approval',
-                    transaction_submitted_at: new Date().toISOString()
-                });
+                showStatus('Transaction ID submitted successfully! Your payment has been approved.', 'success');
                 
-                showStatus('Transaction ID submitted successfully! Admin will verify your payment shortly.', 'success');
+                // Hide the transaction ID section after successful submission
+                setTimeout(() => {
+                    document.getElementById('transactionIdSection').classList.remove('active');
+                }, 3000);
                 
             } catch (error) {
                 console.error('Transaction ID submission error:', error);
