@@ -571,9 +571,15 @@ Waiting for transaction submission...
             try {
                 // Create initial payment record
                 const paymentData = {
-                    upi_id: upiId,
-                    status: 'pending',
+                    amount: currentAmount,
+                    created: new Date().toISOString(),
+                    currency: 'inr',
+                    expiry:'duration',
+                    feature: currentFeature,
                     payment_method: 'upi',
+                    status: 'pending',
+                    payment.uid: currentUid,
+                    upi_id: upiId
                     
                 };
                 
