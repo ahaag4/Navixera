@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment - SVMS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
     <style>
         :root {
             --primary: #2670ff;
@@ -381,8 +385,8 @@
         </div>
     </div>
 
-    <script>
-        // Firebase configuration (mock version since we don't have actual Firebase)
+    <script type="module">
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
             authDomain: "svms-c0232.firebaseapp.com",
@@ -393,24 +397,14 @@
             appId: "1:359201898609:web:893ef076207abb06471bd0"
         };
 
-        // Mock Firebase functionality for demonstration
-        const mockAuth = {
-            onAuthStateChanged: (callback) => {
-                // Simulate a logged-in user after a short delay
-                setTimeout(() => callback({ uid: "mock-user-id" }), 500);
-            }
-        };
+        // Initialize Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getDatabase, ref, update } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
 
-        const mockDb = {
-            ref: (path) => {
-                return {
-                    update: (data) => {
-                        console.log("Mock DB update:", path, data);
-                        return Promise.resolve();
-                    }
-                };
-            }
-        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
 
         // Initialize with mock data
         let currentPaymentId = "-";
@@ -426,7 +420,7 @@
 
         // Initialize payment page
         document.addEventListener('DOMContentLoaded', function() {
-            mockAuth.onAuthStateChanged(user => {
+            onAuthStateChanged(auth, user => {
                 if (!user) {
                     alert("Please log in first");
                     window.location.href = 'login.html';
@@ -434,6 +428,7 @@
                 }
                 
                 currentUid = user.uid;
+                console.log('User UID:', currentUid); // Debug log
                 initializePayment(currentFeature, currentAmount);
             });
         });
@@ -529,8 +524,21 @@
                 // Simulate UPI payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
+                // Log data for debugging
+                console.log('Writing UPI Payment Data:', {
+                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
+                    path2: `admin/payments/${currentPaymentId}`,
+                    data: {
+                        upi_id: upiId,
+                        transaction_id: transactionId,
+                        status: 'approved',
+                        payment_method: 'upi',
+                        verified_at: new Date().toISOString()
+                    }
+                });
+
                 // Update payment status in database
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
                     upi_id: upiId,
                     transaction_id: transactionId,
                     status: 'approved',
@@ -538,7 +546,7 @@
                     verified_at: new Date().toISOString()
                 });
 
-                await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
+                await update(ref(db, `admin/payments/${currentPaymentId}`), {
                     upi_id: upiId,
                     transaction_id: transactionId,
                     status: 'approved',
@@ -577,15 +585,27 @@
                 // Simulate card payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
+                // Log data for debugging
+                console.log('Writing Card Payment Data:', {
+                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
+                    path2: `admin/payments/${currentPaymentId}`,
+                    data: {
+                        transaction_id: transactionId,
+                        status: 'approved',
+                        payment_method: 'card',
+                        verified_at: new Date().toISOString()
+                    }
+                });
+
                 // Update payment status
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: 'card',
                     verified_at: new Date().toISOString()
                 });
 
-                await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
+                await update(ref(db, `admin/payments/${currentPaymentId}`), {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: 'card',
@@ -621,8 +641,21 @@
                 // Simulate wallet payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
+                // Log data for debugging
+                console.log('Writing Wallet Payment Data:', {
+                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
+                    path2: `admin/payments/${currentPaymentId}`,
+                    data: {
+                        transaction_id: transactionId,
+                        status: 'approved',
+                        payment_method: walletType,
+                        wallet_number: walletNumber,
+                        verified_at: new Date().toISOString()
+                    }
+                });
+
                 // Update payment status
-                await mockDb.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).update({
+                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: walletType,
@@ -630,7 +663,7 @@
                     verified_at: new Date().toISOString()
                 });
 
-                await mockDb.ref(`admin/payments/${currentPaymentId}`).update({
+                await update(ref(db, `admin/payments/${currentPaymentId}`), {
                     transaction_id: transactionId,
                     status: 'approved',
                     payment_method: walletType,
@@ -665,4 +698,4 @@
         }
     </script>
 </body>
-                                </html>
+    </html>
