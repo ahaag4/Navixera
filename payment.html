@@ -1,775 +1,396 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Processing - SVMS</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Firebase App SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <!-- Firebase Auth SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <!-- Firebase Database SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <style>
-        :root {
-            --primary: #2670ff;
-            --secondary: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
-            --light: #f8f9fa;
-            --dark: #343a40;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .payment-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 500px;
-            overflow: hidden;
-        }
-        
-        .payment-header {
-            background: var(--primary);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .payment-header h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .payment-header p {
-            opacity: 0.9;
-        }
-        
-        .payment-content {
-            padding: 30px;
-        }
-        
-        .payment-details {
-            background: var(--light);
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .detail-row:last-child {
-            border-bottom: none;
-            font-weight: bold;
-            font-size: 18px;
-            color: var(--primary);
-        }
-        
-        .payment-methods {
-            margin-bottom: 25px;
-        }
-        
-        .payment-methods h3 {
-            margin-bottom: 15px;
-            color: var(--dark);
-        }
-        
-        .method-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .method-tab {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .method-tab:hover {
-            border-color: var(--primary);
-        }
-        
-        .method-tab.active {
-            border-color: var(--primary);
-            background: var(--primary);
-            color: white;
-        }
-        
-        .method-tab i {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-        
-        .payment-form {
-            display: none;
-        }
-        
-        .payment-form.active {
-            display: block;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-        
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-        
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        
-        .upi-qr {
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .upi-qr img {
-            max-width: 200px;
-            margin-bottom: 15px;
-            border: 1px solid #eee;
-            background: white;
-            padding: 10px;
-        }
-        
-        .pay-button {
-            width: 100%;
-            padding: 15px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        
-        .pay-button:hover {
-            background: #1a5fd0;
-        }
-        
-        .pay-button:disabled {
-            background: var(--secondary);
-            cursor: not-allowed;
-        }
-        
-        .submit-transaction-button {
-            background: var(--info);
-            margin-top: 10px;
-        }
-        
-        .submit-transaction-button:hover {
-            background: #138496;
-        }
-        
-        .status-message {
-            text-align: center;
-            padding: 20px;
-            margin-top: 20px;
-            border-radius: 10px;
-            display: none;
-        }
-        
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-            display: block;
-        }
-        
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-        
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-            display: block;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .back-button {
-            display: inline-block;
-            margin-top: 20px;
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .back-button:hover {
-            text-decoration: underline;
-        }
-        
-        .firebase-debug {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            font-family: monospace;
-            font-size: 14px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .firebase-debug h4 {
-            margin-bottom: 10px;
-            color: var(--dark);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .debug-content {
-            white-space: pre-wrap;
-        }
-        
-        .debug-toggle {
-            cursor: pointer;
-            font-size: 18px;
-        }
-        
-        .transaction-id-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
-        }
-        
-        .transaction-id-section.active {
-            display: block;
-        }
-        
-        @media (max-width: 768px) {
-            .payment-container {
-                margin: 10px;
-            }
-            
-            .method-tabs {
-                flex-direction: column;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Processing - SVMS</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <!-- Firebase App SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <!-- Firebase Auth SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <!-- Firebase Database SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  
+  <style>
+    :root {
+      --primary: #2670ff;
+      --secondary: #6c757d;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #ffc107;
+      --info: #17a2b8;
+      --light: #f8f9fa;
+      --dark: #343a40;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .payment-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 500px;
+      overflow: hidden;
+    }
+
+    .payment-header {
+      background: var(--primary);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .payment-header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .payment-content {
+      padding: 30px;
+    }
+
+    .payment-details {
+      background: var(--light);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+      font-weight: bold;
+      font-size: 18px;
+      color: var(--primary);
+    }
+
+    .payment-form {
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--dark);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .upi-qr {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .upi-qr img {
+      max-width: 200px;
+      margin-bottom: 15px;
+      border: 1px solid #eee;
+      background: white;
+      padding: 10px;
+    }
+
+    .pay-button {
+      width: 100%;
+      padding: 15px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .pay-button:hover {
+      background: #1a5fd0;
+    }
+
+    .pay-button:disabled {
+      background: var(--secondary);
+      cursor: not-allowed;
+    }
+
+    .submit-transaction-button {
+      background: var(--info);
+      margin-top: 10px;
+    }
+
+    .submit-transaction-button:hover {
+      background: #138496;
+    }
+
+    .status-message {
+      text-align: center;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+      display: block;
+    }
+
+    .transaction-id-section {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      display: none;
+    }
+
+    .transaction-id-section.active {
+      display: block;
+    }
+
+    .back-button {
+      display: inline-block;
+      margin-top: 20px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .back-button:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-    <div class="payment-container">
-        <div class="payment-header">
-            <h1>Complete Your Payment</h1>
-            <p>Secure payment processing</p>
-        </div>
-        
-        <div class="payment-content">
-            <div class="payment-details">
-                <div class="detail-row">
-                    <span>Feature:</span>
-                    <span id="featureName">-</span>
-                </div>
-                <div class="detail-row">
-                    <span>Amount:</span>
-                    <span id="amount">₹0</span>
-                </div>
-                <div class="detail-row">
-                    <span>Duration:</span>
-                    <span id="duration">-</span>
-                </div>
-                <div class="detail-row">
-                    <span>Total:</span>
-                    <span id="totalAmount">₹0</span>
-                </div>
-            </div>
-            
-           <!-- <div class="payment-methods">
-                <h3>Choose Payment Method</h3>
-                <div class="method-tabs">
-                    <div class="method-tab active" data-method="upi">
-                        <i class="fas fa-mobile-alt"></i>
-                        <div>UPI</div>
-                    </div>
-                    <div class="method-tab" data-method="card">
-                        <i class="fas fa-credit-card"></i>
-                        <div>Card</div>
-                    </div>
-                    <div class="method-tab" data-method="wallet">
-                        <i class="fas fa-wallet"></i>
-                        <div>Wallet</div>
-                    </div>
-                </div>-->
-                
-                <!-- UPI Payment Form -->
-                <div class="payment-form active" id="upiForm">
-                    <div class="upi-qr">
-                        <img id="upiQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=svms-payments@oksbi&pn=SVMS%20Payments&am=999&cu=INR" alt="UPI QR Code">
-                        <p>Scan this QR code to pay using any UPI app</p>
-                    </div>
-                    <div class="form-group">
-                        <label>UPI ID (for verification)</label>
-                        <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
-                    </div>
-                    <button class="pay-button" onclick="processUPIPayment()">
-                        Verify UPI Payment
-                    </button>
-                    
-                    <div class="transaction-id-section" id="transactionIdSection">
-                        <div class="form-group">
-                            <label>Transaction ID</label>
-                            <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
-                            <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
-                                If you've already made the payment, enter your transaction ID for faster verification
-                            </p>
-                        </div>
-                        <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">
-                            Submit Transaction ID
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Card Payment Form -->
-              <!--  <div class="payment-form" id="cardForm">
-                    <div class="form-group">
-                        <label>Card Number</label>
-                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19">
-                    </div>
-                    <div style="display: flex; gap: 15px;">
-                        <div class="form-group" style="flex: 1;">
-                            <label>Expiry Date</label>
-                            <input type="text" id="expiryDate" placeholder="MM/YY" maxlength="5">
-                        </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label>CVV</label>
-                            <input type="text" id="cvv" placeholder="123" maxlength="3">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Cardholder Name</label>
-                        <input type="text" id="cardName" placeholder="John Doe">
-                    </div>
-                    <button class="pay-button" onclick="processCardPayment()">
-                        Pay with Card
-                    </button>
-                </div> -->
-                
-                <!-- Wallet Payment Form -->
-              <!--  <div class="payment-form" id="walletForm">
-                    <div class="form-group">
-                        <label>Select Wallet</label>
-                        <select id="walletType" class="form-control">
-                            <option value="phonepe">PhonePe</option>
-                            <option value="gpay">Google Pay</option>
-                            <option value="paytm">Paytm</option>
-                            <option value="amazonpay">Amazon Pay</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Mobile Number</label>
-                        <input type="tel" id="walletNumber" placeholder="+91 9876543210">
-                    </div>
-                    <button class="pay-button" onclick="processWalletPayment()">
-                        Pay with Wallet
-                    </button>
-                </div>
-            </div> -->
-            
-            <div class="status-message" id="statusMessage"></div>
-            
-          <!--  <div class="firebase-debug">
-                <h4>
-                    Firebase Debug Info
-                    <span class="debug-toggle" onclick="toggleDebug()">−</span>
-                </h4>
-                <div class="debug-content" id="debugContent">
-Waiting for transaction submission...
-                </div>
-            </div>-->
-            
-            <a href="dashboard.html" class="back-button">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
-        </div>
+  <div class="payment-container">
+    <div class="payment-header">
+      <h1>Complete Your Payment</h1>
+      <p>Secure payment processing</p>
     </div>
+    
+    <div class="payment-content">
+      <div class="payment-details">
+        <div class="detail-row"><span>Feature:</span> <span id="featureName">-</span></div>
+        <div class="detail-row"><span>Amount:</span> <span id="amount">₹0</span></div>
+        <div class="detail-row"><span>Duration:</span> <span id="duration">-</span></div>
+        <div class="detail-row"><span>Total:</span> <span id="totalAmount">₹0</span></div>
+      </div>
 
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-            authDomain: "svms-c0232.firebaseapp.com",
-            databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-            projectId: "svms-c0232",
-            storageBucket: "svms-c0232.appspot.com",
-            messagingSenderId: "359201898609",
-            appId: "1:359201898609:web:893ef076207abb06471bd0"
+      <!-- UPI Payment Form -->
+      <div class="payment-form" id="upiForm">
+        <div class="upi-qr">
+          <img id="upiQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=svms-payments@oksbi&pn=SVMS%20Payments&am=999&cu=INR" alt="UPI QR Code">
+          <p>Scan this QR code to pay using any UPI app</p>
+        </div>
+        <div class="form-group">
+          <label>UPI ID (for verification)</label>
+          <input type="text" id="upiId" placeholder="yourname@upi">
+        </div>
+        <button class="pay-button" onclick="processUPIPayment()">Verify UPI Payment</button>
+        
+        <div class="transaction-id-section" id="transactionIdSection">
+          <div class="form-group">
+            <label>Transaction ID</label>
+            <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
+            <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
+              If you've already made the payment, enter your transaction ID for faster verification
+            </p>
+          </div>
+          <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">Submit Transaction ID</button>
+        </div>
+      </div>
+
+      <div class="status-message" id="statusMessage"></div>
+      
+      <a href="dashboard.html" class="back-button"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+  </div>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let currentPaymentId = "pay_" + Math.floor(Math.random() * 1000000);
+    let currentFeature = "-";
+    let currentAmount = 0;
+    let currentUid = null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
+    if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
+    if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
+
+    document.addEventListener('DOMContentLoaded', function() {
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          currentUid = user.uid;
+          initializePayment(currentFeature, currentAmount);
+        } else {
+          alert("Please log in first");
+          window.location.href = 'login.html';
+        }
+      });
+    });
+
+    function initializePayment(feature, amount) {
+      currentFeature = feature;
+      currentAmount = parseFloat(amount);
+
+      document.getElementById('featureName').textContent = getFeatureName(feature);
+      document.getElementById('amount').textContent = `₹${amount}`;
+      document.getElementById('duration').textContent = getFeatureDuration(feature);
+      document.getElementById('totalAmount').textContent = `₹${amount}`;
+    }
+
+    function getFeatureName(feature) {
+      const features = {
+        'export': 'CSV Export Access',
+        'analytics': 'Advanced Analytics',
+        'fleet': 'Fleet Management',
+        'silver': 'Silver Plan Upgrade',
+        'gold': 'Gold Plan Upgrade'
+      };
+      return features[feature] || feature;
+    }
+
+    function getFeatureDuration(feature) {
+      const durations = {
+        'export': '24 hours',
+        'analytics': '30 days',
+        'fleet': '30 days',
+        'silver': '30 days',
+        'gold': '30 days'
+      };
+      return durations[feature] || 'Lifetime';
+    }
+
+    async function processUPIPayment() {
+      const upiId = document.getElementById('upiId').value;
+
+      if (!upiId || !upiId.includes('@')) {
+        showStatus('Please enter a valid UPI ID', 'error');
+        return;
+      }
+
+      showStatus('Processing UPI payment...', 'pending');
+
+      try {
+        const paymentData = {
+          amount: currentAmount,
+          created: new Date().toISOString(),
+          currency: 'inr',
+          feature: currentFeature,
+          payment_method: 'upi',
+          status: 'pending',
+          user: currentUid,
+          upi_id: upiId
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        await database.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
 
-        // Initialize with mock data
-        let currentPaymentId = "pay_" + Math.floor(Math.random() * 1000000);
-        let currentFeature = "-";
-        let currentAmount = 0;
-        let currentUid = null;
-        let paymentObj = null;
+        showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
+        document.getElementById('transactionIdSection').classList.add('active');
 
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
-        if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
-        if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
-        
-        // Initialize payment page
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if user is logged in
-            firebase.auth().onAuthStateChanged(function(user) {
-                if (user) {
-                    currentUid = user.uid;
-                    paymentObj = {
-                        uid: currentUid,
-                        feature: currentFeature,
-                        amount: currentAmount,
-                        createdAt: new Date().toISOString()
-                    };
-                    
-                    initializePayment(currentFeature, currentAmount);
-                    updateDebugInfo("User authenticated: " + currentUid);
-                } else {
-                    // Redirect to login if not authenticated
-                    alert("Please log in first");
-                    window.location.href = 'login.html';
-                }
-            });
-            
-            // Setup payment method tabs
-            setupMethodTabs();
-        });
+      } catch (error) {
+        console.error('UPI payment error:', error);
+        showStatus('Payment failed. Please try again.', 'error');
+      }
+    }
 
-        function initializePayment(feature, amount) {
-            currentFeature = feature;
-            currentAmount = parseFloat(amount);
-            
-            // Update UI
-            document.getElementById('featureName').textContent = getFeatureName(feature);
-            document.getElementById('amount').textContent = `₹${amount}`;
-            document.getElementById('duration').textContent = getFeatureDuration(feature);
-            document.getElementById('totalAmount').textContent = `₹${amount}`;
-            
-            updateDebugInfo("Payment initialized with ID: " + currentPaymentId);
-        }
+    async function submitTransactionId() {
+      const transactionId = document.getElementById('transactionId').value;
 
-        function getFeatureName(feature) {
-            const features = {
-                'export': 'CSV Export Access',
-                'analytics': 'Advanced Analytics',
-                'fleet': 'Fleet Management',
-                'silver': 'Silver Plan Upgrade',
-                'gold': 'Gold Plan Upgrade'
-            };
-            return features[feature] || feature;
-        }
+      if (!transactionId) {
+        showStatus('Please enter a transaction ID', 'error');
+        return;
+      }
 
-        function getFeatureDuration(feature) {
-            const durations = {
-                'export': '24 hours',
-                'analytics': '30 days',
-                'fleet': '30 days',
-                'silver': '30 days',
-                'gold': '30 days'
-            };
-            return durations[feature] || 'Lifetime';
-        }
+      showStatus('Submitting transaction ID for verification...', 'pending');
 
-        function setupMethodTabs() {
-            const tabs = document.querySelectorAll('.method-tab');
-            const forms = document.querySelectorAll('.payment-form');
-            
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // Remove active class from all tabs and forms
-                    tabs.forEach(t => t.classList.remove('active'));
-                    forms.forEach(f => f.classList.remove('active'));
-                    
-                    // Add active class to clicked tab
-                    tab.classList.add('active');
-                    
-                    // Show corresponding form
-                    const method = tab.getAttribute('data-method');
-                    document.getElementById(method + 'Form').classList.add('active');
-                });
-            });
-        }
+      try {
+        const updates = {};
+        updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+        updates[`admin/payments/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
 
-        async function processUPIPayment() {
-            const upiId = document.getElementById('upiId').value;
-            
-            if (!upiId || !upiId.includes('@')) {
-                showStatus('Please enter a valid UPI ID', 'error');
-                return;
-            }
-            
-            showStatus('Processing UPI payment...', 'pending');
-            updateDebugInfo("UPI payment initiated with ID: " + upiId);
-            
-            try {
-                
-                // Create initial payment record
-                const paymentData = {
-                    amount: currentAmount,
-                    created: new Date().toISOString(),
-                    currency: 'inr',                   
-                    feature: currentFeature,
-                    payment_method: 'upi',
-                    status: 'pending',
-                    user: currentUid,
-                    upi_id: upiId,
-                    
-                };
-                
-                // Save to user's pending purchases
-                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                
-                // Save to admin payments
-                await database.ref(`admin/payments/${currentPaymentId}`).set({
-                    ...paymentData,
-                    user_id: currentUid
-                });
-                
-                updateDebugInfo("Payment record created in Firebase:\n" + 
-                    `users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
-                    `admin/payments/${currentPaymentId}`);
-                
-                showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
-                
-                // Show transaction ID section for users who have already made payment
-                document.getElementById('transactionIdSection').classList.add('active');
-                
-            } catch (error) {
-                console.error('UPI payment error:', error);
-                showStatus('Payment failed. Please try again.', 'error');
-                updateDebugInfo("UPI payment error: " + error.message);
-            }
-        }
+        await database.ref().update(updates);
 
-        async function submitTransactionId() {
-            const transactionId = document.getElementById('transactionId').value;
-            
-            if (!transactionId) {
-                showStatus('Please enter a transaction ID', 'error');
-                updateDebugInfo("Transaction ID submission failed: No transaction ID provided");
-                return;
-            }
-            
-            showStatus('Submitting transaction ID for verification...', 'pending');
-            updateDebugInfo("Submitting transaction ID: " + transactionId);
-            
-            try {
-                // Create updates object for Firebase - KEEP STATUS AS PENDING
-                const updates = {};
-                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
-                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
-                
-                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
-                updates[`admin/payments/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
-                
-                // Update all paths in Firebase
-                await database.ref().update(updates);
-                
-                updateDebugInfo("Firebase updates successful!\n" +
-                    `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
-                    `Admin path: admin/payments/${currentPaymentId}\n` +
-                    `Status remains: pending_verification\n` +
-                    `Transaction ID: ${transactionId}`);
-                
-                showStatus('Transaction ID submitted successfully! Admin will verify your payment shortly.', 'success');
-                
-                // Hide the transaction ID section after successful submission
-                setTimeout(() => {
-                    document.getElementById('transactionIdSection').classList.remove('active');
-                }, 3000);
-                
-            } catch (error) {
-                console.error('Transaction ID submission error:', error);
-                showStatus('Failed to submit transaction ID. Please try again.', 'error');
-                updateDebugInfo("Transaction ID submission error: " + error.message);
-            }
-        }
+        showStatus('Transaction ID submitted successfully! Admin will verify your payment shortly.', 'success');
 
-        async function processCardPayment() {
-            const cardNumber = document.getElementById('cardNumber').value;
-            const expiryDate = document.getElementById('expiryDate').value;
-            const cvv = document.getElementById('cvv').value;
-            const cardName = document.getElementById('cardName').value;
-            
-            if (!cardNumber || !expiryDate || !cvv || !cardName) {
-                showStatus('Please fill all card details', 'error');
-                return;
-            }
-            
-            showStatus('Processing card payment...', 'pending');
-            
-            try {
-                // Create payment record
-                const paymentData = {
-                    status: 'pending_approval',
-                    payment_method: 'card',
-                    created_at: new Date().toISOString(),
-                    feature: currentFeature,
-                    amount: currentAmount,
-                    user_id: currentUid
-                };
-                
-                // Save to user's pending purchases
-                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                
-                // Save to admin payments
-                await database.ref(`admin/payments/${currentPaymentId}`).set({
-                    ...paymentData,
-                    user_id: currentUid
-                });
-                
-                updateDebugInfo("Card payment processed successfully");
-                showStatus('Card payment processed! Awaiting admin approval.', 'success');
-                
-            } catch (error) {
-                console.error('Card payment error:', error);
-                showStatus('Payment failed: ' + error.message, 'error');
-            }
-        }
+        setTimeout(() => {
+          document.getElementById('transactionIdSection').classList.remove('active');
+        }, 3000);
 
-        async function processWalletPayment() {
-            const walletType = document.getElementById('walletType').value;
-            const walletNumber = document.getElementById('walletNumber').value;
-            
-            if (!walletNumber) {
-                showStatus('Please enter your mobile number', 'error');
-                return;
-            }
-            
-            showStatus(`Processing ${walletType} payment...`, 'pending');
-            
-            try {
-                // Create payment record
-                const paymentData = {
-                    status: 'pending_verification',
-                    payment_method: walletType,
-                    wallet_number: walletNumber,
-                    created_at: new Date().toISOString(),
-                    feature: currentFeature,
-                    amount: currentAmount,
-                    user_id: currentUid
-                };
-                
-                // Save to user's pending purchases
-                await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
-                
-                // Save to admin payments
-                await database.ref(`admin/payments/${currentPaymentId}`).set({
-                    ...paymentData,
-                    user_id: currentUid
-                });
-                
-                updateDebugInfo(`${walletType} payment processed successfully`);
-                showStatus(`${walletType} payment initiated! Awaiting verification.`, 'success');
-                
-            } catch (error) {
-                console.error('Wallet payment error:', error);
-                showStatus('Payment failed. Please try again.', 'error');
-            }
-        }
+      } catch (error) {
+        console.error('Transaction ID submission error:', error);
+        showStatus('Failed to submit transaction ID. Please try again.', 'error');
+      }
+    }
 
-        function showStatus(message, type) {
-            const statusElement = document.getElementById('statusMessage');
-            statusElement.textContent = message;
-            statusElement.className = 'status-message';
-            
-            switch (type) {
-                case 'success':
-                    statusElement.classList.add('status-success');
-                    break;
-                case 'error':
-                    statusElement.classList.add('status-error');
-                    break;
-                case 'pending':
-                    statusElement.classList.add('status-pending');
-                    break;
-            }
-        }
-        
-        function updateDebugInfo(message) {
-            const debugElement = document.getElementById('debugContent');
-            debugElement.textContent = message;
-        }
-        
-        function toggleDebug() {
-            const debugElement = document.getElementById('debugContent');
-            const toggleElement = document.querySelector('.debug-toggle');
-            
-            if (debugElement.style.display === 'none') {
-                debugElement.style.display = 'block';
-                toggleElement.textContent = '−';
-            } else {
-                debugElement.style.display = 'none';
-                toggleElement.textContent = '+';
-            }
-        }
-    </script>
+    function showStatus(message, type) {
+      const statusElement = document.getElementById('statusMessage');
+      statusElement.textContent = message;
+      statusElement.className = 'status-message';
+
+      if (type === 'success') statusElement.classList.add('status-success');
+      if (type === 'error') statusElement.classList.add('status-error');
+      if (type === 'pending') statusElement.classList.add('status-pending');
+    }
+  </script>
 </body>
-                                             </html>
+</html>
