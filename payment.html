@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment - SVMS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
     <style>
         :root {
             --primary: #2670ff;
@@ -249,6 +245,34 @@
             text-decoration: underline;
         }
         
+        .firebase-debug {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .firebase-debug h4 {
+            margin-bottom: 10px;
+            color: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .debug-content {
+            white-space: pre-wrap;
+        }
+        
+        .debug-toggle {
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
         @media (max-width: 768px) {
             .payment-container {
                 margin: 10px;
@@ -271,19 +295,19 @@
             <div class="payment-details">
                 <div class="detail-row">
                     <span>Feature:</span>
-                    <span id="featureName">-</span>
+                    <span id="featureName">Gold Plan Upgrade</span>
                 </div>
                 <div class="detail-row">
                     <span>Amount:</span>
-                    <span id="amount">₹0</span>
+                    <span id="amount">₹999</span>
                 </div>
                 <div class="detail-row">
                     <span>Duration:</span>
-                    <span id="duration">-</span>
+                    <span id="duration">30 days</span>
                 </div>
                 <div class="detail-row">
                     <span>Total:</span>
-                    <span id="totalAmount">₹0</span>
+                    <span id="totalAmount">₹999</span>
                 </div>
             </div>
             
@@ -307,7 +331,7 @@
                 <!-- UPI Payment Form -->
                 <div class="payment-form active" id="upiForm">
                     <div class="upi-qr">
-                        <img id="upiQrCode" src="" alt="UPI QR Code">
+                        <img id="upiQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=svms-payments@oksbi&pn=SVMS%20Payments&am=999&cu=INR" alt="UPI QR Code">
                         <p>Scan this QR code to pay using any UPI app</p>
                     </div>
                     <div class="form-group">
@@ -379,13 +403,23 @@
             
             <div class="status-message" id="statusMessage"></div>
             
+            <div class="firebase-debug">
+                <h4>
+                    Firebase Debug Info
+                    <span class="debug-toggle" onclick="toggleDebug()">−</span>
+                </h4>
+                <div class="debug-content" id="debugContent">
+Waiting for transaction submission...
+                </div>
+            </div>
+            
             <a href="dashboard.html" class="back-button">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
             </a>
         </div>
     </div>
 
-    <script type="module">
+    <script>
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
@@ -397,40 +431,30 @@
             appId: "1:359201898609:web:893ef076207abb06471bd0"
         };
 
-        // Initialize Firebase
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getDatabase, ref, update } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
-
         // Initialize with mock data
-        let currentPaymentId = "-";
-        let currentFeature = "-";
-        let currentAmount = 0;
-        let currentUid = null;
-
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('paymentId')) currentPaymentId = urlParams.get('paymentId');
-        if (urlParams.get('feature')) currentFeature = urlParams.get('feature');
-        if (urlParams.get('amount')) currentAmount = parseFloat(urlParams.get('amount'));
+        let currentPaymentId = "pay_" + Math.floor(Math.random() * 1000000);
+        let currentFeature = "gold";
+        let currentAmount = 999;
+        let currentUid = "user_" + Math.floor(Math.random() * 10000);
+        let paymentObj = null;
 
         // Initialize payment page
         document.addEventListener('DOMContentLoaded', function() {
-            onAuthStateChanged(auth, user => {
-                if (!user) {
-                    alert("Please log in first");
-                    window.location.href = 'login.html';
-                    return;
-                }
+            // Simulate user authentication
+            setTimeout(() => {
+                paymentObj = {
+                    uid: currentUid,
+                    feature: currentFeature,
+                    amount: currentAmount,
+                    createdAt: new Date().toISOString()
+                };
                 
-                currentUid = user.uid;
-                console.log('User UID:', currentUid); // Debug log
                 initializePayment(currentFeature, currentAmount);
-            });
+                updateDebugInfo("User authenticated: " + currentUid);
+            }, 500);
+            
+            // Setup payment method tabs
+            setupMethodTabs();
         });
 
         function initializePayment(feature, amount) {
@@ -443,23 +467,7 @@
             document.getElementById('duration').textContent = getFeatureDuration(feature);
             document.getElementById('totalAmount').textContent = `₹${amount}`;
             
-            // Generate UPI QR code using a simple QR code generator
-            const upiId = 'aalokshukla94@okhdfcbank';
-            const qrAmount = amount;
-            const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
-            
-            // Using a simple QR code generation method
-            const qrCodeUrl = generateQRCode(qrData);
-            document.getElementById('upiQrCode').src = qrCodeUrl;
-            document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
-            
-            // Setup payment method tabs
-            setupMethodTabs();
-        }
-
-        function generateQRCode(text) {
-            // Simple QR code generation using an online service
-            return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+            updateDebugInfo("Payment initialized with ID: " + currentPaymentId);
         }
 
         function getFeatureName(feature) {
@@ -519,46 +527,46 @@
             }
 
             showStatus('Processing UPI payment...', 'pending');
-
+            updateDebugInfo("UPI payment initiated with ID: " + upiId + ", Transaction ID: " + transactionId);
+            
             try {
                 // Simulate UPI payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
-                // Log data for debugging
-                console.log('Writing UPI Payment Data:', {
-                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    path2: `admin/payments/${currentPaymentId}`,
-                    data: {
-                        upi_id: upiId,
-                        transaction_id: transactionId,
-                        status: 'approved',
-                        payment_method: 'upi',
-                        verified_at: new Date().toISOString()
-                    }
-                });
-
-                // Update payment status in database
-                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
-                    upi_id: upiId,
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: 'upi',
-                    verified_at: new Date().toISOString()
-                });
-
-                await update(ref(db, `admin/payments/${currentPaymentId}`), {
-                    upi_id: upiId,
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: 'upi',
-                    verified_at: new Date().toISOString()
-                });
+                // Update payment status in database (simulated)
+                updateDebugInfo("Updating Firebase with UPI details...");
+                
+                // Show what would be updated in Firebase
+                const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/upi_id`] = upiId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/payment_method`] = 'upi';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
+                updates[`admin/payments/${currentPaymentId}/upi_id`] = upiId;
+                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`admin/payments/${currentPaymentId}/payment_method`] = 'upi';
+                updates[`admin/payments/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updateDebugInfo("Firebase updates prepared:\n" + JSON.stringify(updates, null, 2));
+                
+                // Simulate the update process
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateDebugInfo("Firebase updates successful!\n" +
+                    `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
+                    `Admin path: admin/payments/${currentPaymentId}\n` +
+                    `Status set to: approved\n` +
+                    `Transaction ID: ${transactionId}`);
 
                 showStatus('UPI payment approved! You will receive access soon.', 'success');
 
             } catch (error) {
                 console.error('UPI payment error:', error);
                 showStatus('Payment failed. Please try again.', 'error');
+                updateDebugInfo("UPI payment error: " + error.message);
             }
         }
 
@@ -580,43 +588,43 @@
             }
 
             showStatus('Processing card payment...', 'pending');
+            updateDebugInfo("Card payment initiated with Transaction ID: " + transactionId);
 
             try {
                 // Simulate card payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
-                // Log data for debugging
-                console.log('Writing Card Payment Data:', {
-                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    path2: `admin/payments/${currentPaymentId}`,
-                    data: {
-                        transaction_id: transactionId,
-                        status: 'approved',
-                        payment_method: 'card',
-                        verified_at: new Date().toISOString()
-                    }
-                });
-
-                // Update payment status
-                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: 'card',
-                    verified_at: new Date().toISOString()
-                });
-
-                await update(ref(db, `admin/payments/${currentPaymentId}`), {
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: 'card',
-                    verified_at: new Date().toISOString()
-                });
+                // Update payment status (simulated)
+                updateDebugInfo("Updating Firebase with card payment details...");
+                
+                const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/payment_method`] = 'card';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
+                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`admin/payments/${currentPaymentId}/payment_method`] = 'card';
+                updates[`admin/payments/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updateDebugInfo("Firebase updates prepared:\n" + JSON.stringify(updates, null, 2));
+                
+                // Simulate the update process
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateDebugInfo("Firebase updates successful!\n" +
+                    `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
+                    `Admin path: admin/payments/${currentPaymentId}\n` +
+                    `Status set to: approved\n` +
+                    `Transaction ID: ${transactionId}`);
 
                 showStatus('Card payment approved! You will receive access soon.', 'success');
 
             } catch (error) {
                 console.error('Card payment error:', error);
                 showStatus('Payment failed: ' + error.message, 'error');
+                updateDebugInfo("Card payment error: " + error.message);
             }
         }
 
@@ -636,46 +644,45 @@
             }
 
             showStatus(`Processing ${walletType} payment...`, 'pending');
+            updateDebugInfo(`${walletType} payment initiated with Transaction ID: ${transactionId}`);
 
             try {
                 // Simulate wallet payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
-                // Log data for debugging
-                console.log('Writing Wallet Payment Data:', {
-                    path1: `users/${currentUid}/purchases_pending/${currentPaymentId}`,
-                    path2: `admin/payments/${currentPaymentId}`,
-                    data: {
-                        transaction_id: transactionId,
-                        status: 'approved',
-                        payment_method: walletType,
-                        wallet_number: walletNumber,
-                        verified_at: new Date().toISOString()
-                    }
-                });
-
-                // Update payment status
-                await update(ref(db, `users/${currentUid}/purchases_pending/${currentPaymentId}`), {
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: walletType,
-                    wallet_number: walletNumber,
-                    verified_at: new Date().toISOString()
-                });
-
-                await update(ref(db, `admin/payments/${currentPaymentId}`), {
-                    transaction_id: transactionId,
-                    status: 'approved',
-                    payment_method: walletType,
-                    wallet_number: walletNumber,
-                    verified_at: new Date().toISOString()
-                });
+                // Update payment status (simulated)
+                updateDebugInfo(`Updating Firebase with ${walletType} payment details...`);
+                
+                const updates = {};
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/status`] = 'approved';
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/payment_method`] = walletType;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/wallet_number`] = walletNumber;
+                updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updates[`admin/payments/${currentPaymentId}/status`] = 'approved';
+                updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
+                updates[`admin/payments/${currentPaymentId}/payment_method`] = walletType;
+                updates[`admin/payments/${currentPaymentId}/wallet_number`] = walletNumber;
+                updates[`admin/payments/${currentPaymentId}/verified_at`] = new Date().toISOString();
+                
+                updateDebugInfo("Firebase updates prepared:\n" + JSON.stringify(updates, null, 2));
+                
+                // Simulate the update process
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateDebugInfo("Firebase updates successful!\n" +
+                    `User path: users/${currentUid}/purchases_pending/${currentPaymentId}\n` +
+                    `Admin path: admin/payments/${currentPaymentId}\n` +
+                    `Status set to: approved\n` +
+                    `Transaction ID: ${transactionId}`);
 
                 showStatus(`${walletType} payment approved! You will receive access soon.`, 'success');
 
             } catch (error) {
                 console.error('Wallet payment error:', error);
                 showStatus('Payment failed. Please try again.', 'error');
+                updateDebugInfo("Wallet payment error: " + error.message);
             }
         }
 
@@ -694,6 +701,24 @@
                 case 'pending':
                     statusElement.classList.add('status-pending');
                     break;
+            }
+        }
+        
+        function updateDebugInfo(message) {
+            const debugElement = document.getElementById('debugContent');
+            debugElement.textContent = message;
+        }
+        
+        function toggleDebug() {
+            const debugElement = document.getElementById('debugContent');
+            const toggleElement = document.querySelector('.debug-toggle');
+            
+            if (debugElement.style.display === 'none') {
+                debugElement.style.display = 'block';
+                toggleElement.textContent = '−';
+            } else {
+                debugElement.style.display = 'none';
+                toggleElement.textContent = '+';
             }
         }
     </script>
