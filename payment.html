@@ -220,31 +220,30 @@
         <div class="detail-row"><span>Total:</span> <span id="totalAmount">₹0</span></div>
       </div>
 
-                      <!-- UPI Payment Form -->
-                <div class="payment-form active" id="upiForm">
-                    <div class="upi-qr">
-                        <img id="upiQrCode" src="" alt="UPI QR Code">
-                        <p>Scan this QR code to pay using any UPI app</p>
-                    </div>
-                    <div class="form-group">
-                        <label>UPI ID (for verification)</label>
-                        <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
-                    </div>
-                    <button class="pay-button" onclick="processUPIPayment()">
-                        Verify UPI Payment
-                    </button>
-                </div>
-        
-        <div class="transaction-id-section" id="transactionIdSection">
-          <div class="form-group">
-            <label>Transaction ID</label>
-            <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
-            <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
-              If you've already made the payment, enter your transaction ID for faster verification
-            </p>
-          </div>
-          <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">Submit Transaction ID</button>
+      <!-- UPI Payment Form -->
+      <div class="payment-form active" id="upiForm">
+        <div class="upi-qr">
+          <img id="upiQrCode" src="" alt="UPI QR Code">
+          <p>Scan this QR code to pay using any UPI app</p>
         </div>
+        <div class="form-group">
+          <label>UPI ID (for verification)</label>
+          <input type="text" id="upiId" placeholder="yourname@upi" pattern=".+@.+\..+">
+        </div>
+        <button class="pay-button" onclick="processUPIPayment()">
+          Verify UPI Payment
+        </button>
+      </div>
+      
+      <div class="transaction-id-section" id="transactionIdSection">
+        <div class="form-group">
+          <label>Transaction ID</label>
+          <input type="text" id="transactionId" placeholder="Enter your transaction reference ID">
+          <p style="font-size: 12px; margin-top: 5px; color: var(--secondary);">
+            If you've already made the payment, enter your transaction ID for faster verification
+          </p>
+        </div>
+        <button class="pay-button submit-transaction-button" onclick="submitTransactionId()">Submit Transaction ID</button>
       </div>
 
       <div class="status-message" id="statusMessage"></div>
@@ -299,22 +298,20 @@
       document.getElementById('amount').textContent = `₹${amount}`;
       document.getElementById('duration').textContent = getFeatureDuration(feature);
       document.getElementById('totalAmount').textContent = `₹${amount}`;
+      
+      // Generate UPI QR code
+      const upiId = 'aalokshukla94@okhdfcbank';
+      const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${amount}&cu=INR`;
+      const qrCodeUrl = generateQRCode(qrData);
+      document.getElementById('upiQrCode').src = qrCodeUrl;
+      document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
     }
-            // Generate UPI QR code using a simple QR code generator
-            const upiId = 'aalokshukla94@okhdfcbank';
-            const qrAmount = amount;
-            const qrData = `upi://pay?pa=${upiId}&pn=SVMS%20Payments&am=${qrAmount}&cu=INR`;
-            
-            // Using a simple QR code generation method
-            const qrCodeUrl = generateQRCode(qrData);
-            document.getElementById('upiQrCode').src = qrCodeUrl;
-            document.getElementById('upiQrCode').alt = `UPI QR Code for ₹${amount}`;
-            
 
-        function generateQRCode(text) {
-            // Simple QR code generation using an online service
-            return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+    function generateQRCode(text) {
+      // Simple QR code generation using an online service
+      return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
     }
+    
     function getFeatureName(feature) {
       const features = {
         'export': 'CSV Export Access',
@@ -355,11 +352,13 @@
           feature: currentFeature,
           payment_method: 'upi',
           status: 'pending',
-          user: currentUid,
+          user_id: currentUid,
           upi_id: upiId
         };
 
-        await database.ref(`admin/payments/${currentPaymentId}`);
+        // Save to both user and admin paths
+        await database.ref(`users/${currentUid}/purchases_pending/${currentPaymentId}`).set(paymentData);
+        await database.ref(`admin/payments/${currentPaymentId}`).set(paymentData);
 
         showStatus('UPI payment initiated! Awaiting admin approval. You will receive access once approved.', 'success');
         document.getElementById('transactionIdSection').classList.add('active');
@@ -382,6 +381,8 @@
 
       try {
         const updates = {};
+        updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_id`] = transactionId;
+        updates[`users/${currentUid}/purchases_pending/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
         updates[`admin/payments/${currentPaymentId}/transaction_id`] = transactionId;
         updates[`admin/payments/${currentPaymentId}/transaction_submitted_at`] = new Date().toISOString();
 
@@ -410,4 +411,4 @@
     }
   </script>
 </body>
-</html>
+  </html>
