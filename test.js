@@ -342,14 +342,7 @@ async function watchAdForPremium() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
-// When an ad is displayed to a user
-function trackAdImpression(adId) {
-  db.ref(`admin/ads/${adId}/impressions`).transaction(current => (current || 0) + 1);
-}
-// When a user clicks on an ad
-function trackAdClick(adId) {
-  db.ref(`admin/ads/${adId}/clicks`).transaction(current => (current || 0) + 1);
-}
+
 // Utility functions
 function prettyTS(iso) {
   if (!iso) return '-';
@@ -1181,12 +1174,12 @@ function applyHistoryPipeline(plotPolyline = false) {
   // Calculate and display KPIs
   computeKPIs(filteredHistory);
   
-  // Plot route if requested - ALL users can see the route regardless of plan
-  if (plotPolyline && filteredHistory.length > 1) {
+  // Plot route if requested and allowed by plan
+  if (plotPolyline && filteredHistory.length > 1 && (localPlan.plan !== 'basic' || localPlan.temp_premium)) {
     plotRoute(filteredHistory);
   }
   
-  // Update heatmap if allowed by plan (gold only)
+  // Update heatmap if allowed by plan
   if (localPlan.plan === 'gold') {
     updateHeatmap(filteredHistory);
   }
