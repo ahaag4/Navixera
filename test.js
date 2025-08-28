@@ -150,7 +150,6 @@ let adTimerInt = null, currentAdIndex = 0, adsList = [];
 function showAd(ad, isPremiumAd = false, onComplete = null) {
   adArea.innerHTML = 'Loading ad...';
   console.log('Showing ad:', ad);
-  trackAdImpression(adId);
   if (ad.type === 'banner') {
     const img = new Image();
     img.src = ad.url;
@@ -162,7 +161,6 @@ function showAd(ad, isPremiumAd = false, onComplete = null) {
       link.appendChild(img);
       adArea.appendChild(link);
       console.log('Banner ad loaded:', ad.url);
-      trackAdClick(adId);
     };
     img.onerror = () => { adArea.innerHTML = 'Ad image failed to load'; };
   } else if (ad.type === 'video') {
@@ -178,7 +176,6 @@ function showAd(ad, isPremiumAd = false, onComplete = null) {
     link.target = '_blank';
     link.appendChild(v);
     adArea.appendChild(link);
-    trackAdClick(adId);
     v.play().catch(err => {
       console.error(`Video autoplay failed at ${new Date().toISOString()}:`, err);
       adArea.innerHTML = 'Video ad failed to play (autoplay blocked)';
@@ -345,7 +342,14 @@ async function watchAdForPremium() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
-
+// When an ad is displayed to a user
+function trackAdImpression(adId) {
+  db.ref(`admin/ads/${adId}/impressions`).transaction(current => (current || 0) + 1);
+}
+// When a user clicks on an ad
+function trackAdClick(adId) {
+  db.ref(`admin/ads/${adId}/clicks`).transaction(current => (current || 0) + 1);
+}
 // Utility functions
 function prettyTS(iso) {
   if (!iso) return '-';
@@ -670,30 +674,43 @@ function computeKPIs(list) {
   kpiStopsEl.textContent = String(stops);
 }
 
-    function clearRouteLayers() {
-      if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
-      if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
-      if (endMarker) { try { map.removeLayer(endMarker); } catch(e){} endMarker = null; }
-    }
-    function plotRoute(points) {
-      clearRouteLayers();
-      if (!map || !points || points.length === 0) return;
-      if (points.length > 1) {
-        routePolyline = L.polyline(points, {color:"blue",weight:5,opacity:0.8}).addTo(map);
-        map.fitBounds(routePolyline.getBounds(), {padding:[40,40]});
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup('Start').openPopup();
-        endMarker = L.marker(points[points.length-1], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup('End');
-      } else if (points.length === 1) {
-        map.setView(points[0], 15);
-        startMarker = L.marker(points[0], {
-          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
-        }).addTo(map).bindPopup('Location');
-      }
-    }
+function clearRouteLayers() {
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+  if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+}
+
+function plotRoute(list) {
+  if (!map || !list || !list.length) return;
+  clearRouteLayers();
+  
+  const validPoints = list.filter(p => isFinite(p.lat) && isFinite(p.lng));
+  if (validPoints.length < 2) return;
+  
+  const coords = validPoints.map(p => [p.lat, p.lng]);
+  routeLayer = L.polyline(coords, { weight: 4 }).addTo(map);
+  
+  const startIcon = L.icon({ 
+    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', 
+    iconSize: [25, 41], 
+    iconAnchor: [12, 41] 
+  });
+  
+  const endIcon = L.icon({ 
+    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png', 
+    iconSize: [25, 41], 
+    iconAnchor: [12, 41] 
+  });
+  
+  startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup('Start');
+  endMarker = L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map).bindPopup('End');
+  
+  try {
+    map.fitBounds(routeLayer.getBounds(), { padding: [20, 20] });
+  } catch (e) {
+    console.error('Error fitting bounds:', e);
+  }
+}
 
 function updateHeatmap(list) {
   if (!map) return;
@@ -1164,12 +1181,12 @@ function applyHistoryPipeline(plotPolyline = false) {
   // Calculate and display KPIs
   computeKPIs(filteredHistory);
   
-  // Plot route if requested and allowed by plan
-  if (plotPolyline && filteredHistory.length > 1 && (localPlan.plan !== 'basic' || localPlan.temp_premium)) {
+  // Plot route if requested - ALL users can see the route regardless of plan
+  if (plotPolyline && filteredHistory.length > 1) {
     plotRoute(filteredHistory);
   }
   
-  // Update heatmap if allowed by plan
+  // Update heatmap if allowed by plan (gold only)
   if (localPlan.plan === 'gold') {
     updateHeatmap(filteredHistory);
   }
