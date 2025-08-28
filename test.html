@@ -200,18 +200,27 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <!-- Filter UI -->
-      <div style="margin-bottom: 10px;">
-        <label>From: <input type="datetime-local" id="filterFrom"></label>
-        <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
-        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply</button>
-        <button id="resetFilterBtn" class="view-btn" style="background:#6c757d;margin-left:5px;">Reset</button>
+      <div class="toolbar" id="dateFilterSection" style="display:none;">
+        <div class="inline">
+          <label>From:</label><input type="date" id="startDate"/>
+        </div>
+        <div class="inline">
+          <label>To:</label><input type="date" id="endDate"/>
+        </div>
+        <button class="btn btn-primary" id="applyFilterBtn">Filter</button>
+        <button class="btn btn-ghost" id="clearFilterBtn">Clear</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="small-muted">Recent movements</div>
+        <div>
+          <button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button>
+        </div>
       </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
         <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
       </table>
-          </section>
+    </section>
 
     <section id="analyticsSection" class="card analytics-card" style="display:none;">
       <h2>📊 Analytics</h2>
