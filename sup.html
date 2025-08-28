@@ -410,6 +410,31 @@
       </div>
     </div>
     
+    <!-- Test Ad Tracking -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Test Ad Tracking</h5>
+        <p class="text-muted">Use this section to test if ad tracking is working properly</p>
+        
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-2">
+              <label class="form-label">Select Ad to Test</label>
+              <select id="testAdSelect" class="form-select">
+                <option value="">Select an ad</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6 d-flex align-items-end">
+            <div class="d-flex gap-2">
+              <button class="btn btn-info" id="testImpressionBtn">Simulate Impression</button>
+              <button class="btn btn-success" id="testClickBtn">Simulate Click</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Approved Users -->
     <div class="card mb-4">
       <div class="card-body">
@@ -436,7 +461,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
 // Firebase configuration
 const firebaseConfig = {
@@ -507,6 +532,7 @@ function init(adminUid) {
   setupPaymentLinkGenerator();
   setupEcommerce();
   loadAdsAnalytics();
+  setupTestAdTracking();
   
   document.getElementById('uploadAdBtn').onclick = handleUploadAd;
   document.getElementById('loadHistoryBtn').onclick = handleLoadHistory;
@@ -591,15 +617,15 @@ window.reject = function(uid) {
   if (confirm("Delete user?")) {
     db.ref(`users/${uid}`).remove()
       .then(() => {
-        alert("❌ Rejected and removed");
-        loadPendingApprovals();
-        loadApprovedUsers();
-        logDebug(`User rejected and removed: ${uid}`);
-      })
-      .catch(err => {
-        alert("Error rejecting: " + err.message);
-        logDebug("Reject error:", err);
-      });
+      alert("❌ Rejected and removed");
+      loadPendingApprovals();
+      loadApprovedUsers();
+      logDebug(`User rejected and removed: ${uid}`);
+    })
+    .catch(err => {
+      alert("Error rejecting: " + err.message);
+      logDebug("Reject error:", err);
+    });
   }
 };
 
@@ -714,7 +740,7 @@ function loadPurchaseRequests() {
       any = true;
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${escapeHtml(payment.user || payment.uid || 'N/A')}</td>
+        <td>${escapeHtml(payment.user_email || payment.uid || 'N/A')}</td>
         <td>${escapeHtml(payment.feature || 'N/A')}</td>
         <td>${payment.currency === 'inr' ? '₹' : '$'}${payment.amount || '0'}</td>
         <td>${escapeHtml(payment.payment_method || 'N/A')}</td>
@@ -1056,6 +1082,7 @@ window.viewAdDetails = function(adKey) {
                   <p><strong>Clicks:</strong> ${ad.clicks || 0}</p>
                   <p><strong>CTR:</strong> ${ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : 0}%</p>
                   <p><strong>Status:</strong> ${ad.active ? 'Active' : 'Inactive'}</p>
+                  <p><strong>Created:</strong> ${ad.createdAt || 'N/A'}</p>
                 </div>
                 <div class="col-md-6">
                   ${ad.type === 'banner' ? 
@@ -1104,6 +1131,7 @@ window.resetAdStats = function(adKey) {
     .then(() => {
       alert('Ad statistics reset successfully!');
       loadAdsAnalytics();
+      loadAds();
       logDebug(`Ad stats reset for: ${adKey}`);
     })
     .catch(err => {
@@ -1111,6 +1139,66 @@ window.resetAdStats = function(adKey) {
       logDebug('resetAdStats error:', err);
     });
 };
+
+// Setup test ad tracking
+function setupTestAdTracking() {
+  // Populate the test ad dropdown
+  db.ref('admin/ads').on('value', snap => {
+    const ads = snap.val() || {};
+    const testAdSelect = document.getElementById('testAdSelect');
+    testAdSelect.innerHTML = '<option value="">Select an ad</option>';
+    
+    Object.entries(ads).forEach(([key, ad]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `${ad.placement} (${ad.type})`;
+      testAdSelect.appendChild(option);
+    });
+    
+    // Set up test buttons
+    document.getElementById('testImpressionBtn').onclick = () => {
+      const adKey = testAdSelect.value;
+      if (!adKey) return alert('Please select an ad first');
+      trackAdImpression(adKey);
+      alert('Impression tracked for ad: ' + adKey);
+    };
+    
+    document.getElementById('testClickBtn').onclick = () => {
+      const adKey = testAdSelect.value;
+      if (!adKey) return alert('Please select an ad first');
+      trackAdClick(adKey);
+      alert('Click tracked for ad: ' + adKey);
+    };
+  });
+}
+
+// Track ad impression
+function trackAdImpression(adId) {
+  db.ref(`admin/ads/${adId}/impressions`).transaction(current => (current || 0) + 1)
+    .then(() => {
+      logDebug(`Impression tracked for ad: ${adId}`);
+      // Reload analytics to show updated counts
+      loadAdsAnalytics();
+      loadAds();
+    })
+    .catch(err => {
+      logDebug('Error tracking impression:', err);
+    });
+}
+
+// Track ad click
+function trackAdClick(adId) {
+  db.ref(`admin/ads/${adId}/clicks`).transaction(current => (current || 0) + 1)
+    .then(() => {
+      logDebug(`Click tracked for ad: ${adId}`);
+      // Reload analytics to show updated counts
+      loadAdsAnalytics();
+      loadAds();
+    })
+    .catch(err => {
+      logDebug('Error tracking click:', err);
+    });
+}
 
 // Ads Management
 function loadAds() {
@@ -1438,4 +1526,4 @@ function deleteHistoryByUser(uid) {
 }
   </script>
 </body>
-              </html>
+                                                           </html>
