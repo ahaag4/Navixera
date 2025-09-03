@@ -788,55 +788,6 @@
         });
       };
       
-      const loadBusStops = () => {
-        // In a real app, this would come from your database
-        // For now, we'll use some sample bus stops in Mumbai
-        busStops = [
-          {
-            id: 1,
-            name: "Worli Sea Face Post Office",
-            gps: "19.0160,72.8150",
-            routes: [
-              { number: "A-44", destination: "To Shrawan Yeshwante Chowk", type: "AC", timings: "Timings not available" },
-              { number: "A-56", destination: "To Vesave Or Yari Road Bus Station", type: "Regular", timings: "Timings not available" }
-            ]
-          },
-          {
-            id: 2,
-            name: "Haji Ali Junction",
-            gps: "19.0176,72.8221",
-            routes: [
-              { number: "A-123", destination: "To Bandra Station", type: "AC", timings: "Every 15 min" },
-              { number: "B-45", destination: "To Churchgate", type: "Regular", timings: "Every 10 min" }
-            ]
-          },
-          {
-            id: 3,
-            name: "Mahalaxmi Temple",
-            gps: "19.0243,72.8245",
-            routes: [
-              { number: "C-78", destination: "To Dadar Station", type: "AC", timings: "Every 20 min" },
-              { number: "D-12", destination: "To Juhu Beach", type: "Regular", timings: "Every 15 min" }
-            ]
-          }
-        ];
-        
-        // Add bus stops to map
-        busStops.forEach(stop => {
-          const coords = parseGps(stop.gps);
-          if (coords) {
-            const marker = L.marker(coords, { icon: stopIcon }).addTo(map);
-            marker.bindPopup(`
-              <strong>${stop.name}</strong><br>
-              <small>Click for more info</small>
-            `);
-            
-            marker.on('click', () => {
-              showBusStopPanel(stop);
-            });
-          }
-        });
-      };
 
       const searchByVehicleNumber = () => {
         const query = dom.searchVehicleInput.value.trim().toUpperCase();
