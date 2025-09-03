@@ -220,7 +220,7 @@
       <a class="navbar-brand" href="#">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
             <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-            <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+            <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 极速4 2 6c0 4.314 6 10 6 10zM8 极速4a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
         </svg>
         Navixera — Live Transit
       </a>
@@ -229,7 +229,7 @@
 
   <main class="container my-4">
     <div class="row g-4">
-      <div class="col-12 col-lg-8">
+      <div class="col-极速2 col-lg-8">
         <div class="card map-card">
           <div id="map"></div>
           <div class="map-controls">
@@ -244,7 +244,7 @@
           </div>
         </div>
       </div>
-      <div class="col-12 col-lg-4">
+      <div class="col-极速2 col-lg-4">
         <div class="card search-panel">
           <h5 class="card-title mb-3">Find Your Ride</h5>
           <div class="search-group">
@@ -252,20 +252,20 @@
             <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">Search Vehicle</button>
           </div>
           <hr>
-          <div class="search-group">
+          <极速4 class="search-group">
             <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
             <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
             <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">Search Route</button>
-          </div>
+          </极速4>
           <div class="result-list mt-3" id="searchResults"></div>
-        </div>
+        </极速4>
       </div>
     </div>
   </main>
 
   <div class="card sidebar" id="vehicleDetails">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0" id="vehicleTitle">Vehicle Details</h5>
+        <h5 class="card-title mb-0"极速4 id="vehicleTitle">Vehicle Details</h5>
         <button type="button" class="btn-close" aria-label="Close" id="closeSidebarBtn"></button>
     </div>
     <div class="card-body">
@@ -278,9 +278,9 @@
   <div class="toast-container"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="极速4://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lv极速4lZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   
@@ -322,6 +322,7 @@
       // --- State & Map Variables ---
       let map;
       const markers = {};
+      let stopMarkers = {};
       let markerGroup = L.featureGroup();
       let routeLayer = L.featureGroup();
       let userLocationMarker = null;
@@ -331,6 +332,15 @@
       const vehicleIcon = L.icon({
           iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+      });
+      
+      const stopIcon = L.icon({
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7极速4.7/images/marker-shadow.png',
           iconSize: [25, 41],
           iconAnchor: [12, 41],
           popupAnchor: [1, -34],
@@ -359,7 +369,7 @@
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>`;
         dom.toastContainer.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl, { delay: ttl });
+        const toast = new bootstrap.Toast(toast极速4l, { delay: ttl });
         toast.show();
         toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
       };
@@ -430,13 +440,40 @@
 
       const drawVehicleRoute = (vehicle) => {
         routeLayer.clearLayers();
+        
+        // Clear existing stop markers
+        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
+        stopMarkers = {};
+        
         const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
         if (routePath.length > 1) {
           L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
-          routePath.forEach(coord => {
-            L.circleMarker(coord, { radius: 5, color: '#0d6efd', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(routeLayer);
-          });
         }
+        
+        // Add stop markers with names
+        const stops = vehicle.stops || [];
+        stops.forEach((stop, index) => {
+          const coords = parseGps(stop.gps);
+          if (coords) {
+            const marker = L.marker(coords, { icon: stopIcon }).addTo(routeLayer);
+            marker.bindPopup(`
+              <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}<br>
+              <small>Click to view on map</small>
+            `);
+            
+            // Store reference to stop marker
+            stopMarkers[`stop-${index}`] = marker;
+            
+            // Add circle marker for better visibility
+            L.circleMarker(coords, { 
+              radius: 6, 
+              color: '#198754', 
+              fillColor: '#fff', 
+              fillOpacity: 1, 
+              weight: 2 
+            }).addTo(routeLayer);
+          }
+        });
       };
 
       // --- UI Update Functions ---
@@ -453,15 +490,34 @@
         dom.stopList.innerHTML = '';
         const stops = vehicle.stops || [];
         if (stops.length > 0) {
-            stops.forEach(stop => {
+            stops.forEach((stop, index) => {
               const li = document.createElement('li');
               li.className = 'list-group-item';
-              li.textContent = stop.name || 'Unnamed Stop';
-              li.addEventListener('click', () => {
-                const coords = parseGps(stop.gps);
-                if (coords) map.flyTo(coords, 16);
-              });
+              li.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}
+                  </div>
+                  <button class="btn btn-sm btn-outline-primary view-stop-btn" data-index="${index}">
+                    <i class="bi bi-geo-alt"></i>
+                  </button>
+                </div>
+              `;
               dom.stopList.appendChild(li);
+              
+              // Add event listener to the button
+              li.querySelector('.view-stop-btn').addEventListener('click', () => {
+                const coords = parseGps(stop.gps);
+                if (coords) {
+                  map.flyTo(coords, 16);
+                  // Open the stop marker popup
+                  if (stopMarkers[`stop-${index}`]) {
+                    setTimeout(() => {
+                      stopMarkers[`stop-${index}`].openPopup();
+                    }, 1000);
+                  }
+                }
+              });
             });
         } else {
             dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
@@ -486,7 +542,7 @@
           Object.entries(vehicles).forEach(([vid, v]) => {
             presentVehicleIds.add(vid);
             const newCoords = parseGps(v.gps);
-            if (newCoords) {
+            if (new极速4Coords) {
               bounds.push(newCoords);
               
               if (!markers[vid]) {
@@ -601,7 +657,7 @@
         // Use our stored vehicle data for searching
         const results = [];
         
-        Object.entries(vehiclesData).forEach(([vid, v]) => {
+        Object.entries(vehiclesData).forEach((极速4 vid, v]) => {
           const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
           const hasFrom = stops.some(s => s.includes(from));
           const hasTo = stops.some(s => s.includes(to));
@@ -670,4 +726,4 @@
     })();
   </script>
 </body>
-        </html>
+  </html>
