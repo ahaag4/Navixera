@@ -148,8 +148,8 @@
         background-color: var(--primary-color);
         border: 2px solid white;
         border-radius: 50%;
-        width: 20px; /* Adjusted size */
-        height: 20px; /* Adjusted size */
+        width: 20px;
+        height: 20px;
         box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
         animation: pulse 1.5s infinite;
     }
@@ -308,8 +308,8 @@
       const userLocationIcon = L.divIcon({
           className: 'user-location-icon',
           iconSize: [20, 20],
-          iconAnchor: [10, 10],     // <--- FIX: Explicitly set anchor to center
-          popupAnchor: [0, -12]     // <--- FIX: Position popup correctly above the icon
+          iconAnchor: [10, 10],
+          popupAnchor: [0, -12]
       });
 
       // --- Helper Functions ---
@@ -373,7 +373,6 @@
               userLocationMarker.bindPopup("<b>You are here</b>");
             }
             map.flyTo(userLatLng, 16);
-            // Open popup after the map has settled for a better user experience
             setTimeout(() => {
                 userLocationMarker.openPopup();
             }, 1000); 
@@ -460,31 +459,7 @@
         });
       };
       
-      const searchByVehicleNumber = () => { /* ... unchanged ... */ };
-      const searchByRoute = () => { /* ... unchanged ... */ };
-
-      // --- Event Listeners ---
-      const addEventListeners = () => {
-        dom.locateBtn.addEventListener('click', locateUser);
-        dom.closeSidebarBtn.addEventListener('click', () => dom.vehicleDetails.classList.remove('is-visible'));
-        dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
-        dom.searchRouteBtn.addEventListener('click', searchByRoute);
-        const enterKeyHandler = (btn) => (e) => { if (e.key === 'Enter') btn.click(); };
-        dom.searchVehicleInput.addEventListener('keypress', enterKeyHandler(dom.searchVehicleBtn));
-        dom.searchRouteTo.addEventListener('keypress', enterKeyHandler(dom.searchRouteBtn));
-      };
-      
-      // --- Initialization ---
-      document.addEventListener('DOMContentLoaded', () => {
-        showLoader();
-        initMap();
-        loadPublicVehicles();
-        addEventListeners();
-      });
-      
-      // --- UNCHANGED FUNCTIONS FOR BREVITY ---
-      // (The search functions are identical to the previous version)
-      searchByVehicleNumber = () => {
+      const searchByVehicleNumber = () => {
         const query = dom.searchVehicleInput.value.trim().toUpperCase();
         if (!query) return showToast('Please enter a vehicle number.', 'warning');
         const foundVid = Object.keys(markers).find(vid => vid.toUpperCase().includes(query));
@@ -499,7 +474,8 @@
           showToast('Vehicle not found.', 'warning');
         }
       };
-      searchByRoute = () => {
+
+      const searchByRoute = () => {
         const from = dom.searchRouteFrom.value.trim().toLowerCase();
         const to = dom.searchRouteTo.value.trim().toLowerCase();
         if (!from || !to) return showToast('Enter both "From" and "To" locations.', 'warning');
@@ -533,6 +509,26 @@
           }
         });
       };
+
+      // --- Event Listeners ---
+      const addEventListeners = () => {
+        dom.locateBtn.addEventListener('click', locateUser);
+        dom.closeSidebarBtn.addEventListener('click', () => dom.vehicleDetails.classList.remove('is-visible'));
+        dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
+        dom.searchRouteBtn.addEventListener('click', searchByRoute);
+        const enterKeyHandler = (btn) => (e) => { if (e.key === 'Enter') btn.click(); };
+        dom.searchVehicleInput.addEventListener('keypress', enterKeyHandler(dom.searchVehicleBtn));
+        dom.searchRouteTo.addEventListener('keypress', enterKeyHandler(dom.searchRouteBtn));
+      };
+      
+      // --- Initialization ---
+      document.addEventListener('DOMContentLoaded', () => {
+        showLoader();
+        initMap();
+        loadPublicVehicles();
+        addEventListeners();
+      });
+      
     })();
   </script>
 </body>
