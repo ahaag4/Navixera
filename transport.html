@@ -5,326 +5,522 @@
   <title>Live Public Transit Dashboard — Navixera</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Bootstrap 5 CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
+  
   <style>
     :root {
-      --primary: #0d6efd;
-      --secondary: #6c757d;
-      --bg-light: #f8f9fa;
-      --card-bg: #fff;
+      --primary-color: #0d6efd;
+      --primary-rgb: 13, 110, 253;
+      --secondary-color: #6c757d;
+      --bg-light: #f4f7f9;
+      --card-bg: #ffffff;
+      --font-family: 'Poppins', sans-serif;
+      --border-radius: 12px;
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 24px rgba(var(--primary-rgb), 0.08);
     }
-    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; }
-    body { background: var(--bg-light); }
-    .navbar { background: linear-gradient(90deg, var(--primary), #1a7bff); }
-    .navbar-brand { color: #fff !important; font-weight: 600; }
-    .card { border: 0; border-radius: 12px; box-shadow: 0 6px 18px rgba(13, 110, 253, 0.06); background: var(--card-bg); }
-    #map { height: 60vh; min-height: 400px; border-radius: 10px; }
-    .search-panel { padding: 20px; }
-    .search-input { margin-bottom: 10px; }
-    .result-list { max-height: 300px; overflow-y: auto; }
-    .vehicle-item { cursor: pointer; transition: background 0.2s; }
-    .vehicle-item:hover { background: #e9ecef; }
-    .sidebar { position: fixed; top: 70px; right: 10px; width: 300px; max-width: 90%; z-index: 1000; display: none; }
-    .badge { font-size: 0.9rem; }
-    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: var(--font-family);
+      background-color: var(--bg-light);
+    }
+
+    .navbar {
+      background: var(--card-bg);
+    }
+
+    .navbar-brand {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+    }
+
+    .card {
+      border: none;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s ease-in-out;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+
+    #map {
+      height: 70vh;
+      min-height: 500px;
+      border-radius: var(--border-radius);
+      z-index: 1;
+    }
+
+    .map-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* --- Loader --- */
+    .loader-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      transition: opacity 0.3s ease;
+      opacity: 1; /* Initially visible */
+    }
+
+    .loader-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* --- Search & Results Panel --- */
+    .search-panel {
+      padding: 25px;
+    }
+
+    .result-list {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .vehicle-item {
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      border-radius: 8px;
+      opacity: 0;
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    .vehicle-item:hover {
+      background-color: #e9ecef;
+      transform: translateX(4px);
+    }
+
+    /* --- Sidebar --- */
+    .sidebar {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 350px;
+      max-width: 90%;
+      z-index: 1020;
+      box-shadow: var(--shadow-md);
+      transform: translateX(120%);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .sidebar.is-visible {
+      transform: translateX(0);
+    }
+
+    .sidebar .card-body {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+    }
+
+    #stopList .list-group-item {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    #stopList .list-group-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    /* --- Toast Notifications --- */
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1080;
+    }
+
+    /* --- Animations --- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Staggered animation for search results */
+    .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
+    .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
+    .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
+    /* ... and so on */
+
+
+    /* --- Responsive Design --- */
+    @media (max-width: 991px) {
+      #map {
+        height: 50vh;
+      }
+    }
+
     @media (max-width: 768px) {
-      #map { height: 50vh; }
-      .sidebar { width: 100%; top: auto; bottom: 0; }
+      .sidebar {
+        width: 100%;
+        max-width: 100%;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        transform: translateY(120%);
+      }
+      
+      .sidebar.is-visible {
+        transform: translateY(0);
+      }
+      
+      .sidebar .card-body {
+        max-height: 50vh;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg">
+  <nav class="navbar shadow-sm">
     <div class="container">
-      <a class="navbar-brand" href="#">Navixera — Live Transit Dashboard</a>
+      <a class="navbar-brand" href="#">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
+            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+            <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+        </svg>
+        Navixera — Live Transit
+      </a>
     </div>
   </nav>
 
-  <!-- Main Content -->
   <main class="container my-4">
-    <div class="row g-3">
-      <!-- Map -->
+    <div class="row g-4">
       <div class="col-12 col-lg-8">
-        <div class="card">
+        <div class="card map-card">
           <div id="map"></div>
+          <div class="loader-overlay" id="loader">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
         </div>
       </div>
-      <!-- Search Panel -->
       <div class="col-12 col-lg-4">
         <div class="card search-panel">
-          <h5 class="card-title">Search Vehicles</h5>
-          <div class="search-input">
-            <input type="text" id="searchVehicle" class="form-control" placeholder="Enter Vehicle Number (e.g., MH-01-AB-1234)">
-            <button id="searchVehicleBtn" class="btn btn-primary mt-2">Search</button>
+          <h5 class="card-title mb-3">Find Your Ride</h5>
+          <div class="search-group">
+            <input type="text" id="searchVehicle" class="form-control" placeholder="Vehicle Number (e.g., MH-01-AB-1234)">
+            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">Search Vehicle</button>
           </div>
-          <div class="search-input">
+          <hr>
+          <div class="search-group">
             <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
             <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
-            <button id="searchRouteBtn" class="btn btn-primary mt-2">Search Route</button>
+            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">Search Route</button>
           </div>
           <div class="result-list mt-3" id="searchResults"></div>
         </div>
       </div>
     </div>
-    <!-- Sidebar for Vehicle Details -->
-    <div class="card sidebar" id="vehicleDetails">
-      <div class="card-body">
-        <h5 class="card-title" id="vehicleTitle"></h5>
-        <p id="vehicleInfo"></p>
-        <h6>Route Stops</h6>
-        <ul id="stopList" class="list-group list-group-flush"></ul>
-      </div>
-    </div>
   </main>
 
-  <!-- Toast Container -->
+  <div class="card sidebar" id="vehicleDetails">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0" id="vehicleTitle">Vehicle Details</h5>
+        <button type="button" class="btn-close" aria-label="Close" id="closeSidebarBtn"></button>
+    </div>
+    <div class="card-body">
+      <div id="vehicleInfo" class="mb-3"></div>
+      <h6>Route Stops</h6>
+      <ul id="stopList" class="list-group list-group-flush"></ul>
+    </div>
+  </div>
+
   <div class="toast-container"></div>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-  <!-- Leaflet and Bootstrap JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-
+  
   <script>
-    /****************************************************************
-     * Navixera Live Public Transit Dashboard
-     * - Displays all public vehicles on a map
-     * - Allows clicking vehicles for details (routes, stops)
-     * - Supports search by vehicle number or route (from/to)
-     * - Integrates with Firebase for real-time updates
-     ****************************************************************/
+    (function () {
+      'use strict';
 
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-      authDomain: "svms-c0232.firebaseapp.com",
-      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-      projectId: "svms-c0232",
-      storageBucket: "svms-c0232.appspot.com",
-      messagingSenderId: "359201898609",
-      appId: "1:359201898609:web:893ef076207abb06471bd0"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+      /****************************************************************
+       * Navixera Live Public Transit Dashboard
+       * Professional, Responsive, and Animated Version
+       ****************************************************************/
 
-    // DOM References
-    const searchVehicleInput = document.getElementById('searchVehicle');
-    const searchVehicleBtn = document.getElementById('searchVehicleBtn');
-    const searchRouteFrom = document.getElementById('searchRouteFrom');
-    const searchRouteTo = document.getElementById('searchRouteTo');
-    const searchRouteBtn = document.getElementById('searchRouteBtn');
-    const searchResults = document.getElementById('searchResults');
-    const vehicleDetails = document.getElementById('vehicleDetails');
-    const vehicleTitle = document.getElementById('vehicleTitle');
-    const vehicleInfo = document.getElementById('vehicleInfo');
-    const stopList = document.getElementById('stopList');
+      // --- Firebase Configuration ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+        authDomain: "svms-c0232.firebaseapp.com",
+        databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+        projectId: "svms-c0232",
+        storageBucket: "svms-c0232.appspot.com",
+        messagingSenderId: "359201898609",
+        appId: "1:359201898609:web:893ef076207abb06471bd0"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
 
-    // Map and Layers
-    let map;
-    const markers = {};
-    const routes = {};
-    let markerGroup = L.featureGroup();
-    let routeLayer = L.featureGroup();
+      // --- DOM Element Caching ---
+      const dom = {
+        loader: document.getElementById('loader'),
+        searchVehicleInput: document.getElementById('searchVehicle'),
+        searchVehicleBtn: document.getElementById('searchVehicleBtn'),
+        searchRouteFrom: document.getElementById('searchRouteFrom'),
+        searchRouteTo: document.getElementById('searchRouteTo'),
+        searchRouteBtn: document.getElementById('searchRouteBtn'),
+        searchResults: document.getElementById('searchResults'),
+        vehicleDetails: document.getElementById('vehicleDetails'),
+        vehicleTitle: document.getElementById('vehicleTitle'),
+        vehicleInfo: document.getElementById('vehicleInfo'),
+        stopList: document.getElementById('stopList'),
+        closeSidebarBtn: document.getElementById('closeSidebarBtn'),
+        toastContainer: document.querySelector('.toast-container')
+      };
 
-    // Toast Helper
-    function showToast(message, type = 'info', ttl = 3500) {
-      const div = document.createElement('div');
-      div.className = `toast align-items-center text-bg-${type} border-0`;
-      div.setAttribute('role', 'alert');
-      div.setAttribute('aria-live', 'assertive');
-      div.innerHTML = `
-        <div class="d-flex">
-          <div class="toast-body">${message}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>`;
-      document.querySelector('.toast-container').appendChild(div);
-      const t = new bootstrap.Toast(div, { delay: ttl });
-      t.show();
-      div.addEventListener('hidden.bs.toast', () => div.remove());
-    }
+      // --- State & Map Variables ---
+      let map;
+      const markers = {};
+      let markerGroup = L.featureGroup();
+      let routeLayer = L.featureGroup();
 
-    // Parse GPS Coordinates
-    function parseGps(gps) {
-      if (!gps) return null;
-      const parts = String(gps).split(',').map(s => s.trim());
-      if (parts.length < 2) return null;
-      const lat = Number(parts[0]), lng = Number(parts[1]);
-      if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
-      return [lat, lng];
-    }
+      // --- Helper Functions ---
+      const showLoader = () => dom.loader.classList.remove('hidden');
+      const hideLoader = () => dom.loader.classList.add('hidden');
 
-    // Initialize Map
-    function initMap() {
-      map = L.map('map').setView([19.2183, 72.9781], 12); // Default: Mumbai
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-      markerGroup.addTo(map);
-      routeLayer.addTo(map);
-    }
+      const showToast = (message, type = 'info', ttl = 3500) => {
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>`;
+        dom.toastContainer.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl, { delay: ttl });
+        toast.show();
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+      };
 
-    // Load Public Vehicles
-    function loadPublicVehicles() {
-      const vehiclesRef = db.ref('public_transport/vehicles');
-      vehiclesRef.on('value', snap => {
-        const vehicles = snap.val() || {};
-        const bounds = [];
-        const present = new Set();
-
-        // Update Markers
-        Object.entries(vehicles).forEach(([vid, v]) => {
-          present.add(vid);
-          const coords = parseGps(v.gps);
-          if (coords) {
-            bounds.push(coords);
-            if (!markers[vid]) {
-              const marker = L.marker(coords, { title: vid })
-                .addTo(markerGroup)
-                .bindPopup(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
-              marker.on('click', () => showVehicleDetails(vid, v));
-              markers[vid] = marker;
-            } else {
-              markers[vid].setLatLng(coords);
-              markers[vid].setPopupContent(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
-            }
-          }
-        });
-
-        // Remove Markers for Deleted Vehicles
-        Object.keys(markers).forEach(k => {
-          if (!present.has(k)) {
-            markerGroup.removeLayer(markers[k]);
-            delete markers[k];
-          }
-        });
-
-        // Fit Map to Bounds
-        if (bounds.length) {
-          try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch (e) {}
+      const parseGps = (gps) => {
+        if (!gps) return null;
+        const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
+        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
+            return null;
         }
-      }, err => {
-        console.error('Vehicles listener error:', err);
-        showToast('Failed to load vehicles', 'danger');
-      });
-    }
+        return [parts[0], parts[1]];
+      };
 
-    // Show Vehicle Details in Sidebar
-    function showVehicleDetails(vid, vehicle) {
-      vehicleDetails.style.display = 'block';
-      vehicleTitle.textContent = `Vehicle: ${vid}`;
-      vehicleInfo.innerHTML = `
-        <strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}<br>
-        <strong>Route:</strong> ${vehicle.routeName || 'N/A'}<br>
-        <strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%<br>
-        <strong>GPS:</strong> ${vehicle.gps || 'Unknown'}<br>
-        <strong>Company:</strong> ${vehicle.companyName || 'N/A'}
-      `;
-      stopList.innerHTML = '';
-      const stops = vehicle.stops || [];
-      stops.forEach(stop => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item';
-        li.textContent = stop.name;
-        li.style.cursor = 'pointer';
-        li.addEventListener('click', () => {
-          const coords = parseGps(stop.gps);
-          if (coords) map.setView(coords, 15);
-        });
-        stopList.appendChild(li);
-      });
+      // --- Map Functions ---
+      const initMap = () => {
+        map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        markerGroup.addTo(map);
+        routeLayer.addTo(map);
+      };
 
-      // Draw Route Path
-      routeLayer.clearLayers();
-      const routePath = vehicle.fullRoutePath || [];
-      if (routePath.length) {
-        const coords = routePath.map(parseGps).filter(c => c);
-        if (coords.length) {
-          L.polyline(coords, { color: 'blue', weight: 4 }).addTo(routeLayer);
-          coords.forEach(coord => {
-            L.circleMarker(coord, { radius: 6, color: '#007bff', fillOpacity: 0.5 }).addTo(routeLayer);
+      const drawVehicleRoute = (vehicle) => {
+        routeLayer.clearLayers();
+        const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
+        if (routePath.length > 1) {
+          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+          routePath.forEach(coord => {
+            L.circleMarker(coord, { radius: 5, color: '#0d6efd', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(routeLayer);
           });
         }
-      }
-    }
+      };
 
-    // Search by Vehicle Number
-    function searchVehicle() {
-      const query = searchVehicleInput.value.trim().toLowerCase();
-      if (!query) {
-        showToast('Enter vehicle number', 'warning');
-        return;
-      }
-      const vid = Object.keys(markers).find(k => k.toLowerCase().includes(query));
-      if (vid && markers[vid]) {
-        map.setView(markers[vid].getLatLng(), 15);
-        markers[vid].openPopup();
-        db.ref(`public_transport/vehicles/${vid}`).once('value', snap => {
-          const vehicle = snap.val();
-          if (vehicle) showVehicleDetails(vid, vehicle);
-        });
-      } else {
-        showToast('Vehicle not found', 'warning');
-      }
-    }
-
-    // Search by Route
-    function searchRoute() {
-      const from = searchRouteFrom.value.trim().toLowerCase();
-      const to = searchRouteTo.value.trim().toLowerCase();
-      if (!from || !to) {
-        showToast('Enter both "From" and "To" locations', 'warning');
-        return;
-      }
-      searchResults.innerHTML = '<div class="text-muted">Searching...</div>';
-      db.ref('public_transport/vehicles').once('value', snap => {
-        const vehicles = snap.val() || {};
-        searchResults.innerHTML = '';
-        let found = false;
-        Object.entries(vehicles).forEach(([vid, v]) => {
-          const stops = v.stops || [];
-          const hasFrom = stops.some(s => s.name.toLowerCase().includes(from));
-          const hasTo = stops.some(s => s.name.toLowerCase().includes(to));
-          if (hasFrom && hasTo) {
-            found = true;
-            const div = document.createElement('div');
-            div.className = 'vehicle-item p-2 border-bottom';
-            div.innerHTML = `<strong>${vid}</strong> - ${v.routeName || 'N/A'}<br><small>${v.vehicleType || 'Unknown'}</small>`;
-            div.addEventListener('click', () => {
-              map.setView(markers[vid].getLatLng(), 15);
-              markers[vid].openPopup();
-              showVehicleDetails(vid, v);
+      // --- UI Update Functions ---
+      const showVehicleDetails = (vid, vehicle) => {
+        dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
+        dom.vehicleInfo.innerHTML = `
+          <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
+          <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
+          <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
+          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
+        `;
+        
+        dom.stopList.innerHTML = '';
+        const stops = vehicle.stops || [];
+        if (stops.length > 0) {
+            stops.forEach(stop => {
+              const li = document.createElement('li');
+              li.className = 'list-group-item';
+              li.textContent = stop.name;
+              li.addEventListener('click', () => {
+                const coords = parseGps(stop.gps);
+                if (coords) map.flyTo(coords, 16);
+              });
+              dom.stopList.appendChild(li);
             });
-            searchResults.appendChild(div);
+        } else {
+            dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
+        }
+        
+        drawVehicleRoute(vehicle);
+        dom.vehicleDetails.classList.add('is-visible');
+      };
+
+      const hideVehicleDetails = () => dom.vehicleDetails.classList.remove('is-visible');
+
+      // --- Data & Business Logic ---
+      const loadPublicVehicles = () => {
+        const vehiclesRef = db.ref('public_transport/vehicles');
+        vehiclesRef.on('value', snap => {
+          hideLoader();
+          const vehicles = snap.val() || {};
+          const presentVehicleIds = new Set();
+          const bounds = [];
+
+          Object.entries(vehicles).forEach(([vid, v]) => {
+            presentVehicleIds.add(vid);
+            const coords = parseGps(v.gps);
+            if (coords) {
+              bounds.push(coords);
+              if (!markers[vid]) {
+                // Create new marker
+                const marker = L.marker(coords, { title: vid })
+                  .addTo(markerGroup)
+                  .bindPopup(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
+                marker.on('click', () => showVehicleDetails(vid, v));
+                markers[vid] = marker;
+              } else {
+                // Update existing marker
+                markers[vid].setLatLng(coords);
+                markers[vid].setPopupContent(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
+              }
+            }
+          });
+
+          // Garbage collect markers for removed vehicles
+          Object.keys(markers).forEach(vid => {
+            if (!presentVehicleIds.has(vid)) {
+              markerGroup.removeLayer(markers[vid]);
+              delete markers[vid];
+            }
+          });
+          
+          // Fit map to vehicle bounds on initial load
+          if (bounds.length && map.getZoom() <= 12) {
+              try {
+                map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+              } catch(e) {
+                console.error("Error fitting bounds:", e);
+              }
+          }
+        }, err => {
+          console.error('Vehicles listener error:', err);
+          showToast('Failed to load real-time vehicle data.', 'danger');
+          hideLoader();
+        });
+      };
+
+      const searchByVehicleNumber = () => {
+        const query = dom.searchVehicleInput.value.trim().toUpperCase();
+        if (!query) {
+          showToast('Please enter a vehicle number to search.', 'warning');
+          return;
+        }
+        const foundVid = Object.keys(markers).find(vid => vid.toUpperCase().includes(query));
+        if (foundVid && markers[foundVid]) {
+          const marker = markers[foundVid];
+          map.flyTo(marker.getLatLng(), 16);
+          marker.openPopup();
+          db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
+            if (snap.exists()) showVehicleDetails(foundVid, snap.val());
+          });
+        } else {
+          showToast('Vehicle not found.', 'warning');
+        }
+      };
+
+      const searchByRoute = () => {
+        const from = dom.searchRouteFrom.value.trim().toLowerCase();
+        const to = dom.searchRouteTo.value.trim().toLowerCase();
+        if (!from || !to) {
+          showToast('Enter both "From" and "To" locations.', 'warning');
+          return;
+        }
+        dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
+        
+        db.ref('public_transport/vehicles').once('value', snap => {
+          const vehicles = snap.val() || {};
+          const results = [];
+          
+          Object.entries(vehicles).forEach(([vid, v]) => {
+            const stops = (v.stops || []).map(s => s.name.toLowerCase());
+            const hasFrom = stops.some(s => s.includes(from));
+            const hasTo = stops.some(s => s.includes(to));
+            
+            if (hasFrom && hasTo) {
+              results.push({ vid, vehicle: v });
+            }
+          });
+
+          dom.searchResults.innerHTML = '';
+          if (results.length > 0) {
+            results.forEach(({ vid, vehicle }) => {
+              const div = document.createElement('div');
+              div.className = 'vehicle-item p-2 border-bottom';
+              div.innerHTML = `<strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br><small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>`;
+              div.addEventListener('click', () => {
+                const marker = markers[vid];
+                if (marker) {
+                  map.flyTo(marker.getLatLng(), 16);
+                  marker.openPopup();
+                  showVehicleDetails(vid, vehicle);
+                }
+              });
+              dom.searchResults.appendChild(div);
+            });
+          } else {
+            dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found matching your search.</div>';
           }
         });
-        if (!found) {
-          searchResults.innerHTML = '<div class="text-muted">No routes found.</div>';
-        }
+      };
+
+      // --- Event Listeners ---
+      const addEventListeners = () => {
+        dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
+        dom.searchRouteBtn.addEventListener('click', searchByRoute);
+        dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
+
+        // Allow searching with 'Enter' key
+        dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
+        dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+        dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+      };
+      
+      // --- Initialization ---
+      document.addEventListener('DOMContentLoaded', () => {
+        showLoader();
+        initMap();
+        loadPublicVehicles();
+        addEventListeners();
       });
-    }
 
-    // Event Listeners
-    searchVehicleBtn.addEventListener('click', searchVehicle);
-    searchRouteBtn.addEventListener('click', searchRoute);
-    searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchVehicle(); });
-    searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchRoute(); });
-    searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchRoute(); });
-
-    // Initialize
-    window.addEventListener('load', () => {
-      initMap();
-      loadPublicVehicles();
-    });
+    })();
   </script>
 </body>
-      </html>
+</html>
