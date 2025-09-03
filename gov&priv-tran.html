@@ -5,7 +5,6 @@
   <title>Company Admin Panel — Navixera</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 
   <style>
@@ -32,7 +31,6 @@
   </style>
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg mb-3">
     <div class="container">
       <a class="navbar-brand" href="#">Company Admin — Navixera</a>
@@ -44,7 +42,6 @@
   </nav>
 
   <main class="container mb-5">
-    <!-- Stats -->
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3">
         <div class="stat-card">
@@ -72,7 +69,6 @@
       </div>
     </div>
 
-    <!-- Public Vehicle Management -->
     <div class="card mb-4">
       <div class="card-body">
         <h5 class="card-title">Manage Public Vehicles</h5>
@@ -111,28 +107,64 @@
         </div>
       </div>
     </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Manage Bus Stops</h5>
+        <div class="row controls-row">
+          <div class="col-md-3">
+            <input id="stopId" class="form-control" placeholder="Stop ID (e.g., STOP001)">
+          </div>
+          <div class="col-md-3">
+            <input id="stopNameInput" class="form-control" placeholder="Stop Name (e.g., Central Station)">
+          </div>
+          <div class="col-md-3">
+            <input id="stopGpsInput" class="form-control" placeholder="GPS (lat,lng)">
+          </div>
+          <div class="col-md-3">
+            <input id="stopVehicleId" class="form-control" placeholder="Vehicle ID (optional)">
+          </div>
+        </div>
+        <div class="row controls-row mt-2">
+          <div class="col-md-3">
+            <input id="stopVehicleRoute" class="form-control" placeholder="Route Name (optional)">
+          </div>
+          <div class="col-md-3">
+            <input id="stopVehicleType" class="form-control" placeholder="Vehicle Type (e.g., AC)">
+          </div>
+          <div class="col-md-3">
+            <input id="stopVehicleTimings" class="form-control" placeholder="Timings (e.g., Every 15 min)">
+          </div>
+          <div class="col-md-3">
+            <button id="addStopVehicleBtn" class="btn btn-outline-primary">Add Vehicle to Stop</button>
+          </div>
+        </div>
+        <div class="row controls-row mt-2">
+          <div class="col-md-6">
+            <button id="addBusStopBtn" class="btn btn-primary">Add/Update Bus Stop</button>
+          </div>
+          <div class="col-md-6">
+            <button id="deleteBusStopBtn" class="btn btn-danger">Delete Bus Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <!-- Toast Container -->
   <div class="toast-container position-fixed top-0 end-0 p-3"></div>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
   <script>
     /****************************************************************
      * Company Admin Panel — Navixera
-     * - Manages public vehicles for Live Transit Dashboard
+     * - Manages public vehicles and bus stops for Live Transit Dashboard
      * - Uses Firebase compat (v9 compat scripts)
-     * - Enhanced error handling for initialization
      ****************************************************************/
 
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -142,14 +174,7 @@
       messagingSenderId: "359201898609",
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
-
-    // Initialize Firebase
-    try {
-      firebase.initializeApp(firebaseConfig);
-    } catch (err) {
-      console.error('Firebase initialization failed:', err);
-      showToast('Failed to initialize Firebase. Check console for details.', 'danger');
-    }
+    firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
 
@@ -170,14 +195,25 @@
     const stopList = document.getElementById('stopList');
     const addPublicVehicleBtn = document.getElementById('addPublicVehicleBtn');
     const deletePublicVehicleBtn = document.getElementById('deletePublicVehicleBtn');
+    const stopId = document.getElementById('stopId');
+    const stopNameInput = document.getElementById('stopNameInput');
+    const stopGpsInput = document.getElementById('stopGpsInput');
+    const stopVehicleId = document.getElementById('stopVehicleId');
+    const stopVehicleRoute = document.getElementById('stopVehicleRoute');
+    const stopVehicleType = document.getElementById('stopVehicleType');
+    const stopVehicleTimings = document.getElementById('stopVehicleTimings');
+    const addStopVehicleBtn = document.getElementById('addStopVehicleBtn');
+    const addBusStopBtn = document.getElementById('addBusStopBtn');
+    const deleteBusStopBtn = document.getElementById('deleteBusStopBtn');
 
     // Local State
     let uid = null;
     let companyName = null;
-    let tempStops = []; // Temporary array for stops before saving
+    let tempStops = [];
+    let tempStopVehicles = [];
 
     // Toast Helper
-    function showToast(message, type = 'info', ttl = 3500) {
+    const showToast = (message, type = 'info', ttl = 3500) => {
       const div = document.createElement('div');
       div.className = `toast align-items-center text-bg-${type} border-0`;
       div.setAttribute('role', 'alert');
@@ -191,10 +227,10 @@
       const t = new bootstrap.Toast(div, { delay: ttl });
       t.show();
       div.addEventListener('hidden.bs.toast', () => div.remove());
-    }
+    };
 
     // Parse GPS
-    function parseGps(gps) {
+    const parseGps = (gps) => {
       if (!gps) return null;
       const parts = String(gps).split(',').map(s => s.trim());
       if (parts.length < 2) return null;
@@ -202,7 +238,7 @@
       if (!isFinite(lat) || !isFinite(lng)) return null;
       if (lat === 0 && lng === 0) return null;
       return [lat, lng];
-    }
+    };
 
     // Auth & Initialization
     auth.onAuthStateChanged(async (user) => {
@@ -242,6 +278,9 @@
         addStopBtn.addEventListener('click', handleAddStop);
         addPublicVehicleBtn.addEventListener('click', handleAddPublicVehicle);
         deletePublicVehicleBtn.addEventListener('click', handleDeletePublicVehicle);
+        addStopVehicleBtn.addEventListener('click', handleAddStopVehicle);
+        addBusStopBtn.addEventListener('click', handleAddBusStop);
+        deleteBusStopBtn.addEventListener('click', handleDeleteBusStop);
         logoutBtn.addEventListener('click', () => {
           console.log('Logging out user:', uid);
           auth.signOut();
@@ -252,8 +291,8 @@
       }
     });
 
-    // Handle Add Stop
-    function handleAddStop() {
+    // Handle Add Stop (for vehicle)
+    const handleAddStop = () => {
       const name = stopName.value.trim();
       const gps = stopGps.value.trim();
       if (!name || !gps) {
@@ -269,10 +308,10 @@
       stopGps.value = '';
       renderStopList();
       console.log('Added stop:', { name, gps });
-    }
+    };
 
-    // Render Stop List
-    function renderStopList() {
+    // Render Stop List (for vehicle)
+    const renderStopList = () => {
       stopList.innerHTML = '';
       tempStops.forEach((stop, index) => {
         const li = document.createElement('li');
@@ -286,10 +325,10 @@
         });
         stopList.appendChild(li);
       });
-    }
+    };
 
     // Handle Add Public Vehicle
-    async function handleAddPublicVehicle() {
+    const handleAddPublicVehicle = async () => {
       const vid = publicVehicleId.value.trim();
       const vtype = publicVehicleType.value.trim();
       const gps = publicVehicleGps.value.trim();
@@ -327,10 +366,10 @@
         console.error('Failed to add public vehicle:', err);
         showToast(`Failed to add public vehicle: ${err.message}`, 'danger');
       }
-    }
+    };
 
     // Handle Delete Public Vehicle
-    async function handleDeletePublicVehicle() {
+    const handleDeletePublicVehicle = async () => {
       const vid = publicVehicleId.value.trim();
       if (!vid) {
         showToast('Enter vehicle ID to delete', 'warning');
@@ -348,10 +387,80 @@
         console.error('Failed to delete public vehicle:', err);
         showToast(`Delete failed: ${err.message}`, 'danger');
       }
-    }
+    };
+
+    // Handle Add Vehicle to Stop
+    const handleAddStopVehicle = () => {
+      const vehicleId = stopVehicleId.value.trim();
+      const routeName = stopVehicleRoute.value.trim();
+      const type = stopVehicleType.value.trim();
+      const timings = stopVehicleTimings.value.trim();
+      if (!vehicleId || !routeName || !type) {
+        showToast('Enter vehicle ID, route name, and type', 'warning');
+        return;
+      }
+      tempStopVehicles.push({ vehicleId, routeName, type, timings });
+      stopVehicleId.value = '';
+      stopVehicleRoute.value = '';
+      stopVehicleType.value = '';
+      stopVehicleTimings.value = '';
+      showToast('Vehicle added to stop (save stop to persist)', 'info');
+    };
+
+    // Handle Add Bus Stop
+    const handleAddBusStop = async () => {
+      const id = stopId.value.trim();
+      const name = stopNameInput.value.trim();
+      const gps = stopGpsInput.value.trim();
+      if (!id || !name || !gps) {
+        showToast('Fill all stop fields', 'warning');
+        return;
+      }
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
+        return;
+      }
+      try {
+        const obj = {
+          name,
+          gps,
+          vehicles: tempStopVehicles
+        };
+        await db.ref(`public_transport/stops/${id}`).update(obj);
+        showToast('Bus stop added/updated', 'success');
+        stopId.value = '';
+        stopNameInput.value = '';
+        stopGpsInput.value = '';
+        tempStopVehicles = [];
+        console.log('Added/updated bus stop:', obj);
+      } catch (err) {
+        console.error('Failed to add bus stop:', err);
+        showToast(`Failed to add bus stop: ${err.message}`, 'danger');
+      }
+    };
+
+    // Handle Delete Bus Stop
+    const handleDeleteBusStop = async () => {
+      const id = stopId.value.trim();
+      if (!id) {
+        showToast('Enter stop ID to delete', 'warning');
+        return;
+      }
+      if (!confirm(`Delete bus stop ${id}?`)) return;
+      try {
+        await db.ref(`public_transport/stops/${id}`).remove();
+        showToast('Bus stop deleted', 'success');
+        stopId.value = '';
+        tempStopVehicles = [];
+        console.log('Deleted bus stop:', id);
+      } catch (err) {
+        console.error('Failed to delete bus stop:', err);
+        showToast(`Delete failed: ${err.message}`, 'danger');
+      }
+    };
 
     // Load Stats
-    async function loadStats() {
+    const loadStats = async () => {
       try {
         const snap = await db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`).once('value');
         const vehicles = snap.val() || {};
@@ -359,14 +468,12 @@
         let deliveries = 0;
         let alerts = 0;
         const today = new Date().toDateString();
-
         Object.values(vehicles).forEach(v => {
           const d = v.deliveries || {};
           deliveries += Object.keys(d).length;
           const lt = v.last_trigger;
           if (lt && lt.status === 'alert' && lt.time && new Date(lt.time).toDateString() === today) alerts++;
         });
-
         statVehicles.innerText = vehicleCount;
         statDeliveries.innerText = deliveries;
         statAlerts.innerText = alerts;
@@ -376,7 +483,7 @@
         console.error('Failed to load stats:', err);
         showToast(`Failed to load stats: ${err.message}`, 'danger');
       }
-    }
+    };
   </script>
 </body>
-            </html>
+  </html>
