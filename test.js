@@ -255,7 +255,7 @@ async function watchAdForPremium() {
     <h2>Watch Ad for 1-Hour Premium Access</h2>
     <p>Watch the full video to unlock Silver plan features for 1 hour.</p>
     <div style="position:relative;width:100%;max-width:500px;margin:20px auto;">
-      <video id="premiumVideo" autoplay muted style="width:100%;border-radius:8px;">
+      <video id="premiumVideo" autoplay style="width:100%;border-radius:8px;">
         <source src="${premiumAd.url}" type="video/mp4">
         Your browser does not support the video tag.
       </video>
