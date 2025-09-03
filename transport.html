@@ -7,9 +7,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght极速4@400;500;600&display=swap" rel="stylesheet">
   
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6u极速4LrA9TneNEoa7RxnatzjcDSCmG1MXxSR1极速4GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -19,12 +19,12 @@
       --primary-color: #0d6efd;
       --primary-rgb: 13, 110, 253;
       --secondary-color: #6c757d;
-      --bg-light: #f4f7f9;
+      --bg极速4-light: #f4f7f9;
       --card-bg: #ffffff;
       --font-family: 'Poppins', sans-serif;
       --border-radius: 12px;
       --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 8px 24px rgba(var(--primary-rgb), 0.08);
+      --shadow-md: 0 8极速4px 24px rgba(var(--primary-rgb), 0.08);
     }
 
     html, body {
@@ -86,12 +86,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 10;
+      z极速4-index: 10;
       transition: opacity 0.3s ease;
       opacity: 1; /* Initially visible */
     }
 
-    .loader-overlay.hidden {
+    .loader极速4-overlay.hidden {
       opacity: 0;
       pointer-events: none;
     }
@@ -129,7 +129,7 @@
       z-index: 1020;
       box-shadow: var(--shadow-md);
       transform: translateX(120%);
-      transition: transform 0.4s cubic-bezier极速4(0.25, 0.8, 0.25, 1);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
 
     .sidebar.is-visible {
@@ -149,88 +149,6 @@
     #stopList .list-group-item:hover {
       background-color: #f8f9fa;
     }
-    
-    /* --- Bus Stop Panel --- */
-    .bus-stop-panel {
-      position: fixed;
-      top: 80px;
-      left: 20px;
-      width: 350px;
-      max-width: 90%;
-      z-index: 1020;
-      box-shadow: var(--shadow-md);
-      transform: translateX(-120%);
-      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-
-    .bus-stop-panel.is-visible {
-      transform: translateX(0);
-    }
-    
-    .bus-stop-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    
-    .bus-stop-title {
-      font-weight: 600;
-      margin: 0;
-    }
-    
-    .see-all-link {
-      color: var(--primary-color);
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-    
-    .bus-stop-item {
-      padding: 12px 15px;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .bus-stop-name {
-      font-weight: 500;
-      margin-bottom: 5px;
-    }
-    
-    .bus-stop-distance {
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-    
-    .bus-route {
-      margin-top: 20px;
-      padding-top: 15px;
-      border-top: 1px solid #eee;
-    }
-    
-    .bus-route-title {
-      font-weight: 600;
-      margin-bottom: 10px;
-      color: #333;
-    }
-    
-    .bus-route-item {
-      padding: 10px 0;
-    }
-    
-    .bus-number {
-      font-weight: 500;
-      color: var(--primary-color);
-    }
-    
-    .bus-destination {
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-    
-    .bus-timings {
-      color: #6c757d;
-      font-size: 0.85rem;
-      margin-top: 3px;
-    }
 
     /* --- Custom Marker for User Location --- */
     .user-location-icon {
@@ -244,7 +162,7 @@
     }
     
     @keyframes pulse {
-      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
+      0% { transform: scale(0.9); box-shadow: 0 0 极速4 0 rgba(var(--primary-rgb), 0.7); }
       70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
       100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
     }
@@ -259,13 +177,13 @@
 
     /* --- Animations --- */
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity极速4: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translateY(10极速4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     /* Staggered animation for search results */
-    .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
-    .vehicle-item:nth-child(2极速4) { animation-delay: 0.2s; }
+    .vehicle-item:nth-child(1) { animation-delay: 0.1极速4s; }
+    .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
     .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
 
     /* --- Responsive Design --- */
@@ -293,20 +211,6 @@
       .sidebar .card-body {
         max-height: 50vh;
       }
-      
-      .bus-stop-panel {
-        width: 100%;
-        max-width: 100%;
-        left: 0;
-        bottom: 0;
-        top: auto;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
-        transform: translateY(120%);
-      }
-      
-      .bus-stop-panel.is-visible {
-        transform: translateY(0);
-      }
     }
   </style>
 </head>
@@ -315,8 +219,8 @@
     <div class="container">
       <a class="navbar-brand" href="#">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
-            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 极速4 0 0-5.656.5.5极速4 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-            <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+            <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 极速4 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 极速4 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 极速4 0 0 1 0 4z"/>
+            <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.极速45.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
         </svg>
         Navixera — Live Transit
       </a>
@@ -332,12 +236,9 @@
               <button id="locateBtn" class="btn btn-light bg-white shadow-sm" title="Find My Location">
                   <i class="bi bi-geo-alt-fill text-primary"></i>
               </button>
-              <button id="showBusStopsBtn" class="btn btn-light bg-white shadow-sm ms-2" title="Show Bus Stops">
-                  <i class="bi bi-signpost text-primary"></i>
-              </button>
           </div>
           <div class="loader-overlay" id="loader">
-            <div class="spinner-border text-primary" role="status">
+            <div class极速4="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
@@ -365,7 +266,7 @@
   <div class="card sidebar" id="vehicleDetails">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0" id="vehicleTitle">Vehicle Details</h5>
-        <button type="button" class="btn-close" aria-label="Close" id极速4="closeSidebarBtn"></button>
+        <button type="button" class="btn-close" aria-label="Close" id="closeSidebarBtn"></button>
     </div>
     <div class="card-body">
       <div id="vehicleInfo" class="mb-3"></div>
@@ -373,30 +274,15 @@
       <ul id="stopList" class="list-group list-group-flush"></ul>
     </div>
   </div>
-  
-  <div class="card bus-stop-panel" id="busStopPanel">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Nearest Bus Stop</h5>
-        <button type="button" class="btn-close" aria-label="Close" id="closeBusStopPanelBtn"></button>
-    </div>
-    <div class="card-body" id="busStopPanelContent">
-      <div class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading bus stops...</span>
-        </div>
-        <p class="mt-2">Finding nearby bus stops...</p>
-      </div>
-    </div>
-  </div>
 
   <div class="toast-container"></div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2极速4/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lv极速4TlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTN极速4Xj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpc极速4V8Qyq46cDfL" crossorigin="anonymous"></script>
   
   <script>
     (function () {
@@ -404,7 +290,7 @@
 
       // --- Firebase Configuration ---
       const firebaseConfig = {
-        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+        apiKey: "AIzaSyCn9YSO4-ks极速4Wl6JBqIc极速4EEuLx2EJN8jMj4M",
         authDomain: "svms-c0232.firebaseapp.com",
         databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
         projectId: "svms-c0232",
@@ -415,14 +301,10 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
 
-      // Mapbox API Key (Replace with your own key for production)
-      const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA';
-
       // --- DOM Element Caching ---
       const dom = {
         loader: document.getElementById('loader'),
         locateBtn: document.getElementById('locateBtn'),
-        showBusStopsBtn: document.getElementById('showBusStopsBtn'),
         searchVehicleInput: document.getElementById('searchVehicle'),
         searchVehicleBtn: document.getElementById('searchVehicleBtn'),
         searchRouteFrom: document.getElementById('searchRouteFrom'),
@@ -434,9 +316,6 @@
         vehicleInfo: document.getElementById('vehicleInfo'),
         stopList: document.getElementById('stopList'),
         closeSidebarBtn: document.getElementById('closeSidebarBtn'),
-        busStopPanel: document.getElementById('busStopPanel'),
-        busStopPanelContent: document.getElementById('busStopPanelContent'),
-        closeBusStopPanelBtn: document.getElementById('closeBusStopPanelBtn'),
         toastContainer: document.querySelector('.toast-container')
       };
 
@@ -447,9 +326,7 @@
       let markerGroup = L.featureGroup();
       let routeLayer = L.featureGroup();
       let userLocationMarker = null;
-      let userLocation = null;
       let vehiclesData = {}; // Store vehicle data for searching
-      let busStops = []; // Store bus stop data
 
       // --- Custom Icons ---
       const vehicleIcon = L.icon({
@@ -463,7 +340,7 @@
       
       const stopIcon = L.icon({
           iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7极速4.7/images/marker-shadow.png',
           iconSize: [25, 41],
           iconAnchor: [12, 41],
           popupAnchor: [1, -34],
@@ -492,7 +369,7 @@
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>`;
         dom.toastContainer.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl, { delay: ttl });
+        const toast = new bootstrap.Toast(toast极速4El, { delay: ttl });
         toast.show();
         toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
       };
@@ -504,8 +381,8 @@
           return [gps.latitude, gps.longitude];
         }
         
-        const parts = String(g极速4ps).split(',').map(s => parseFloat(s.trim()));
-        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
+        const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
+        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts极速4[0] === 0 && parts[1] === 0)) {
             return null;
         }
         return [parts[0], parts[1]];
@@ -516,32 +393,11 @@
         if (lat1 === lat2 && lon1 === lon2) return 0;
         
         const toRad = (deg) => deg * Math.PI / 180;
-        const toDeg = (rad) => rad * 180 / Math.PI;
+        const toDeg = (rad极速4) => rad * 180 / Math.PI;
         const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
         const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - 
                  Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
-      };
-      
-      const calculateDistance = (lat1, lon1, lat2, lon2) => {
-        const R = 6371; // Earth's radius in kilometers
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = R * c; // Distance in km
-        return distance;
-      };
-      
-      const formatDistance = (km) => {
-        if (km < 1) {
-          return Math.round(km * 1000) + ' m away';
-        } else {
-          return km.toFixed(1) + ' km away';
-        }
       };
 
       // --- Map Functions ---
@@ -564,198 +420,22 @@
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
-            userLocation = [latitude, longitude];
+            const userLatLng = [latitude, longitude];
             if (userLocationMarker) {
-              userLocationMarker.setLatLng(userLocation);
+              userLocationMarker.setLatLng(userLatLng);
             } else {
-              userLocationMarker = L.marker(userLocation, { icon: userLocationIcon }).addTo(map);
+              userLocationMarker = L.marker(userLatLng, { icon: userLocationIcon }).addTo(map);
               userLocationMarker.bindPopup("<b>You are here</b>");
             }
-            map.flyTo(userLocation, 16);
+            map.flyTo(userLatLng, 16);
             setTimeout(() => {
                 userLocationMarker.openPopup();
-            }, 1000);
-            
-            // Find nearest bus stops after locating user
-            findNearbyBusStops();
+            }, 1000); 
           },
           () => {
             showToast("Unable to retrieve your location. Please check your permissions.", "danger");
           }
         );
-      };
-      
-      const findNearbyBusStops = async () => {
-        if (!userLocation) return;
-        
-        try {
-          showToast("Finding nearby bus stops...", "info");
-          
-          // Use Mapbox API to find nearby bus stops
-          const response = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/bus_station.json?` +
-            `proximity=${userLocation[1]},${userLocation[0]}&limit=10&access_token=${MAPBOX_ACCESS_TOKEN}`
-          );
-          
-          if (!response.ok) throw new Error('Failed to fetch bus stops');
-          
-          const data = await response.json();
-          busStops = data.features.map(feature => ({
-            id: feature.id,
-            name: feature.text,
-            address: feature.place_name,
-            gps: `${feature.center[1]},${feature.center[0]}`,
-            distance: calculateDistance(
-              userLocation[0], userLocation[1],
-              feature.center[1], feature.center[0]
-            )
-          }));
-          
-          // Sort by distance
-          busStops.sort((a, b) => a.distance - b.distance);
-          
-          // Show the nearest bus stop panel
-          if (busStops.length > 0) {
-            showBusStopPanel(busStops[0]);
-            addBusStopMarkers();
-          } else {
-            showToast("No bus stops found nearby.", "warning");
-          }
-        } catch (error) {
-          console.error("Error fetching bus stops:", error);
-          showToast("Could not load bus stops. Using sample data.", "warning");
-          loadSampleBusStops();
-        }
-      };
-      
-      const loadSampleBusStops = () => {
-        // Fallback sample data if API fails
-        busStops = [
-          {
-            id: 1,
-            name: "Worli Sea Face Post Office",
-            address: "Worli Sea Face, Mumbai",
-            gps: "19.0160,72.8150",
-            distance: calculateDistance(
-              userLocation[0], userLocation[1],
-              19.0160, 72.8150
-            ),
-            routes: [
-              { number: "A-44", destination: "To Shrawan Yeshwante Chowk", type: "AC", timings: "Timings not available" },
-              { number: "A-56", destination: "To Vesave Or Yari Road Bus Station", type: "Regular", timings: "Timings not available" }
-            ]
-          },
-          {
-            id: 2,
-            name: "Haji Ali Junction",
-            address: "Haji Ali, Mumbai",
-            gps: "19.0176,72.8221",
-            distance: calculateDistance(
-              userLocation[0], userLocation[1],
-              19.0176, 72.8221
-            ),
-            routes: [
-              { number: "A-123", destination: "To Bandra Station", type: "AC", timings: "Every 15 min" },
-              { number: "B-45", destination: "To Churchgate", type: "Regular", timings: "Every 10 min" }
-            ]
-          }
-        ];
-        
-        // Sort by distance
-        busStops.sort((a, b) => a.distance - b.distance);
-        
-        // Show the nearest bus stop panel
-        if (busStops.length > 0) {
-          showBusStopPanel(busStops[0]);
-          addBusStopMarkers();
-        }
-      };
-      
-      const addBusStopMarkers = () => {
-        // Clear existing bus stop markers
-        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
-        stopMarkers = {};
-        
-        // Add new bus stop markers
-        busStops.forEach((stop, index) => {
-          const coords = parseGps(stop.gps);
-          if (coords) {
-            const marker = L.marker(coords, { icon: stopIcon }).addTo(map);
-            marker.bindPopup(`
-              <strong>${stop.name}</strong><br>
-              <small>${formatDistance(stop.distance)}</small>
-            `);
-            
-            marker.on('click', () => {
-              showBusStopPanel(stop);
-            });
-            
-            // Store reference to stop marker
-            stopMarkers[`stop-${index}`] = marker;
-          }
-        });
-      };
-      
-      const showBusStopPanel = (stop) => {
-        // Format the panel content
-        let panelContent = `
-          <div class="bus-stop-header">
-            <h6 class="bus-stop-title">${stop.name}</h6>
-            <a href="#" class="see-all-link">See all stops</a>
-          </div>
-          <div class="bus-stop-item">
-            <div class="bus-stop-name">${stop.name}</div>
-            <div class="bus-stop-distance">${formatDistance(stop.distance)}</div>
-          </div>
-        `;
-        
-        // Add routes if available
-        if (stop.routes && stop.routes.length > 0) {
-          // Group routes by type
-          const routesByType = {};
-          stop.routes.forEach(route => {
-            if (!routesByType[route.type]) {
-              routesByType[route.type] = [];
-            }
-            routesByType[route.type].push(route);
-          });
-          
-          // Add each route type section
-          Object.keys(routesByType).forEach(type => {
-            panelContent += `
-              <div class="bus-route">
-                <h6 class="bus-route-title">${type}</h6>
-            `;
-            
-            routesByType[type].forEach(route => {
-              panelContent += `
-                <div class="bus-route-item">
-                  <div class="bus-number">${route.number}</div>
-                  <div class="bus-destination">${route.destination}</div>
-                  <div class="bus-timings">${route.timings}</div>
-                </div>
-              `;
-            });
-            
-            panelContent += `</div>`;
-          });
-        } else {
-          // Add a message if no route information is available
-          panelContent += `
-            <div class="bus-route">
-              <div class="text-muted">Route information not available</div>
-            </div>
-          `;
-        }
-        
-        dom.busStopPanelContent.innerHTML = panelContent;
-        dom.busStopPanel.classList.add('is-visible');
-        
-        // Fly to the bus stop on the map
-        const coords = parseGps(stop.gps);
-        if (coords) {
-          map.flyTo(coords, 15);
-        }
       };
 
       const drawVehicleRoute = (vehicle) => {
@@ -767,7 +447,7 @@
         
         const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
         if (routePath.length > 1) {
-          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).add极速4To(routeLayer);
         }
         
         // Add stop markers with names
@@ -803,7 +483,7 @@
           <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
           <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
           <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
-          <p class极速4="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
+          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
           <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>
         `;
         
@@ -816,7 +496,7 @@
               li.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
-                    <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}
+                    <strong>Stop ${index + 1}:</极速4strong> ${stop.name || 'Unnamed Stop'}
                   </div>
                   <button class="btn btn-sm btn-outline-primary view-stop-btn" data-index="${index}">
                     <i class="bi bi-geo-alt"></i>
@@ -833,7 +513,7 @@
                   // Open the stop marker popup
                   if (stopMarkers[`stop-${index}`]) {
                     setTimeout(() => {
-                      stop极速4Markers[`stop-${index}`].openPopup();
+                      stopMarkers[`stop-${index}`].openPopup();
                     }, 1000);
                   }
                 }
@@ -848,8 +528,6 @@
       };
 
       const hideVehicleDetails = () => dom.vehicleDetails.classList.remove('is-visible');
-      
-      const hideBusStopPanel = () => dom.busStopPanel.classList.remove('is-visible');
 
       // --- Data & Business Logic ---
       const loadPublicVehicles = () => {
@@ -865,7 +543,7 @@
             presentVehicleIds.add(vid);
             const newCoords = parseGps(v.gps);
             if (newCoords) {
-              bounds.push(new极速4Coords);
+              bounds.push(newCoords);
               
               if (!markers[vid]) {
                 // Create new marker with rotation capability
@@ -883,7 +561,7 @@
                 `);
                 
                 marker.on('click', () => showVehicleDetails(vid, v));
-                markers[vid极速4] = { marker: marker, prevCoords: newCoords };
+                markers[vid] = { marker: marker, prevCoords: newCoords };
               } else {
                 // Update existing marker position and rotation
                 const { marker, prevCoords } = markers[vid];
@@ -938,7 +616,7 @@
         if (foundVid) {
           // If we have a marker for this vehicle, use it
           if (markers[foundVid]) {
-            const { marker } = markers[foundVid];
+            const { marker } = markers[found极速4Vid];
             map.flyTo(marker.getLatLng(), 16);
             marker.openPopup();
             showVehicleDetails(foundVid, vehiclesData[foundVid]);
@@ -971,16 +649,16 @@
         const from = dom.searchRouteFrom.value.trim().toLowerCase();
         const to = dom.searchRouteTo.value.trim().toLowerCase();
         if (!from || !to) {
-          showToast('Enter both "From极速4" and "To" locations.', 'warning');
+          showToast('Enter both "From" and "To" locations.', 'warning');
           return;
         }
-        dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
+        dom.searchResults.innerHTML = '<div class="text-muted p极速4-2">Searching...</div>';
         
         // Use our stored vehicle data for searching
         const results = [];
         
         Object.entries(vehiclesData).forEach(([vid, v]) => {
-          const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
+          const stops = (v.stops || []极速4).map(s => s.name ? s.name.toLowerCase() : '');
           const hasFrom = stops.some(s => s.includes(from));
           const hasTo = stops.some(s => s.includes(to));
           
@@ -1024,18 +702,9 @@
       // --- Event Listeners ---
       const addEventListeners = () => {
         dom.locateBtn.addEventListener('click', locateUser);
-        dom.showBusStopsBtn.addEventListener('click', () => {
-          if (userLocation) {
-            findNearbyBusStops();
-          } else {
-            showToast("Please enable location services first.", "warning");
-            locateUser();
-          }
-        });
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
         dom.searchRouteBtn.addEventListener('click', searchByRoute);
         dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
-        dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
 
         // Allow searching with 'Enter' key
         dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
@@ -1057,4 +726,4 @@
     })();
   </script>
 </body>
-        </html>
+  </html>
