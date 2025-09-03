@@ -2,666 +2,412 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Government Vehicle Command Center</title>
+  <title>Company Admin Panel — Navixera</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
   <style>
     :root {
-      --primary: #0a58ca; /* A more authoritative blue */
-      --secondary: #495057;
-      --success: #198754;
-      --danger: #dc3545;
-      --info: #0dcaf0;
-      --light: #f8f9fa;
-      --dark: #212529;
+      --primary: #0d6efd;
+      --muted: #6c757d;
+      --card-bg: #fff;
       --page-bg: #f6f8fb;
-      --card-bg: #ffffff;
-      --card-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
-      --border-color: #dee2e6;
-      --border-radius: 0.75rem;
     }
-    html, body { 
-      height: 100%; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
-    body { background-color: var(--page-bg); }
-    .navbar { background: linear-gradient(90deg, var(--primary), #0d6efd); }
-    .navbar-brand { font-weight: 600; }
-    .card { 
-      border: 0; 
-      border-radius: var(--border-radius); 
-      box-shadow: var(--card-shadow);
-      transition: all 0.2s ease-in-out;
-    }
-    .card:hover { transform: translateY(-2px); }
-    .stat-card { text-align: center; }
-    .stat-card h3 { color: var(--primary); font-weight: 700; }
-    #map, #historyMap { height: 400px; border-radius: var(--border-radius); border: 1px solid var(--border-color); }
-    .table-responsive { max-height: 380px; }
-    .btn { transition: all 0.2s ease; }
-    .form-label { font-size: 0.9rem; color: var(--secondary); }
-    .toast-container { z-index: 1090; }
+    html, body { height: 100%; }
+    body { background: var(--page-bg); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+    .navbar { background: linear-gradient(90deg, var(--primary), #1a7bff); }
+    .navbar-brand { color: #fff !important; font-weight: 600; }
+    .card { border: 0; border-radius: 12px; box-shadow: 0 6px 18px rgba(13, 110, 253, 0.06); }
+    .stat-card { padding: 18px; border-radius: 10px; background: var(--card-bg); text-align: center; }
+    .stat-card h3 { margin: 0; color: var(--primary); font-weight: 700; }
+    #map, #historyMap { height: 360px; border-radius: 10px; }
+    .small-muted { color: var(--muted); font-size: .9rem; }
+    .table-responsive { max-height: 350px; overflow: auto; }
+    .controls-row > * { margin-right: .5rem; margin-bottom: .5rem; }
+    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
+    .stop-list { max-height: 200px; overflow-y: auto; }
     @media (max-width: 992px) {
-      #map, #historyMap { height: 300px; }
+      #map, #historyMap { height: 260px; }
     }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark mb-4 shadow-sm">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#"><i class="bi bi-shield-check"></i> Gov Vehicle Command Center</a>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg mb-3">
+    <div class="container">
+      <a class="navbar-brand">Company Admin — Navixera</a>
       <div class="d-flex align-items-center ms-auto gap-2">
-        <span id="currentUser" class="text-white-50 small"></span>
-        <button id="logoutBtn" class="btn btn-light btn-sm"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        <span id="currentUser" class="text-white small-muted"></span>
+        <button id="logoutBtn" class="btn btn-light btn-sm">Logout</button>
       </div>
     </div>
   </nav>
 
-  <main class="container-fluid mb-5">
+  <main class="container mb-5">
+    <!-- Stats -->
     <div class="row g-3 mb-4">
-      <div class="col-6 col-md-3"><div class="card p-3 stat-card"><div class="text-muted">Department</div><h3 id="statDepartment">1</h3></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 stat-card"><div class="text-muted">Total Vehicles</div><h3 id="statVehicles">0</h3></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 stat-card"><div class="text-muted">Active Tasks</div><h3 id="statTasks">0</h3></div></div>
-      <div class="col-6 col-md-3"><div class="card p-3 stat-card"><div class="text-muted">Alerts Today</div><h3 id="statAlerts">0</h3></div></div>
-    </div>
-
-    <div class="row g-4">
-      <div class="col-lg-4">
-        <div class="card p-3 mb-4">
-          <h5 class="mb-3"><i class="bi bi-truck"></i> Vehicle Management</h5>
-          <div class="mb-2"><label class="form-label">Vehicle ID</label><input id="vId" class="form-control" placeholder="e.g., MH01-G-1234"></div>
-          <div class="mb-2"><label class="form-label">Type</label><input id="vType" class="form-control" placeholder="e.g., Patrol Car, Utility Truck"></div>
-          <div class="mb-3"><label class="form-label">Initial GPS (lat,lng)</label><input id="vGps" class="form-control" placeholder="19.0760, 72.8777"></div>
-          <div class="d-flex gap-2">
-            <button id="addVehicleBtn" class="btn btn-success w-100"><i class="bi bi-plus-circle"></i> Add / Update</button>
-            <button id="deleteVehicleBtn" class="btn btn-outline-danger w-100"><i class="bi bi-trash"></i> Delete</button>
-          </div>
-        </div>
-        <div class="card p-3 mb-4">
-          <h5 class="mb-3"><i class="bi bi-clipboard-check"></i> Task Management</h5>
-          <div class="mb-2"><label class="form-label">Task / Tracking ID</label><input id="dTrackId" class="form-control" placeholder="e.g., TASK-001"></div>
-          <div class="mb-2"><label class="form-label">Assign to Vehicle ID</label><input id="dVehicleId" class="form-control" placeholder="e.g., MH01-G-1234"></div>
-          <div class="mb-3"><label class="form-label">Status</label>
-            <select id="dStatus" class="form-select">
-              <option value="pending">Pending</option><option value="in_transit">In Transit</option><option value="completed">Completed</option><option value="canceled">Canceled</option>
-            </select>
-          </div>
-          <div class="d-flex gap-2">
-            <button id="addTaskBtn" class="btn btn-primary w-100"><i class="bi bi-journal-plus"></i> Add Task</button>
-            <button id="exportCsvBtn" class="btn btn-outline-secondary w-100"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</button>
-          </div>
-        </div>
-        <div class="card p-3">
-          <h5 class="mb-3"><i class="bi bi-person-badge"></i> Personnel Management</h5>
-          <div class="mb-2"><label class="form-label">Operator Name</label><input id="driverName" class="form-control" placeholder="e.g., John Doe"></div>
-          <div class="mb-3"><label class="form-label">Contact</label><input id="driverContact" class="form-control" placeholder="Phone or official email"></div>
-          <div class="d-grid gap-2 mb-3"><button id="addDriverBtn" class="btn btn-info text-white"><i class="bi bi-person-plus"></i> Add Operator</button></div>
-          <ul id="driverList" class="list-group list-group-flush"></ul>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="small-muted">Companies</div>
+          <h3 id="statCompanies">0</h3>
         </div>
       </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="small-muted">Vehicles</div>
+          <h3 id="statVehicles">0</h3>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="small-muted">Active Deliveries</div>
+          <h3 id="statDeliveries">0</h3>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="small-muted">Alerts Today</div>
+          <h3 id="statAlerts">0</h3>
+        </div>
+      </div>
+    </div>
 
-      <div class="col-lg-8">
-        <div class="card p-3 mb-4">
-          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-            <h5 class="mb-0"><i class="bi bi-geo-alt-fill"></i> Live Vehicle Map</h5>
-            <div class="d-flex gap-2">
-              <input id="searchVehicleInput" class="form-control form-control-sm" placeholder="Search vehicle ID..." style="min-width:180px">
-              <button id="centerVehicleBtn" class="btn btn-sm btn-outline-primary" title="Center on Vehicle"><i class="bi bi-bullseye"></i></button>
-              <button id="toggleFollowBtn" class="btn btn-sm btn-outline-secondary" title="Toggle Follow Mode">Follow: OFF</button>
-            </div>
+    <!-- Public Vehicle Management -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Manage Public Vehicles</h5>
+        <div class="row controls-row">
+          <div class="col-md-3">
+            <input id="publicVehicleId" class="form-control" placeholder="Vehicle ID (e.g., MH-01-AB-1234)">
           </div>
-          <div id="map"></div>
-        </div>
-        <div class="card p-3 mb-4">
-          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-            <h5 class="mb-0"><i class="bi bi-list-task"></i> Task Assignments</h5>
-            <div class="d-flex gap-2 align-items-center">
-              <select id="filterVehicle" class="form-select form-select-sm" style="width:180px"><option value="">All Vehicles</option></select>
-              <select id="filterStatus" class="form-select form-select-sm" style="width:130px">
-                <option value="">All Statuses</option><option value="pending">Pending</option><option value="in_transit">In Transit</option><option value="completed">Completed</option><option value="canceled">Canceled</option>
-              </select>
-            </div>
+          <div class="col-md-3">
+            <input id="publicVehicleType" class="form-control" placeholder="Vehicle Type (e.g., Bus)">
           </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead><tr><th>Task ID</th><th>Vehicle ID</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-              <tbody id="taskList"></tbody>
-            </table>
+          <div class="col-md-3">
+            <input id="publicVehicleGps" class="form-control" placeholder="GPS (lat,lng)">
+          </div>
+          <div class="col-md-3">
+            <input id="publicRouteName" class="form-control" placeholder="Route Name (e.g., Route 101)">
           </div>
         </div>
-        <div class="card p-3">
-          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-            <h5 class="mb-0"><i class="bi bi-signpost-split"></i> Movement History</h5>
-            <div class="d-flex gap-2">
-              <select id="historyVehicleSelect" class="form-select form-select-sm" style="width:220px"><option value="">Select Vehicle...</option></select>
-              <button id="loadHistoryBtn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Load</button>
-              <button id="clearHistoryBtn" class="btn btn-sm btn-outline-danger" style="display:none"><i class="bi bi-trash2"></i> Delete History</button>
+        <div class="row controls-row mt-2">
+          <div class="col-12">
+            <h6>Add Stops</h6>
+            <div class="input-group mb-2">
+              <input id="stopName" class="form-control" placeholder="Stop Name">
+              <input id="stopGps" class="form-control" placeholder="Stop GPS (lat,lng)">
+              <button id="addStopBtn" class="btn btn-outline-primary">Add Stop</button>
             </div>
+            <ul id="stopList" class="list-group stop-list"></ul>
           </div>
-          <div id="historyMap"></div>
+        </div>
+        <div class="row controls-row mt-2">
+          <div class="col-md-6">
+            <button id="addPublicVehicleBtn" class="btn btn-primary">Add/Update Public Vehicle</button>
+          </div>
+          <div class="col-md-6">
+            <button id="deletePublicVehicleBtn" class="btn btn-danger">Delete Public Vehicle</button>
+          </div>
         </div>
       </div>
     </div>
   </main>
 
+  <!-- Toast Container -->
   <div class="toast-container position-fixed top-0 end-0 p-3"></div>
-  
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- Leaflet and Bootstrap JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    const app = {
-      config: {
-        firebase: {
-          apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-          authDomain: "svms-c0232.firebaseapp.com",
-          databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-          projectId: "svms-c0232",
-          storageBucket: "svms-c0232.appspot.com",
-          messagingSenderId: "359201898609",
-          appId: "1:359201898609:web:893ef076207abb06471bd0"
-        }
-      },
-      
-      state: {
-        uid: null,
-        departmentName: null,
-        map: null,
-        historyMap: null,
-        markerGroup: null,
-        markers: {},
-        followVehicle: null,
-        followInterval: null
-      },
+    /****************************************************************
+     * Company Admin Panel — Navixera
+     * - Extended to manage public vehicles for Live Transit Dashboard
+     * - Uses Firebase compat (v9 compat scripts)
+     ****************************************************************/
 
-      dom: {}, // Will be populated in init
-      
-      init() {
-        this.cacheDom();
-        firebase.initializeApp(this.config.firebase);
-        this.auth = firebase.auth();
-        this.db = firebase.database();
-        this.bindEvents();
-        this.listenForAuthChanges();
-      },
-      
-      cacheDom() {
-        const ids = [
-          'currentUser', 'logoutBtn', 'statDepartment', 'statVehicles', 'statTasks', 'statAlerts',
-          'vId', 'vType', 'vGps', 'addVehicleBtn', 'deleteVehicleBtn',
-          'dTrackId', 'dVehicleId', 'dStatus', 'addTaskBtn', 'exportCsvBtn',
-          'driverName', 'driverContact', 'addDriverBtn', 'driverList',
-          'map', 'searchVehicleInput', 'centerVehicleBtn', 'toggleFollowBtn',
-          'filterVehicle', 'filterStatus', 'taskList',
-          'historyVehicleSelect', 'loadHistoryBtn', 'clearHistoryBtn', 'historyMap'
-        ];
-        ids.forEach(id => {
-          this.dom[id] = document.getElementById(id);
-        });
-        this.dom.toastContainer = document.querySelector('.toast-container');
-      },
-      
-      bindEvents() {
-        this.dom.logoutBtn.addEventListener('click', () => this.auth.signOut());
-        this.dom.addVehicleBtn.addEventListener('click', () => this.api.addOrUpdateVehicle());
-        this.dom.deleteVehicleBtn.addEventListener('click', () => this.api.deleteVehicle());
-        this.dom.addTaskBtn.addEventListener('click', () => this.api.addTask());
-        this.dom.exportCsvBtn.addEventListener('click', () => this.ui.exportTasksToCsv());
-        this.dom.addDriverBtn.addEventListener('click', () => this.api.addPersonnel());
-        this.dom.centerVehicleBtn.addEventListener('click', () => this.map.centerOnSearchedVehicle());
-        this.dom.toggleFollowBtn.addEventListener('click', () => this.map.toggleFollow());
-        this.dom.searchVehicleInput.addEventListener('input', this.utils.debounce(e => this.map.searchVehicle(e.target.value)));
-        this.dom.filterVehicle.addEventListener('change', () => this.ui.renderTasks());
-        this.dom.filterStatus.addEventListener('change', () => this.ui.renderTasks());
-        this.dom.loadHistoryBtn.addEventListener('click', () => this.map.loadHistory());
-        this.dom.clearHistoryBtn.addEventListener('click', () => this.api.deleteHistory());
-      },
-      
-      listenForAuthChanges() {
-        this.auth.onAuthStateChanged(async (user) => {
-          if (!user) {
-            window.location.href = 'login.html'; // Or your login page
-            return;
-          }
-          this.state.uid = user.uid;
-          try {
-            const snap = await this.db.ref(`users/${this.state.uid}`).once('value');
-            const userData = snap.val();
-            
-            if (!userData || userData.role !== 'company' || userData.approved !== true) {
-              this.ui.showToast('Access denied or pending approval.', 'danger');
-              this.auth.signOut();
-              return;
-            }
-            
-            this.state.departmentName = userData.companyName || 'default_dept';
-            this.dom.currentUser.textContent = `${user.email} (${this.state.departmentName})`;
-            this.startApplication();
-          } catch (err) {
-            console.error(err);
-            this.ui.showToast('Initialization failed. See console.', 'danger');
-          }
-        });
-      },
-      
-      startApplication() {
-        this.map.init();
-        this.api.listenForVehicleUpdates();
-        this.ui.updateStats();
-        this.ui.renderPersonnel();
-      },
-
-      // --- Sub-modules for organization ---
-      
-      utils: {
-        debounce(fn, ms = 300) {
-          let t;
-          return (...a) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...a), ms);
-          };
-        },
-        parseGps(gps) {
-          if (!gps) return null;
-          const parts = String(gps).split(',').map(s => s.trim());
-          if (parts.length < 2) return null;
-          const [lat, lng] = [parseFloat(parts[0]), parseFloat(parts[1])];
-          if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
-          return [lat, lng];
-        }
-      },
-
-      ui: {
-        showToast(message, type = 'info', ttl = 3500) {
-          const toastEl = document.createElement('div');
-          toastEl.className = `toast align-items-center text-bg-${type} border-0`;
-          toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-          app.dom.toastContainer.appendChild(toastEl);
-          const toast = new bootstrap.Toast(toastEl, { delay: ttl });
-          toast.show();
-          toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
-        },
-
-        toggleLoading(button, isLoading) {
-            if (isLoading) {
-                button.disabled = true;
-                button.dataset.originalText = button.innerHTML;
-                button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...`;
-            } else {
-                button.disabled = false;
-                button.innerHTML = button.dataset.originalText;
-            }
-        },
-
-        async updateStats() {
-          const vehicles = (await app.api.getVehiclesRef().once('value')).val() || {};
-          const vehicleCount = Object.keys(vehicles).length;
-          let tasks = 0, alerts = 0;
-          const today = new Date().toDateString();
-
-          Object.values(vehicles).forEach(v => {
-            tasks += Object.keys(v.deliveries || {}).length;
-            if (v.last_trigger?.status === 'alert' && new Date(v.last_trigger.time).toDateString() === today) {
-              alerts++;
-            }
-          });
-          
-          app.dom.statVehicles.textContent = vehicleCount;
-          app.dom.statTasks.textContent = tasks;
-          app.dom.statAlerts.textContent = alerts;
-        },
-
-        refreshVehicleDropdowns(vehicleIds = []) {
-          const selects = [app.dom.filterVehicle, app.dom.historyVehicleSelect];
-          selects.forEach(select => {
-            const currentVal = select.value;
-            select.innerHTML = `<option value="">${select === app.dom.filterVehicle ? 'All Vehicles' : 'Select Vehicle...'}</option>`;
-            vehicleIds.sort().forEach(vId => {
-              select.innerHTML += `<option value="${vId}">${vId}</option>`;
-            });
-            select.value = currentVal;
-          });
-        },
-        
-        async renderTasks() {
-          const tbody = app.dom.taskList;
-          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>';
-          const vehicles = (await app.api.getVehiclesRef().once('value')).val() || {};
-          const filterV = app.dom.filterVehicle.value;
-          const filterS = app.dom.filterStatus.value;
-          
-          let content = '';
-          Object.entries(vehicles).forEach(([vId, vData]) => {
-            if (filterV && filterV !== vId) return;
-            Object.entries(vData.deliveries || {}).forEach(([tId, tData]) => {
-              const status = tData.status || 'pending';
-              if (filterS && filterS !== status) return;
-              
-              const badgeColors = { pending: 'secondary', in_transit: 'info', completed: 'success', canceled: 'danger' };
-              content += `
-                <tr>
-                  <td><strong>${tId}</strong></td>
-                  <td>${vId}</td>
-                  <td><span class="badge bg-${badgeColors[status] || 'secondary'}">${status.replace('_', ' ')}</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary" onclick="app.api.editTask('${vId}', '${tId}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="app.api.deleteTask('${vId}', '${tId}')"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>`;
-            });
-          });
-          tbody.innerHTML = content || '<tr><td colspan="4" class="text-center text-muted">No tasks found.</td></tr>';
-        },
-
-        async renderPersonnel() {
-          const list = app.dom.driverList;
-          list.innerHTML = '<li class="list-group-item text-muted">Loading...</li>';
-          const personnel = (await app.db.ref(`users/${app.state.uid}/drivers`).once('value')).val() || {};
-          let content = '';
-          Object.entries(personnel).forEach(([key, person]) => {
-            content += `
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div><strong>${person.name}</strong><div class="small text-muted">${person.contact}</div></div>
-                <button class="btn btn-sm btn-outline-danger" onclick="app.api.deletePersonnel('${key}')"><i class="bi bi-x-lg"></i></button>
-              </li>`;
-          });
-          list.innerHTML = content || '<li class="list-group-item text-muted">No personnel added.</li>';
-        },
-
-        async exportTasksToCsv() {
-          const btn = app.dom.exportCsvBtn;
-          this.toggleLoading(btn, true);
-          try {
-            const vehicles = (await app.api.getVehiclesRef().once('value')).val() || {};
-            const rows = [['TaskId', 'VehicleId', 'Status', 'CreatedAt']];
-            Object.entries(vehicles).forEach(([vId, vData]) => {
-              Object.entries(vData.deliveries || {}).forEach(([tId, tData]) => {
-                rows.push([tId, vId, tData.status || '', tData.createdAt || '']);
-              });
-            });
-            const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `tasks_${app.state.departmentName}_${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-            this.showToast('CSV export successful!', 'success');
-          } catch(err) {
-            console.error(err);
-            this.showToast('Export failed. See console.', 'danger');
-          } finally {
-            this.toggleLoading(btn, false);
-          }
-        },
-      },
-      
-      map: {
-        init() {
-          this.destroy(); // Clean up previous instances if any
-          app.state.map = L.map('map').setView([19.0760, 72.8777], 11);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(app.state.map);
-          app.state.markerGroup = L.featureGroup().addTo(app.state.map);
-
-          app.state.historyMap = L.map('historyMap').setView([19.0760, 72.8777], 11);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(app.state.historyMap);
-        },
-        destroy() {
-          if (app.state.map) app.state.map.remove();
-          if (app.state.historyMap) app.state.historyMap.remove();
-        },
-        updateVehicleMarkers(vehicles = {}) {
-            const bounds = [];
-            const present = new Set(Object.keys(vehicles));
-
-            Object.entries(vehicles).forEach(([vId, vData]) => {
-                const coords = app.utils.parseGps(vData.gps);
-                if (coords) {
-                    const popupContent = `<strong>${vId}</strong> (${vData.vehicleType || 'N/A'})<br>Battery: ${vData.battery || 'N/A'}%`;
-                    if (app.state.markers[vId]) {
-                        app.state.markers[vId].setLatLng(coords).getPopup().setContent(popupContent);
-                    } else {
-                        const marker = L.marker(coords, { title: vId }).addTo(app.state.markerGroup);
-                        marker.bindPopup(popupContent);
-                        app.state.markers[vId] = marker;
-                    }
-                    bounds.push(coords);
-                }
-            });
-
-            Object.keys(app.state.markers).forEach(vId => {
-                if (!present.has(vId)) {
-                    app.state.markerGroup.removeLayer(app.state.markers[vId]);
-                    delete app.state.markers[vId];
-                }
-            });
-            
-            if (bounds.length && !app.state.followVehicle) {
-                try { app.state.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch(e){}
-            }
-        },
-        searchVehicle(query) {
-          const vId = Object.keys(app.state.markers).find(k => k.toLowerCase().includes(query.toLowerCase()));
-          if (vId) {
-            const marker = app.state.markers[vId];
-            app.state.map.setView(marker.getLatLng(), 16);
-            marker.openPopup();
-          }
-        },
-        centerOnSearchedVehicle() { this.searchVehicle(app.dom.searchVehicleInput.value); },
-        toggleFollow() {
-          const btn = app.dom.toggleFollowBtn;
-          if (app.state.followVehicle) {
-            app.state.followVehicle = null;
-            clearInterval(app.state.followInterval);
-            btn.textContent = 'Follow: OFF';
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-outline-secondary');
-          } else {
-            const vId = app.dom.searchVehicleInput.value.trim();
-            if (!vId || !app.state.markers[vId]) {
-              app.ui.showToast('Enter a valid and active Vehicle ID to follow.', 'warning');
-              return;
-            }
-            app.state.followVehicle = vId;
-            btn.textContent = 'Follow: ON';
-            btn.classList.add('btn-primary');
-            btn.classList.remove('btn-outline-secondary');
-            app.state.followInterval = setInterval(() => {
-              if (app.state.markers[app.state.followVehicle]) {
-                app.state.map.panTo(app.state.markers[app.state.followVehicle].getLatLng());
-              }
-            }, 2000);
-          }
-        },
-        async loadHistory() {
-          const vId = app.dom.historyVehicleSelect.value;
-          if (!vId) return app.ui.showToast('Please select a vehicle.', 'warning');
-          
-          const btn = app.dom.loadHistoryBtn;
-          app.ui.toggleLoading(btn, true);
-          try {
-            const history = (await app.db.ref(`users/${app.state.uid}/vehicle/companies/${app.state.departmentName}/vehicle/${vId}/history`).once('value')).val() || {};
-            const points = Object.values(history).map(h => app.utils.parseGps(h.gps)).filter(Boolean);
-            
-            app.state.historyMap.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.CircleMarker) app.state.historyMap.removeLayer(l); });
-            
-            if (points.length) {
-                const polyline = L.polyline(points, { color: 'var(--danger)' }).addTo(app.state.historyMap);
-                L.circleMarker(points[0], { radius: 6, color: 'var(--success)' }).addTo(app.state.historyMap).bindPopup('Start');
-                L.circleMarker(points[points.length - 1], { radius: 6, color: 'var(--danger)' }).addTo(app.state.historyMap).bindPopup('End');
-                app.state.historyMap.fitBounds(polyline.getBounds(), { padding: [40, 40] });
-                app.dom.clearHistoryBtn.style.display = 'inline-block';
-                app.dom.clearHistoryBtn.dataset.vId = vId;
-            } else {
-                app.ui.showToast('No movement history found for this vehicle.', 'info');
-                app.dom.clearHistoryBtn.style.display = 'none';
-            }
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to load history.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        }
-      },
-
-      api: {
-        getVehiclesRef() {
-          return app.db.ref(`users/${app.state.uid}/vehicle/companies/${app.state.departmentName}/vehicle`);
-        },
-        listenForVehicleUpdates() {
-          this.getVehiclesRef().on('value', snapshot => {
-            const vehicles = snapshot.val() || {};
-            app.map.updateVehicleMarkers(vehicles);
-            app.ui.refreshVehicleDropdowns(Object.keys(vehicles));
-            app.ui.renderTasks(); // Live update tasks
-            app.ui.updateStats(); // Live update stats
-          });
-        },
-        async addOrUpdateVehicle() {
-          const btn = app.dom.addVehicleBtn;
-          const vId = app.dom.vId.value.trim();
-          const vType = app.dom.vType.value.trim();
-          const vGps = app.dom.vGps.value.trim();
-          if (!vId) return app.ui.showToast('Vehicle ID is required.', 'warning');
-          
-          app.ui.toggleLoading(btn, true);
-          try {
-            await this.getVehiclesRef().child(vId).update({ 
-                vehicleType: vType || 'Unknown', 
-                gps: vGps || '0,0'
-            });
-            app.ui.showToast(`Vehicle ${vId} saved successfully.`, 'success');
-            app.dom.vId.value = app.dom.vType.value = app.dom.vGps.value = '';
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to save vehicle.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        },
-        async deleteVehicle() {
-          const btn = app.dom.deleteVehicleBtn;
-          const vId = app.dom.vId.value.trim();
-          if (!vId || !confirm(`Are you sure you want to delete vehicle ${vId}? This is irreversible.`)) return;
-          
-          app.ui.toggleLoading(btn, true);
-          try {
-            await this.getVehiclesRef().child(vId).remove();
-            app.ui.showToast(`Vehicle ${vId} deleted.`, 'success');
-            app.dom.vId.value = '';
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to delete vehicle.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        },
-        async addTask() {
-          const btn = app.dom.addTaskBtn;
-          const tId = app.dom.dTrackId.value.trim();
-          const vId = app.dom.dVehicleId.value.trim();
-          const status = app.dom.dStatus.value;
-          if (!tId || !vId) return app.ui.showToast('Task ID and Vehicle ID are required.', 'warning');
-          
-          app.ui.toggleLoading(btn, true);
-          try {
-            await this.getVehiclesRef().child(`${vId}/deliveries/${tId}`).set({
-              status, createdAt: new Date().toISOString()
-            });
-            app.ui.showToast('Task added successfully.', 'success');
-            app.dom.dTrackId.value = app.dom.dVehicleId.value = '';
-            app.dom.dStatus.value = 'pending';
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to add task.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        },
-        async editTask(vId, tId) {
-          const newStatus = prompt('Enter new status (pending, in_transit, completed, canceled):', 'in_transit');
-          if (!newStatus || !['pending', 'in_transit', 'completed', 'canceled'].includes(newStatus)) return;
-          try {
-            await this.getVehiclesRef().child(`${vId}/deliveries/${tId}/status`).set(newStatus);
-            app.ui.showToast('Task status updated.', 'success');
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Update failed.', 'danger');
-          }
-        },
-        async deleteTask(vId, tId) {
-          if (!confirm(`Delete task ${tId} for vehicle ${vId}?`)) return;
-          try {
-            await this.getVehiclesRef().child(`${vId}/deliveries/${tId}`).remove();
-            app.ui.showToast('Task deleted.', 'success');
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Delete failed.', 'danger');
-          }
-        },
-        async addPersonnel() {
-          const btn = app.dom.addDriverBtn;
-          const name = app.dom.driverName.value.trim();
-          const contact = app.dom.driverContact.value.trim();
-          if (!name || !contact) return app.ui.showToast('Operator name and contact are required.', 'warning');
-          
-          app.ui.toggleLoading(btn, true);
-          try {
-            await app.db.ref(`users/${app.state.uid}/drivers`).push({ name, contact });
-            app.ui.showToast('Operator added.', 'success');
-            app.dom.driverName.value = app.dom.driverContact.value = '';
-            app.ui.renderPersonnel();
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to add operator.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        },
-        async deletePersonnel(key) {
-          if (!confirm('Are you sure you want to remove this operator?')) return;
-          try {
-            await app.db.ref(`users/${app.state.uid}/drivers/${key}`).remove();
-            app.ui.showToast('Operator removed.', 'success');
-            app.ui.renderPersonnel();
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to remove operator.', 'danger');
-          }
-        },
-        async deleteHistory() {
-          const btn = app.dom.clearHistoryBtn;
-          const vId = btn.dataset.vId;
-          if (!vId || !confirm(`Delete all movement history for vehicle ${vId}?`)) return;
-          
-          app.ui.toggleLoading(btn, true);
-          try {
-            await this.getVehiclesRef().child(`${vId}/history`).remove();
-            app.ui.showToast('History deleted.', 'success');
-            app.map.loadHistory(); // Reload to show empty state
-            btn.style.display = 'none';
-          } catch(err) {
-            console.error(err);
-            app.ui.showToast('Failed to delete history.', 'danger');
-          } finally {
-            app.ui.toggleLoading(btn, false);
-          }
-        }
-      }
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
-    
-    // Start the application
-    app.init();
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // DOM References
+    const currentUserEl = document.getElementById('currentUser');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const statCompanies = document.getElementById('statCompanies');
+    const statVehicles = document.getElementById('statVehicles');
+    const statDeliveries = document.getElementById('statDeliveries');
+    const statAlerts = document.getElementById('statAlerts');
+    const publicVehicleId = document.getElementById('publicVehicleId');
+    const publicVehicleType = document.getElementById('publicVehicleType');
+    const publicVehicleGps = document.getElementById('publicVehicleGps');
+    const publicRouteName = document.getElementById('publicRouteName');
+    const stopName = document.getElementById('stopName');
+    const stopGps = document.getElementById('stopGps');
+    const addStopBtn = document.getElementById('addStopBtn');
+    const stopList = document.getElementById('stopList');
+    const addPublicVehicleBtn = document.getElementById('addPublicVehicleBtn');
+    const deletePublicVehicleBtn = document.getElementById('deletePublicVehicleBtn');
+
+    // Local State
+    let uid = null;
+    let companyName = null;
+    let map, historyMap;
+    let markerGroup = L.featureGroup();
+    const markers = {};
+    let tempStops = []; // Temporary array for stops before saving
+
+    // Toast Helper
+    function showToast(message, type = 'info', ttl = 3500) {
+      const div = document.createElement('div');
+      div.className = `toast align-items-center text-bg-${type} border-0`;
+      div.setAttribute('role', 'alert');
+      div.setAttribute('aria-live', 'assertive');
+      div.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="close"></button>
+        </div>`;
+      document.querySelector('.toast-container').appendChild(div);
+      const t = new bootstrap.Toast(div, { delay: ttl });
+      t.show();
+      div.addEventListener('hidden.bs.toast', () => div.remove());
+    }
+
+    // Parse GPS
+    function parseGps(gps) {
+      if (!gps) return null;
+      const parts = String(gps).split(',').map(s => s.trim());
+      if (parts.length < 2) return null;
+      const lat = Number(parts[0]), lng = Number(parts[1]);
+      if (!isFinite(lat) || !isFinite(lng)) return null;
+      if (lat === 0 && lng === 0) return null;
+      return [lat, lng];
+    }
+
+    // Auth & Initialization
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+      uid = user.uid;
+      try {
+        const snap = await db.ref(`users/${uid}`).once('value');
+        const me = snap.val();
+        if (!me) { showToast('User record not found', 'danger'); auth.signOut(); return; }
+        if (me.role !== 'company') { showToast('Unauthorized', 'danger'); auth.signOut(); return; }
+        if (me.approved !== true) { showToast('Waiting for approval', 'warning'); auth.signOut(); return; }
+        companyName = me.companyName || 'default';
+        currentUserEl.textContent = `${me.email || user.email} (${companyName})`;
+
+        initMap();
+        setupRealtimeListeners();
+        loadStats();
+        addStopBtn.addEventListener('click', handleAddStop);
+        addPublicVehicleBtn.addEventListener('click', handleAddPublicVehicle);
+        deletePublicVehicleBtn.addEventListener('click', handleDeletePublicVehicle);
+        logoutBtn.addEventListener('click', () => auth.signOut());
+      } catch (err) {
+        console.error(err);
+        showToast('Initialization failed', 'danger');
+      }
+    });
+
+    // Initialize Map
+    function initMap() {
+      map = L.map('map').setView([19.2183, 72.9781], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      markerGroup.addTo(map);
+
+      historyMap = L.map('historyMap').setView([19.2183, 72.9781], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(historyMap);
+    }
+
+    // Realtime Vehicle Listeners (Existing)
+    function setupRealtimeListeners() {
+      const vehiclesRef = db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`);
+      vehiclesRef.on('value', snap => {
+        const vehicles = snap.val() || {};
+        const bounds = [];
+        const present = new Set();
+
+        Object.entries(vehicles).forEach(([vid, v]) => {
+          present.add(vid);
+          const coords = parseGps(v.gps);
+          if (coords) {
+            if (!markers[vid]) {
+              const m = L.marker(coords, { title: vid }).addTo(markerGroup);
+              m.bindPopup(vehiclePopupHtml(vid, v));
+              markers[vid] = m;
+            } else {
+              markers[vid].setLatLng(coords);
+              const popup = markers[vid].getPopup();
+              if (popup) popup.setContent(vehiclePopupHtml(vid, v));
+            }
+            bounds.push(coords);
+          }
+        });
+
+        Object.keys(markers).forEach(k => {
+          if (!present.has(k)) {
+            try { markerGroup.removeLayer(markers[k]); } catch (e) {}
+            delete markers[k];
+          }
+        });
+
+        if (bounds.length) {
+          try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch (e) {}
+        }
+      }, err => {
+        console.error('Vehicles listener error:', err);
+      });
+    }
+
+    function vehiclePopupHtml(vid, v) {
+      return `<div><strong>${vid}</strong><div class="small text-muted">${v.vehicleType || 'Unknown'}</div>
+              <div class="mt-2 small"><b>Battery:</b> ${v.battery ?? 'N/A'}%<br/><b>GPS:</b> ${v.gps || 'Unknown'}</div></div>`;
+    }
+
+    // Handle Add Stop
+    function handleAddStop() {
+      const name = stopName.value.trim();
+      const gps = stopGps.value.trim();
+      if (!name || !gps) {
+        showToast('Enter stop name and GPS', 'warning');
+        return;
+      }
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format', 'warning');
+        return;
+      }
+      tempStops.push({ name, gps });
+      stopName.value = '';
+      stopGps.value = '';
+      renderStopList();
+    }
+
+    // Render Stop List
+    function renderStopList() {
+      stopList.innerHTML = '';
+      tempStops.forEach((stop, index) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `${stop.name} (${stop.gps})
+          <button class="btn btn-sm btn-outline-danger" data-index="${index}">Remove</button>`;
+        li.querySelector('button').addEventListener('click', () => {
+          tempStops.splice(index, 1);
+          renderStopList();
+        });
+        stopList.appendChild(li);
+      });
+    }
+
+    // Handle Add Public Vehicle
+    async function handleAddPublicVehicle() {
+      const vid = publicVehicleId.value.trim();
+      const vtype = publicVehicleType.value.trim();
+      const gps = publicVehicleGps.value.trim();
+      const routeName = publicRouteName.value.trim();
+      if (!vid || !vtype || !gps || !routeName) {
+        showToast('Fill all fields', 'warning');
+        return;
+      }
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format', 'warning');
+        return;
+      }
+      try {
+        const fullRoutePath = tempStops.map(s => s.gps);
+        const obj = {
+          vehicleType: vtype,
+          vehicleNumber: vid,
+          gps,
+          battery: Math.floor(Math.random() * 20) + 80,
+          companyName,
+          routeName,
+          stops: tempStops,
+          fullRoutePath
+        };
+        await db.ref(`public_transport/vehicles/${vid}`).update(obj);
+        showToast('Public vehicle added/updated', 'success');
+        publicVehicleId.value = '';
+        publicVehicleType.value = '';
+        publicVehicleGps.value = '';
+        publicRouteName.value = '';
+        tempStops = [];
+        renderStopList();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to add public vehicle', 'danger');
+      }
+    }
+
+    // Handle Delete Public Vehicle
+    async function handleDeletePublicVehicle() {
+      const vid = publicVehicleId.value.trim();
+      if (!vid) {
+        showToast('Enter vehicle ID to delete', 'warning');
+        return;
+      }
+      if (!confirm(`Delete public vehicle ${vid}?`)) return;
+      try {
+        await db.ref(`public_transport/vehicles/${vid}`).remove();
+        showToast('Public vehicle deleted', 'success');
+        publicVehicleId.value = '';
+        tempStops = [];
+        renderStopList();
+      } catch (err) {
+        console.error(err);
+        showToast('Delete failed', 'danger');
+      }
+    }
+
+    // Load Stats (Existing)
+    async function loadStats() {
+      try {
+        const snap = await db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`).once('value');
+        const vehicles = snap.val() || {};
+        const vehicleCount = Object.keys(vehicles).length;
+        let deliveries = 0;
+        let alerts = 0;
+        const today = new Date().toDateString();
+
+        Object.values(vehicles).forEach(v => {
+          const d = v.deliveries || {};
+          deliveries += Object.keys(d).length;
+          const lt = v.last_trigger;
+          if (lt && lt.status === 'alert' && lt.time && new Date(lt.time).toDateString() === today) alerts++;
+        });
+
+        statVehicles.innerText = vehicleCount;
+        statDeliveries.innerText = deliveries;
+        statAlerts.innerText = alerts;
+        statCompanies.innerText = 1;
+      } catch (err) {
+        console.error(err);
+      }
+    }
   </script>
 </body>
-</html>
+            </html>
