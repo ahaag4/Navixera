@@ -6,10 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Bootstrap 5 -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 
   <style>
     :root {
@@ -18,21 +15,19 @@
       --card-bg: #fff;
       --page-bg: #f6f8fb;
     }
-    html, body { height: 100%; }
+    html, body { height: 100%; margin: 0; }
     body { background: var(--page-bg); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
     .navbar { background: linear-gradient(90deg, var(--primary), #1a7bff); }
     .navbar-brand { color: #fff !important; font-weight: 600; }
     .card { border: 0; border-radius: 12px; box-shadow: 0 6px 18px rgba(13, 110, 253, 0.06); }
     .stat-card { padding: 18px; border-radius: 10px; background: var(--card-bg); text-align: center; }
     .stat-card h3 { margin: 0; color: var(--primary); font-weight: 700; }
-    #map, #historyMap { height: 360px; border-radius: 10px; }
     .small-muted { color: var(--muted); font-size: .9rem; }
-    .table-responsive { max-height: 350px; overflow: auto; }
     .controls-row > * { margin-right: .5rem; margin-bottom: .5rem; }
     .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
     .stop-list { max-height: 200px; overflow-y: auto; }
     @media (max-width: 992px) {
-      #map, #historyMap { height: 260px; }
+      .controls-row > * { margin-right: 0; }
     }
   </style>
 </head>
@@ -40,7 +35,7 @@
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg mb-3">
     <div class="container">
-      <a class="navbar-brand">Company Admin — Navixera</a>
+      <a class="navbar-brand" href="#">Company Admin — Navixera</a>
       <div class="d-flex align-items-center ms-auto gap-2">
         <span id="currentUser" class="text-white small-muted"></span>
         <button id="logoutBtn" class="btn btn-light btn-sm">Logout</button>
@@ -126,15 +121,15 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-  <!-- Leaflet and Bootstrap JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
   <script>
     /****************************************************************
      * Company Admin Panel — Navixera
-     * - Extended to manage public vehicles for Live Transit Dashboard
+     * - Manages public vehicles for Live Transit Dashboard
      * - Uses Firebase compat (v9 compat scripts)
+     * - Enhanced error handling for initialization
      ****************************************************************/
 
     // Firebase Config
@@ -147,7 +142,14 @@
       messagingSenderId: "359201898609",
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
-    firebase.initializeApp(firebaseConfig);
+
+    // Initialize Firebase
+    try {
+      firebase.initializeApp(firebaseConfig);
+    } catch (err) {
+      console.error('Firebase initialization failed:', err);
+      showToast('Failed to initialize Firebase. Check console for details.', 'danger');
+    }
     const auth = firebase.auth();
     const db = firebase.database();
 
@@ -172,9 +174,6 @@
     // Local State
     let uid = null;
     let companyName = null;
-    let map, historyMap;
-    let markerGroup = L.featureGroup();
-    const markers = {};
     let tempStops = []; // Temporary array for stops before saving
 
     // Toast Helper
@@ -186,7 +185,7 @@
       div.innerHTML = `
         <div class="d-flex">
           <div class="toast-body">${message}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="close"></button>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>`;
       document.querySelector('.toast-container').appendChild(div);
       const t = new bootstrap.Toast(div, { delay: ttl });
@@ -208,86 +207,50 @@
     // Auth & Initialization
     auth.onAuthStateChanged(async (user) => {
       if (!user) {
+        console.log('No user logged in, redirecting to login.html');
         window.location.href = 'login.html';
         return;
       }
       uid = user.uid;
       try {
+        console.log('Fetching user data for UID:', uid);
         const snap = await db.ref(`users/${uid}`).once('value');
         const me = snap.val();
-        if (!me) { showToast('User record not found', 'danger'); auth.signOut(); return; }
-        if (me.role !== 'company') { showToast('Unauthorized', 'danger'); auth.signOut(); return; }
-        if (me.approved !== true) { showToast('Waiting for approval', 'warning'); auth.signOut(); return; }
+        if (!me) {
+          console.error('User record not found for UID:', uid);
+          showToast('User record not found', 'danger');
+          auth.signOut();
+          return;
+        }
+        if (me.role !== 'company') {
+          console.error('User role is not company:', me.role);
+          showToast('Unauthorized: Not a company account', 'danger');
+          auth.signOut();
+          return;
+        }
+        if (me.approved !== true) {
+          console.error('User not approved:', me.approved);
+          showToast('Waiting for approval', 'warning');
+          auth.signOut();
+          return;
+        }
         companyName = me.companyName || 'default';
         currentUserEl.textContent = `${me.email || user.email} (${companyName})`;
+        console.log('User initialized successfully:', { uid, companyName });
 
-        initMap();
-        setupRealtimeListeners();
         loadStats();
         addStopBtn.addEventListener('click', handleAddStop);
         addPublicVehicleBtn.addEventListener('click', handleAddPublicVehicle);
         deletePublicVehicleBtn.addEventListener('click', handleDeletePublicVehicle);
-        logoutBtn.addEventListener('click', () => auth.signOut());
+        logoutBtn.addEventListener('click', () => {
+          console.log('Logging out user:', uid);
+          auth.signOut();
+        });
       } catch (err) {
-        console.error(err);
-        showToast('Initialization failed', 'danger');
+        console.error('Initialization error:', err);
+        showToast(`Initialization failed: ${err.message}`, 'danger');
       }
     });
-
-    // Initialize Map
-    function initMap() {
-      map = L.map('map').setView([19.2183, 72.9781], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      markerGroup.addTo(map);
-
-      historyMap = L.map('historyMap').setView([19.2183, 72.9781], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(historyMap);
-    }
-
-    // Realtime Vehicle Listeners (Existing)
-    function setupRealtimeListeners() {
-      const vehiclesRef = db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`);
-      vehiclesRef.on('value', snap => {
-        const vehicles = snap.val() || {};
-        const bounds = [];
-        const present = new Set();
-
-        Object.entries(vehicles).forEach(([vid, v]) => {
-          present.add(vid);
-          const coords = parseGps(v.gps);
-          if (coords) {
-            if (!markers[vid]) {
-              const m = L.marker(coords, { title: vid }).addTo(markerGroup);
-              m.bindPopup(vehiclePopupHtml(vid, v));
-              markers[vid] = m;
-            } else {
-              markers[vid].setLatLng(coords);
-              const popup = markers[vid].getPopup();
-              if (popup) popup.setContent(vehiclePopupHtml(vid, v));
-            }
-            bounds.push(coords);
-          }
-        });
-
-        Object.keys(markers).forEach(k => {
-          if (!present.has(k)) {
-            try { markerGroup.removeLayer(markers[k]); } catch (e) {}
-            delete markers[k];
-          }
-        });
-
-        if (bounds.length) {
-          try { map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch (e) {}
-        }
-      }, err => {
-        console.error('Vehicles listener error:', err);
-      });
-    }
-
-    function vehiclePopupHtml(vid, v) {
-      return `<div><strong>${vid}</strong><div class="small text-muted">${v.vehicleType || 'Unknown'}</div>
-              <div class="mt-2 small"><b>Battery:</b> ${v.battery ?? 'N/A'}%<br/><b>GPS:</b> ${v.gps || 'Unknown'}</div></div>`;
-    }
 
     // Handle Add Stop
     function handleAddStop() {
@@ -298,13 +261,14 @@
         return;
       }
       if (!parseGps(gps)) {
-        showToast('Invalid GPS format', 'warning');
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
         return;
       }
       tempStops.push({ name, gps });
       stopName.value = '';
       stopGps.value = '';
       renderStopList();
+      console.log('Added stop:', { name, gps });
     }
 
     // Render Stop List
@@ -318,6 +282,7 @@
         li.querySelector('button').addEventListener('click', () => {
           tempStops.splice(index, 1);
           renderStopList();
+          console.log('Removed stop at index:', index);
         });
         stopList.appendChild(li);
       });
@@ -334,7 +299,7 @@
         return;
       }
       if (!parseGps(gps)) {
-        showToast('Invalid GPS format', 'warning');
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
         return;
       }
       try {
@@ -357,9 +322,10 @@
         publicRouteName.value = '';
         tempStops = [];
         renderStopList();
+        console.log('Added/updated public vehicle:', obj);
       } catch (err) {
-        console.error(err);
-        showToast('Failed to add public vehicle', 'danger');
+        console.error('Failed to add public vehicle:', err);
+        showToast(`Failed to add public vehicle: ${err.message}`, 'danger');
       }
     }
 
@@ -377,13 +343,14 @@
         publicVehicleId.value = '';
         tempStops = [];
         renderStopList();
+        console.log('Deleted public vehicle:', vid);
       } catch (err) {
-        console.error(err);
-        showToast('Delete failed', 'danger');
+        console.error('Failed to delete public vehicle:', err);
+        showToast(`Delete failed: ${err.message}`, 'danger');
       }
     }
 
-    // Load Stats (Existing)
+    // Load Stats
     async function loadStats() {
       try {
         const snap = await db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`).once('value');
@@ -404,10 +371,12 @@
         statDeliveries.innerText = deliveries;
         statAlerts.innerText = alerts;
         statCompanies.innerText = 1;
+        console.log('Stats loaded:', { vehicleCount, deliveries, alerts });
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load stats:', err);
+        showToast(`Failed to load stats: ${err.message}`, 'danger');
       }
     }
   </script>
 </body>
-  </html>
+            </html>
