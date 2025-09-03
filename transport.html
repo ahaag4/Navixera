@@ -18,6 +18,7 @@
     :root {
       --primary-color: #0d6efd;
       --primary-rgb: 13, 110, 253;
+      --secondary-color: #6c757d;
       --bg-light: #f4f7f9;
       --card-bg: #ffffff;
       --font-family: 'Poppins', sans-serif;
@@ -49,14 +50,14 @@
       box-shadow: var(--shadow-sm);
       transition: all 0.3s ease-in-out;
     }
-    
-    .search-panel.card:hover, .sidebar.card:hover {
+
+    .card:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-md);
     }
 
     #map {
-      height: 75vh;
+      height: 70vh;
       min-height: 500px;
       border-radius: var(--border-radius);
       z-index: 1;
@@ -87,7 +88,7 @@
       align-items: center;
       z-index: 10;
       transition: opacity 0.3s ease;
-      opacity: 1;
+      opacity: 1; /* Initially visible */
     }
 
     .loader-overlay.hidden {
@@ -126,6 +127,7 @@
       width: 350px;
       max-width: 90%;
       z-index: 1020;
+      box-shadow: var(--shadow-md);
       transform: translateX(120%);
       transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
@@ -137,6 +139,11 @@
     .sidebar .card-body {
         max-height: calc(100vh - 150px);
         overflow-y: auto;
+    }
+
+    #stopList .list-group-item {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
     }
 
     #stopList .list-group-item:hover {
@@ -160,27 +167,52 @@
       100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
     }
 
-    /* --- Animations & Transitions --- */
+    /* --- Toast Notifications --- */
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1080;
+    }
+
+    /* --- Animations --- */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .vehicle-item:nth-child(2) { animation-delay: 0.1s; }
-    .vehicle-item:nth-child(3) { animation-delay: 0.2s; }
+
+    /* Staggered animation for search results */
+    .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
+    .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
+    .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
+    /* ... and so on */
+
 
     /* --- Responsive Design --- */
     @media (max-width: 991px) {
-      #map { height: 50vh; }
+      #map {
+        height: 50vh;
+      }
     }
 
     @media (max-width: 768px) {
       .sidebar {
-        width: 100%; max-width: 100%; right: 0; bottom: 0; top: auto;
+        width: 100%;
+        max-width: 100%;
+        right: 0;
+        bottom: 0;
+        top: auto;
         border-radius: var(--border-radius) var(--border-radius) 0 0;
         transform: translateY(120%);
       }
-      .sidebar.is-visible { transform: translateY(0); }
-      .sidebar .card-body { max-height: 50vh; }
+      
+      .sidebar.is-visible {
+        transform: translateY(0);
+      }
+      
+      .sidebar .card-body {
+        max-height: 50vh;
+      }
     }
   </style>
 </head>
@@ -245,19 +277,23 @@
     </div>
   </div>
 
-  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
+  <div class="toast-container"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
-  
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   
   <script>
     (function () {
       'use strict';
+
+      /****************************************************************
+       * Navixera Live Public Transit Dashboard
+       * Professional, Responsive, and Animated Version
+       ****************************************************************/
 
       // --- Firebase Configuration ---
       const firebaseConfig = {
@@ -298,7 +334,6 @@
       let userLocationMarker = null;
 
       // --- Custom Icons ---
-      // Fixed vehicle icon with proper SVG
       const vehicleIcon = L.icon({
           iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -323,6 +358,7 @@
         const toastEl = document.createElement('div');
         toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
         toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
         toastEl.innerHTML = `
           <div class="d-flex">
             <div class="toast-body">${message}</div>
@@ -342,7 +378,9 @@
         }
         
         const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
-        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) return null;
+        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
+            return null;
+        }
         return [parts[0], parts[1]];
       };
 
@@ -360,10 +398,10 @@
 
       // --- Map Functions ---
       const initMap = () => {
-        map = L.map('map').setView([19.0760, 72.8777], 12);
+        map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19, 
-          attribution: '© OpenStreetMap'
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         markerGroup.addTo(map);
         routeLayer.addTo(map);
@@ -396,6 +434,17 @@
         );
       };
 
+      const drawVehicleRoute = (vehicle) => {
+        routeLayer.clearLayers();
+        const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
+        if (routePath.length > 1) {
+          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+          routePath.forEach(coord => {
+            L.circleMarker(coord, { radius: 5, color: '#0d6efd', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(routeLayer);
+          });
+        }
+      };
+
       // --- UI Update Functions ---
       const showVehicleDetails = (vid, vehicle) => {
         dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
@@ -404,34 +453,31 @@
           <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
           <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
           <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
-          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>`;
+          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>
+        `;
         
         dom.stopList.innerHTML = '';
         const stops = vehicle.stops || [];
         if (stops.length > 0) {
-          stops.forEach(stop => {
-            const li = document.createElement('li');
-            li.className = 'list-group-item list-group-item-action';
-            li.textContent = stop.name || 'Unnamed Stop';
-            li.addEventListener('click', () => {
-              const coords = parseGps(stop.gps);
-              if (coords) map.flyTo(coords, 16);
+            stops.forEach(stop => {
+              const li = document.createElement('li');
+              li.className = 'list-group-item';
+              li.textContent = stop.name || 'Unnamed Stop';
+              li.addEventListener('click', () => {
+                const coords = parseGps(stop.gps);
+                if (coords) map.flyTo(coords, 16);
+              });
+              dom.stopList.appendChild(li);
             });
-            dom.stopList.appendChild(li);
-          });
         } else {
-          dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
+            dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
         }
         
-        // Draw route path if available
-        const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
-        routeLayer.clearLayers();
-        if (routePath.length > 1) {
-          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
-        }
-        
+        drawVehicleRoute(vehicle);
         dom.vehicleDetails.classList.add('is-visible');
       };
+
+      const hideVehicleDetails = () => dom.vehicleDetails.classList.remove('is-visible');
 
       // --- Data & Business Logic ---
       const loadPublicVehicles = () => {
@@ -439,40 +485,46 @@
         vehiclesRef.on('value', snap => {
           hideLoader();
           const vehicles = snap.val() || {};
-          const presentVehicleIds = new Set(Object.keys(vehicles));
+          const presentVehicleIds = new Set();
+          const bounds = [];
 
           Object.entries(vehicles).forEach(([vid, v]) => {
+            presentVehicleIds.add(vid);
             const newCoords = parseGps(v.gps);
-            if (!newCoords) return;
-
-            if (!markers[vid]) {
-              const marker = L.rotatedMarker(newCoords, { 
-                icon: vehicleIcon, 
-                title: vid,
-                rotationAngle: 0,
-                rotationOrigin: 'center'
-              }).addTo(markerGroup);
+            if (newCoords) {
+              bounds.push(newCoords);
               
-              marker.bindPopup(`
-                <strong>${vid}</strong><br>
-                ${v.vehicleType || 'Unknown'}<br>
-                ${v.routeName ? `Route: ${v.routeName}` : ''}
-              `);
-              
-              marker.on('click', () => showVehicleDetails(vid, v));
-              markers[vid] = { marker: marker, prevCoords: newCoords };
-            } else {
-              const { marker, prevCoords } = markers[vid];
-              if (prevCoords[0] !== newCoords[0] || prevCoords[1] !== newCoords[1]) {
-                const bearing = calculateBearing(prevCoords[0], prevCoords[1], newCoords[0], newCoords[1]);
-                marker.setLatLng(newCoords);
-                marker.setRotationAngle(bearing);
-                marker.setPopupContent(`
+              if (!markers[vid]) {
+                // Create new marker with rotation capability
+                const marker = L.rotatedMarker(newCoords, { 
+                  icon: vehicleIcon, 
+                  title: vid,
+                  rotationAngle: 0,
+                  rotationOrigin: 'center'
+                }).addTo(markerGroup);
+                
+                marker.bindPopup(`
                   <strong>${vid}</strong><br>
                   ${v.vehicleType || 'Unknown'}<br>
                   ${v.routeName ? `Route: ${v.routeName}` : ''}
                 `);
-                markers[vid].prevCoords = newCoords;
+                
+                marker.on('click', () => showVehicleDetails(vid, v));
+                markers[vid] = { marker: marker, prevCoords: newCoords };
+              } else {
+                // Update existing marker position and rotation
+                const { marker, prevCoords } = markers[vid];
+                if (prevCoords[0] !== newCoords[0] || prevCoords[1] !== newCoords[1]) {
+                  const bearing = calculateBearing(prevCoords[0], prevCoords[1], newCoords[0], newCoords[1]);
+                  marker.setLatLng(newCoords);
+                  marker.setRotationAngle(bearing);
+                  marker.setPopupContent(`
+                    <strong>${vid}</strong><br>
+                    ${v.vehicleType || 'Unknown'}<br>
+                    ${v.routeName ? `Route: ${v.routeName}` : ''}
+                  `);
+                  markers[vid].prevCoords = newCoords;
+                }
               }
             }
           });
@@ -484,30 +536,35 @@
               delete markers[vid];
             }
           });
+          
+          // Fit map to vehicle bounds on initial load
+          if (bounds.length && map.getZoom() <= 12) {
+              try {
+                map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+              } catch(e) {
+                console.error("Error fitting bounds:", e);
+              }
+          }
         }, err => {
           console.error('Vehicles listener error:', err);
           showToast('Failed to load real-time vehicle data.', 'danger');
           hideLoader();
         });
       };
-      
+
       const searchByVehicleNumber = () => {
         const query = dom.searchVehicleInput.value.trim().toUpperCase();
-        if (!query) return showToast('Please enter a vehicle number.', 'warning');
-        
+        if (!query) {
+          showToast('Please enter a vehicle number to search.', 'warning');
+          return;
+        }
         const foundVid = Object.keys(markers).find(vid => vid.toUpperCase().includes(query));
         if (foundVid && markers[foundVid]) {
           const { marker } = markers[foundVid];
           map.flyTo(marker.getLatLng(), 16);
           marker.openPopup();
-          
-          // Get updated vehicle data
           db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
-            if (snap.exists()) {
-              showVehicleDetails(foundVid, snap.val());
-            } else {
-              showToast('Vehicle data not found.', 'warning');
-            }
+            if (snap.exists()) showVehicleDetails(foundVid, snap.val());
           });
         } else {
           showToast('Vehicle not found.', 'warning');
@@ -517,20 +574,29 @@
       const searchByRoute = () => {
         const from = dom.searchRouteFrom.value.trim().toLowerCase();
         const to = dom.searchRouteTo.value.trim().toLowerCase();
-        if (!from || !to) return showToast('Enter both "From" and "To" locations.', 'warning');
-        
+        if (!from || !to) {
+          showToast('Enter both "From" and "To" locations.', 'warning');
+          return;
+        }
         dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
         
         db.ref('public_transport/vehicles').once('value', snap => {
           const vehicles = snap.val() || {};
-          const results = Object.entries(vehicles).filter(([, v]) => {
+          const results = [];
+          
+          Object.entries(vehicles).forEach(([vid, v]) => {
             const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
-            return stops.some(s => s.includes(from)) && stops.some(s => s.includes(to));
+            const hasFrom = stops.some(s => s.includes(from));
+            const hasTo = stops.some(s => s.includes(to));
+            
+            if (hasFrom && hasTo) {
+              results.push({ vid, vehicle: v });
+            }
           });
 
           dom.searchResults.innerHTML = '';
           if (results.length > 0) {
-            results.forEach(([vid, vehicle]) => {
+            results.forEach(({ vid, vehicle }) => {
               const div = document.createElement('div');
               div.className = 'vehicle-item p-2 border-bottom';
               div.innerHTML = `
@@ -548,27 +614,22 @@
               dom.searchResults.appendChild(div);
             });
           } else {
-            dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found.</div>';
+            dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found matching your search.</div>';
           }
-        }).catch(err => {
-          console.error('Route search error:', err);
-          dom.searchResults.innerHTML = '<div class="text-muted p-2">Error searching routes.</div>';
         });
       };
 
       // --- Event Listeners ---
       const addEventListeners = () => {
         dom.locateBtn.addEventListener('click', locateUser);
-        dom.closeSidebarBtn.addEventListener('click', () => dom.vehicleDetails.classList.remove('is-visible'));
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
         dom.searchRouteBtn.addEventListener('click', searchByRoute);
-        
-        const enterKeyHandler = (btn) => (e) => { 
-          if (e.key === 'Enter') btn.click(); 
-        };
-        
-        dom.searchVehicleInput.addEventListener('keypress', enterKeyHandler(dom.searchVehicleBtn));
-        dom.searchRouteTo.addEventListener('keypress', enterKeyHandler(dom.searchRouteBtn));
+        dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
+
+        // Allow searching with 'Enter' key
+        dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
+        dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+        dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
       };
       
       // --- Initialization ---
@@ -581,8 +642,8 @@
         // Hide loader after a timeout as fallback
         setTimeout(hideLoader, 5000);
       });
-      
+
     })();
   </script>
 </body>
-          </html>
+    </html>
