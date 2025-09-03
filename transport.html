@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Navixera - Live Public Transit Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f7f6;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            height: 100%;
+        }
+        .sidebar {
+            width: 350px;
+            background: #fff;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .map-container {
+            flex-grow: 1;
+            height: 100%;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        h2 {
+            color: #007bff;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .search-box, .vehicle-details {
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #5a6268;
+        }
+        #results, #details-content {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        #results ul {
+            list-style: none;
+            padding: 0; margin: 0;
+        }
+        #results li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        #results li:hover {
+            background: #e9ecef;
+        }
+        #details-content p {
+            margin: 5px 0;
+        }
+        .loader {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>🚌 Navixera Dashboard</h2>
+
+            <div class="search-box">
+                <label for="busNo">Search by Bus Number:</label>
+                <input type="text" id="busNo" placeholder="e.g., 101">
+                <button onclick="searchByBusNumber()">Search</button>
+            </div>
+            
+            <hr>
+
+            <div class="search-box">
+                <label for="from">Search by Route:</label>
+                <input type="text" id="from" placeholder="From Stop">
+                <input type="text" id="to" placeholder="To Stop">
+                <button onclick="searchByRoute()">Search</button>
+            </div>
+
+            <button class="secondary" onclick="resetView()">Reset View</button>
+            
+            <div id="results" style="display:none;"></div>
+            
+            <div class="vehicle-details">
+                <h3>Vehicle Details</h3>
+                <div id="details-content">
+                    <p>Click a vehicle or search to see details.</p>
+                </div>
+            </div>
+        </div>
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+            authDomain: "svms-c0232.firebaseapp.com",
+            databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+            projectId: "svms-c0232",
+            storageBucket: "svms-c0232.appspot.com",
+            messagingSenderId: "359201898609",
+            appId: "1:359201898609:web:893ef076207abb06471bd0"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- Global Variables ---
+        let map;
+        const vehicleMarkers = {};
+        let activeRouteLayers = [];
+        let allRoutesData = {};
+        let allVehiclesData = {};
+
+        // --- Leaflet Bus Icon ---
+        const busIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwN2JmZiIgd2lkdGg9IjM2cHgiIGhlaWdodD0iMzZweCI+PHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik00IDExdjVjMCAxLjEgLjkgMiAyIDJoMnYyYzAgLjU1LjQ1IDEgMSAxcy45OS0uNDUgMS0xdi0yaDR2MmMwIC41NS40NSAxIDEgMXMuOTktLjQ1IDEtMXYtMmgyYzEuMSAwIDItLjkgMi0yVjZoLTE4Yy0xLjIgMC0yIC44LTIgMi41IDAgMS42MyAxLjA3IDMgMi41IDN6bTE0LjUtNWMwIC44My0uNjcgMS41LTEuNSAxLjVTMTUgNi4zMyAxNSA1LjVzLjY3LTEuNSAxLjUtMS41UzE4LjUgNC42NyAxOC41IDUuNXptLTYuNSA3YzAgLjgzLS42NyAxLjUtMS41IDEuNVM5IDEzLjMzIDkgMTIuNXMuNjctMS41IDEuNS0xLjVTMTIgMTEuNjcgMTIgMTIuNXptLTYtN2MwIC44My0uNjcgMS41LTEuNSAxLjVTMyA2LjMzIDMgNS41cy42Ny0xLjUgMS41LTEuNVM2IDQuNjcgNiA1 HptMSA1djVjMCAuNTUuNDUgMSAxIDFoMTBjLjU1IDAgMS0uNDUgMS0xdi01aC0xMlptMS0yaDEwVjZoLTEwVjloMHYweiIvPjwvc3ZnPg==',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+            popupAnchor: [0, -20]
+        });
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadStaticData();
+            listenForLiveVehicleData();
+        });
+
+        function initMap() {
+            map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // --- Data Handling ---
+        async function loadStaticData() {
+            const routesRef = db.ref('public_routes');
+            const snapshot = await routesRef.once('value');
+            allRoutesData = snapshot.val() || {};
+        }
+
+        function listenForLiveVehicleData() {
+            const vehiclesRef = db.ref('public_vehicles');
+            vehiclesRef.on('value', (snapshot) => {
+                allVehiclesData = snapshot.val() || {};
+                updateAllVehicleMarkers();
+            });
+        }
+        
+        // --- Map & UI Updates ---
+        function updateAllVehicleMarkers() {
+            Object.keys(allVehiclesData).forEach(vehicleId => {
+                const vehicle = allVehiclesData[vehicleId];
+                if (!vehicle.lat || !vehicle.lng) return;
+
+                const latLng = [vehicle.lat, vehicle.lng];
+                
+                if (vehicleMarkers[vehicleId]) {
+                    vehicleMarkers[vehicleId].setLatLng(latLng);
+                } else {
+                    const marker = L.marker(latLng, { icon: busIcon }).addTo(map);
+                    marker.on('click', () => showVehicleDetails(vehicleId));
+                    vehicleMarkers[vehicleId] = marker;
+                }
+            });
+        }
+
+        function showVehicleDetails(vehicleId) {
+            clearActiveRoute();
+            const vehicle = allVehiclesData[vehicleId];
+            if (!vehicle) return;
+            
+            const route = allRoutesData[vehicle.routeId];
+            if (!route) return;
+
+            // Update details panel
+            const detailsContent = document.getElementById('details-content');
+            detailsContent.innerHTML = `
+                <p><strong>Bus Number:</strong> ${vehicle.vehicleNumber}</p>
+                <p><strong>Route:</strong> ${route.routeName}</p>
+                <p><strong>Stops:</strong></p>
+                <ul>${route.stops.map(s => `<li>${s.name}</li>`).join('')}</ul>
+            `;
+            
+            // Draw route path
+            if (route.path && route.path.length > 0) {
+                const polyline = L.polyline(route.path, { color: '#007bff' }).addTo(map);
+                activeRouteLayers.push(polyline);
+                map.fitBounds(polyline.getBounds());
+            }
+
+            // Draw stop markers
+            route.stops.forEach(stop => {
+                const stopMarker = L.circleMarker(stop.latlng, { radius: 6, color: 'red', fillColor: '#f03', fillOpacity: 1 }).addTo(map);
+                stopMarker.bindPopup(stop.name);
+                activeRouteLayers.push(stopMarker);
+            });
+            
+            // Highlight the selected vehicle
+            vehicleMarkers[vehicleId]?.openPopup?.()?.bindPopup(`<b>Bus ${vehicle.vehicleNumber}</b><br>${route.routeName}`).openPopup();
+        }
+
+        function clearActiveRoute() {
+            activeRouteLayers.forEach(layer => map.removeLayer(layer));
+            activeRouteLayers = [];
+        }
+
+        function resetView() {
+            clearActiveRoute();
+            document.getElementById('busNo').value = '';
+            document.getElementById('from').value = '';
+            document.getElementById('to').value = '';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('details-content').innerHTML = '<p>Click a vehicle or search to see details.</p>';
+            if (Object.keys(vehicleMarkers).length > 0) {
+                 map.setView([19.0760, 72.8777], 12);
+            }
+        }
+        
+        // --- Search Functions ---
+        function searchByBusNumber() {
+            const busNo = document.getElementById('busNo').value.trim();
+            if (!busNo) return;
+            
+            const foundVehicle = Object.entries(allVehiclesData).find(([id, data]) => data.vehicleNumber === busNo);
+            
+            if (foundVehicle) {
+                const [vehicleId, vehicleData] = foundVehicle;
+                showVehicleDetails(vehicleId);
+            } else {
+                alert('Bus number not found.');
+            }
+        }
+
+        function searchByRoute() {
+            const from = document.getElementById('from').value.trim().toLowerCase();
+            const to = document.getElementById('to').value.trim().toLowerCase();
+            if (!from || !to) {
+                alert('Please enter both "From" and "To" stops.');
+                return;
+            }
+
+            const matchingRoutes = Object.entries(allRoutesData).filter(([routeId, routeData]) => {
+                const stopNames = routeData.stops.map(s => s.name.toLowerCase());
+                return stopNames.includes(from) && stopNames.includes(to);
+            });
+            
+            const resultsDiv = document.getElementById('results');
+            if (matchingRoutes.length > 0) {
+                resultsDiv.style.display = 'block';
+                let html = '<h4>Matching Routes:</h4><ul>';
+                matchingRoutes.forEach(([routeId, routeData]) => {
+                    const vehiclesOnRoute = Object.entries(allVehiclesData).filter(([vId, vData]) => vData.routeId === routeId);
+                    html += `<li onclick="showVehicleDetails('${vehiclesOnRoute[0]?.[0]}')">
+                        <strong>${routeData.routeName}</strong>
+                        <br><small>${vehiclesOnRoute.length} bus(es) active</small>
+                    </li>`;
+                });
+                html += '</ul>';
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = '<p>No routes found for the given stops.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
