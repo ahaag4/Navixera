@@ -160,7 +160,6 @@
       100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
     }
 
-
     /* --- Animations & Transitions --- */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -299,10 +298,14 @@
       let userLocationMarker = null;
 
       // --- Custom Icons ---
+      // Fixed vehicle icon with proper SVG
       const vehicleIcon = L.icon({
-          iconUrl: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM2Ij48cGF0aCBmaWxsPSIjMGE2MEZGIiBkPSJNMTIsMkM4LjE0LDIsNSw1LjE0LDUsOWMwLDUsNywxMyw3LDEzczctOCw3LTEzQzE5LDUuMTQsMTUuODYsMiwxMiwyeiBNMTIsMTIuNWgtMS41VjExSDExdjEuNWgtMS41VjEzSDExdjEuNWgxLjVWMTZIMTN2LTEuNWgxLjVWMTNIMTNWMTIuNXoiLz48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNMTIuNSwxNC41aC0xVjEzaDEuNVYxMS41aC0xLjVWMTFoMVY5LjVoMVYxMWgxLjVWMTEuNWgtMS41VjEzaDEuNVYxNC41eiIvPjxwYXRoIGZpbGw9IiMwZDYzZmQiIGQ9Ik0xMiwyTDQuNSw1LjUgMTIsMjIgMTkuNSw1LjVMMTIsMnoiIHRyYW5zZm9ybT0icm90YXRlKDE4MCAxMiAxMikiLz48cGF0aCBkPSJNMTIgMiwyIDhsMTAsMTQgMTAtMTRMMTIsMloiIGZpbGw9IiMwZDZlZmQiIHRyYW5zZm9ybT0icm90YXRlKDQ1IDEyIDEyKSIvPjxwYXRoIGQ9Ik0xMiwybDEwLDYgLTEwLDE0TCwyLDhMMTIsMloiIGZpbGw9IiMwMDVkY2MiIHRyYW5zZm9ybT0icm90YXRlKC00NSAxMiAxMikiLz48L3N2Zz4=`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
       });
       
       const userLocationIcon = L.divIcon({
@@ -333,16 +336,25 @@
 
       const parseGps = (gps) => {
         if (!gps) return null;
+        // Handle both string and object formats
+        if (typeof gps === 'object' && gps.latitude && gps.longitude) {
+          return [gps.latitude, gps.longitude];
+        }
+        
         const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
         if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) return null;
         return [parts[0], parts[1]];
       };
 
       const calculateBearing = (lat1, lon1, lat2, lon2) => {
+        // Don't calculate if coordinates are the same
+        if (lat1 === lat2 && lon1 === lon2) return 0;
+        
         const toRad = (deg) => deg * Math.PI / 180;
         const toDeg = (rad) => rad * 180 / Math.PI;
         const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
-        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - 
+                 Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
       };
 
@@ -350,7 +362,8 @@
       const initMap = () => {
         map = L.map('map').setView([19.0760, 72.8777], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19, attribution: '© OpenStreetMap'
+          maxZoom: 19, 
+          attribution: '© OpenStreetMap'
         }).addTo(map);
         markerGroup.addTo(map);
         routeLayer.addTo(map);
@@ -390,28 +403,33 @@
           <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
           <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
           <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
-          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>`;
+          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
+          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>`;
         
         dom.stopList.innerHTML = '';
         const stops = vehicle.stops || [];
-        stops.length > 0
-            ? stops.forEach(stop => {
-                const li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action';
-                li.textContent = stop.name;
-                li.addEventListener('click', () => {
-                    const coords = parseGps(stop.gps);
-                    if (coords) map.flyTo(coords, 16);
-                });
-                dom.stopList.appendChild(li);
-            })
-            : (dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>');
+        if (stops.length > 0) {
+          stops.forEach(stop => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.textContent = stop.name || 'Unnamed Stop';
+            li.addEventListener('click', () => {
+              const coords = parseGps(stop.gps);
+              if (coords) map.flyTo(coords, 16);
+            });
+            dom.stopList.appendChild(li);
+          });
+        } else {
+          dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
+        }
         
+        // Draw route path if available
         const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
         routeLayer.clearLayers();
         if (routePath.length > 1) {
-            L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
         }
+        
         dom.vehicleDetails.classList.add('is-visible');
       };
 
@@ -428,9 +446,19 @@
             if (!newCoords) return;
 
             if (!markers[vid]) {
-              const marker = L.rotatedMarker(newCoords, { icon: vehicleIcon, title: vid })
-                .addTo(markerGroup)
-                .bindPopup(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
+              const marker = L.rotatedMarker(newCoords, { 
+                icon: vehicleIcon, 
+                title: vid,
+                rotationAngle: 0,
+                rotationOrigin: 'center'
+              }).addTo(markerGroup);
+              
+              marker.bindPopup(`
+                <strong>${vid}</strong><br>
+                ${v.vehicleType || 'Unknown'}<br>
+                ${v.routeName ? `Route: ${v.routeName}` : ''}
+              `);
+              
               marker.on('click', () => showVehicleDetails(vid, v));
               markers[vid] = { marker: marker, prevCoords: newCoords };
             } else {
@@ -439,7 +467,11 @@
                 const bearing = calculateBearing(prevCoords[0], prevCoords[1], newCoords[0], newCoords[1]);
                 marker.setLatLng(newCoords);
                 marker.setRotationAngle(bearing);
-                marker.setPopupContent(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
+                marker.setPopupContent(`
+                  <strong>${vid}</strong><br>
+                  ${v.vehicleType || 'Unknown'}<br>
+                  ${v.routeName ? `Route: ${v.routeName}` : ''}
+                `);
                 markers[vid].prevCoords = newCoords;
               }
             }
@@ -462,13 +494,20 @@
       const searchByVehicleNumber = () => {
         const query = dom.searchVehicleInput.value.trim().toUpperCase();
         if (!query) return showToast('Please enter a vehicle number.', 'warning');
+        
         const foundVid = Object.keys(markers).find(vid => vid.toUpperCase().includes(query));
         if (foundVid && markers[foundVid]) {
           const { marker } = markers[foundVid];
           map.flyTo(marker.getLatLng(), 16);
           marker.openPopup();
+          
+          // Get updated vehicle data
           db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
-            if (snap.exists()) showVehicleDetails(foundVid, snap.val());
+            if (snap.exists()) {
+              showVehicleDetails(foundVid, snap.val());
+            } else {
+              showToast('Vehicle data not found.', 'warning');
+            }
           });
         } else {
           showToast('Vehicle not found.', 'warning');
@@ -479,12 +518,13 @@
         const from = dom.searchRouteFrom.value.trim().toLowerCase();
         const to = dom.searchRouteTo.value.trim().toLowerCase();
         if (!from || !to) return showToast('Enter both "From" and "To" locations.', 'warning');
+        
         dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
         
         db.ref('public_transport/vehicles').once('value', snap => {
           const vehicles = snap.val() || {};
           const results = Object.entries(vehicles).filter(([, v]) => {
-            const stops = (v.stops || []).map(s => s.name.toLowerCase());
+            const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
             return stops.some(s => s.includes(from)) && stops.some(s => s.includes(to));
           });
 
@@ -493,10 +533,13 @@
             results.forEach(([vid, vehicle]) => {
               const div = document.createElement('div');
               div.className = 'vehicle-item p-2 border-bottom';
-              div.innerHTML = `<strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br><small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>`;
+              div.innerHTML = `
+                <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+                <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+              `;
               div.addEventListener('click', () => {
-                const { marker } = markers[vid];
-                if (marker) {
+                if (markers[vid]) {
+                  const { marker } = markers[vid];
                   map.flyTo(marker.getLatLng(), 16);
                   marker.openPopup();
                   showVehicleDetails(vid, vehicle);
@@ -507,6 +550,9 @@
           } else {
             dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found.</div>';
           }
+        }).catch(err => {
+          console.error('Route search error:', err);
+          dom.searchResults.innerHTML = '<div class="text-muted p-2">Error searching routes.</div>';
         });
       };
 
@@ -516,7 +562,11 @@
         dom.closeSidebarBtn.addEventListener('click', () => dom.vehicleDetails.classList.remove('is-visible'));
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
         dom.searchRouteBtn.addEventListener('click', searchByRoute);
-        const enterKeyHandler = (btn) => (e) => { if (e.key === 'Enter') btn.click(); };
+        
+        const enterKeyHandler = (btn) => (e) => { 
+          if (e.key === 'Enter') btn.click(); 
+        };
+        
         dom.searchVehicleInput.addEventListener('keypress', enterKeyHandler(dom.searchVehicleBtn));
         dom.searchRouteTo.addEventListener('keypress', enterKeyHandler(dom.searchRouteBtn));
       };
@@ -527,9 +577,12 @@
         initMap();
         loadPublicVehicles();
         addEventListeners();
+        
+        // Hide loader after a timeout as fallback
+        setTimeout(hideLoader, 5000);
       });
       
     })();
   </script>
 </body>
-</html>
+          </html>
