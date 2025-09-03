@@ -145,11 +145,11 @@
 
     /* --- Custom Marker for User Location --- */
     .user-location-icon {
-        background-color: rgba(var(--primary-rgb), 0.2);
-        border: 2px solid var(--primary-color);
+        background-color: var(--primary-color);
+        border: 2px solid white;
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
+        width: 20px; /* Adjusted size */
+        height: 20px; /* Adjusted size */
         box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
         animation: pulse 1.5s infinite;
     }
@@ -307,7 +307,9 @@
       
       const userLocationIcon = L.divIcon({
           className: 'user-location-icon',
-          iconSize: [24, 24]
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],     // <--- FIX: Explicitly set anchor to center
+          popupAnchor: [0, -12]     // <--- FIX: Position popup correctly above the icon
       });
 
       // --- Helper Functions ---
@@ -368,9 +370,13 @@
               userLocationMarker.setLatLng(userLatLng);
             } else {
               userLocationMarker = L.marker(userLatLng, { icon: userLocationIcon }).addTo(map);
-              userLocationMarker.bindPopup("<b>You are here</b>").openPopup();
+              userLocationMarker.bindPopup("<b>You are here</b>");
             }
             map.flyTo(userLatLng, 16);
+            // Open popup after the map has settled for a better user experience
+            setTimeout(() => {
+                userLocationMarker.openPopup();
+            }, 1000); 
           },
           () => {
             showToast("Unable to retrieve your location. Please check your permissions.", "danger");
@@ -453,7 +459,7 @@
           hideLoader();
         });
       };
-
+      
       const searchByVehicleNumber = () => { /* ... unchanged ... */ };
       const searchByRoute = () => { /* ... unchanged ... */ };
 
@@ -478,7 +484,6 @@
       
       // --- UNCHANGED FUNCTIONS FOR BREVITY ---
       // (The search functions are identical to the previous version)
-      const hideVehicleDetails = () => dom.vehicleDetails.classList.remove('is-visible');
       searchByVehicleNumber = () => {
         const query = dom.searchVehicleInput.value.trim().toUpperCase();
         if (!query) return showToast('Please enter a vehicle number.', 'warning');
