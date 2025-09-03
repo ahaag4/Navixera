@@ -10,7 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   
@@ -66,13 +65,6 @@
     .map-card {
       position: relative;
       overflow: hidden;
-    }
-    
-    .map-controls {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        z-index: 401; /* Above map tiles */
     }
 
     /* --- Loader --- */
@@ -150,23 +142,6 @@
       background-color: #f8f9fa;
     }
 
-    /* --- Custom Marker for User Location --- */
-    .user-location-icon {
-        background-color: var(--primary-color);
-        border: 2px solid white;
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
-        animation: pulse 1.5s infinite;
-    }
-    
-    @keyframes pulse {
-      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
-      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
-    }
-
     /* --- Toast Notifications --- */
     .toast-container {
       position: fixed;
@@ -234,11 +209,6 @@
       <div class="col-12 col-lg-8">
         <div class="card map-card">
           <div id="map"></div>
-          <div class="map-controls">
-              <button id="locateBtn" class="btn btn-light bg-white shadow-sm" title="Find My Location">
-                  <i class="bi bi-geo-alt-fill text-primary"></i>
-              </button>
-          </div>
           <div class="loader-overlay" id="loader">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
@@ -283,7 +253,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   
   <script>
@@ -311,7 +280,6 @@
       // --- DOM Element Caching ---
       const dom = {
         loader: document.getElementById('loader'),
-        locateBtn: document.getElementById('locateBtn'),
         searchVehicleInput: document.getElementById('searchVehicle'),
         searchVehicleBtn: document.getElementById('searchVehicleBtn'),
         searchRouteFrom: document.getElementById('searchRouteFrom'),
@@ -331,24 +299,6 @@
       const markers = {};
       let markerGroup = L.featureGroup();
       let routeLayer = L.featureGroup();
-      let userLocationMarker = null;
-
-      // --- Custom Icons ---
-      const vehicleIcon = L.icon({
-          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-      });
-      
-      const userLocationIcon = L.divIcon({
-          className: 'user-location-icon',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-          popupAnchor: [0, -12]
-      });
 
       // --- Helper Functions ---
       const showLoader = () => dom.loader.classList.remove('hidden');
@@ -372,28 +322,11 @@
 
       const parseGps = (gps) => {
         if (!gps) return null;
-        // Handle both string and object formats
-        if (typeof gps === 'object' && gps.latitude && gps.longitude) {
-          return [gps.latitude, gps.longitude];
-        }
-        
         const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
         if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
             return null;
         }
         return [parts[0], parts[1]];
-      };
-
-      const calculateBearing = (lat1, lon1, lat2, lon2) => {
-        // Don't calculate if coordinates are the same
-        if (lat1 === lat2 && lon1 === lon2) return 0;
-        
-        const toRad = (deg) => deg * Math.PI / 180;
-        const toDeg = (rad) => rad * 180 / Math.PI;
-        const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
-        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - 
-                 Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
-        return (toDeg(Math.atan2(y, x)) + 360) % 360;
       };
 
       // --- Map Functions ---
@@ -405,33 +338,6 @@
         }).addTo(map);
         markerGroup.addTo(map);
         routeLayer.addTo(map);
-      };
-
-      const locateUser = () => {
-        if (!navigator.geolocation) {
-          showToast("Geolocation is not supported by your browser.", "warning");
-          return;
-        }
-        showToast("Locating you...", "info");
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const userLatLng = [latitude, longitude];
-            if (userLocationMarker) {
-              userLocationMarker.setLatLng(userLatLng);
-            } else {
-              userLocationMarker = L.marker(userLatLng, { icon: userLocationIcon }).addTo(map);
-              userLocationMarker.bindPopup("<b>You are here</b>");
-            }
-            map.flyTo(userLatLng, 16);
-            setTimeout(() => {
-                userLocationMarker.openPopup();
-            }, 1000); 
-          },
-          () => {
-            showToast("Unable to retrieve your location. Please check your permissions.", "danger");
-          }
-        );
       };
 
       const drawVehicleRoute = (vehicle) => {
@@ -453,7 +359,6 @@
           <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
           <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
           <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
-          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>
         `;
         
         dom.stopList.innerHTML = '';
@@ -462,7 +367,7 @@
             stops.forEach(stop => {
               const li = document.createElement('li');
               li.className = 'list-group-item';
-              li.textContent = stop.name || 'Unnamed Stop';
+              li.textContent = stop.name;
               li.addEventListener('click', () => {
                 const coords = parseGps(stop.gps);
                 if (coords) map.flyTo(coords, 16);
@@ -490,41 +395,20 @@
 
           Object.entries(vehicles).forEach(([vid, v]) => {
             presentVehicleIds.add(vid);
-            const newCoords = parseGps(v.gps);
-            if (newCoords) {
-              bounds.push(newCoords);
-              
+            const coords = parseGps(v.gps);
+            if (coords) {
+              bounds.push(coords);
               if (!markers[vid]) {
-                // Create new marker with rotation capability
-                const marker = L.rotatedMarker(newCoords, { 
-                  icon: vehicleIcon, 
-                  title: vid,
-                  rotationAngle: 0,
-                  rotationOrigin: 'center'
-                }).addTo(markerGroup);
-                
-                marker.bindPopup(`
-                  <strong>${vid}</strong><br>
-                  ${v.vehicleType || 'Unknown'}<br>
-                  ${v.routeName ? `Route: ${v.routeName}` : ''}
-                `);
-                
+                // Create new marker
+                const marker = L.marker(coords, { title: vid })
+                  .addTo(markerGroup)
+                  .bindPopup(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
                 marker.on('click', () => showVehicleDetails(vid, v));
-                markers[vid] = { marker: marker, prevCoords: newCoords };
+                markers[vid] = marker;
               } else {
-                // Update existing marker position and rotation
-                const { marker, prevCoords } = markers[vid];
-                if (prevCoords[0] !== newCoords[0] || prevCoords[1] !== newCoords[1]) {
-                  const bearing = calculateBearing(prevCoords[0], prevCoords[1], newCoords[0], newCoords[1]);
-                  marker.setLatLng(newCoords);
-                  marker.setRotationAngle(bearing);
-                  marker.setPopupContent(`
-                    <strong>${vid}</strong><br>
-                    ${v.vehicleType || 'Unknown'}<br>
-                    ${v.routeName ? `Route: ${v.routeName}` : ''}
-                  `);
-                  markers[vid].prevCoords = newCoords;
-                }
+                // Update existing marker
+                markers[vid].setLatLng(coords);
+                markers[vid].setPopupContent(`<strong>${vid}</strong><br>${v.vehicleType || 'Unknown'}`);
               }
             }
           });
@@ -532,7 +416,7 @@
           // Garbage collect markers for removed vehicles
           Object.keys(markers).forEach(vid => {
             if (!presentVehicleIds.has(vid)) {
-              markerGroup.removeLayer(markers[vid].marker);
+              markerGroup.removeLayer(markers[vid]);
               delete markers[vid];
             }
           });
@@ -560,7 +444,7 @@
         }
         const foundVid = Object.keys(markers).find(vid => vid.toUpperCase().includes(query));
         if (foundVid && markers[foundVid]) {
-          const { marker } = markers[foundVid];
+          const marker = markers[foundVid];
           map.flyTo(marker.getLatLng(), 16);
           marker.openPopup();
           db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
@@ -585,7 +469,7 @@
           const results = [];
           
           Object.entries(vehicles).forEach(([vid, v]) => {
-            const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
+            const stops = (v.stops || []).map(s => s.name.toLowerCase());
             const hasFrom = stops.some(s => s.includes(from));
             const hasTo = stops.some(s => s.includes(to));
             
@@ -599,13 +483,10 @@
             results.forEach(({ vid, vehicle }) => {
               const div = document.createElement('div');
               div.className = 'vehicle-item p-2 border-bottom';
-              div.innerHTML = `
-                <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
-                <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
-              `;
+              div.innerHTML = `<strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br><small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>`;
               div.addEventListener('click', () => {
-                if (markers[vid]) {
-                  const { marker } = markers[vid];
+                const marker = markers[vid];
+                if (marker) {
                   map.flyTo(marker.getLatLng(), 16);
                   marker.openPopup();
                   showVehicleDetails(vid, vehicle);
@@ -621,7 +502,6 @@
 
       // --- Event Listeners ---
       const addEventListeners = () => {
-        dom.locateBtn.addEventListener('click', locateUser);
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
         dom.searchRouteBtn.addEventListener('click', searchByRoute);
         dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
@@ -638,12 +518,9 @@
         initMap();
         loadPublicVehicles();
         addEventListeners();
-        
-        // Hide loader after a timeout as fallback
-        setTimeout(hideLoader, 5000);
       });
 
     })();
   </script>
 </body>
-    </html>
+</html>
