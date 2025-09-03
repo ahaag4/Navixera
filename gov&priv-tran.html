@@ -25,8 +25,10 @@
     .controls-row > * { margin-right: .5rem; margin-bottom: .5rem; }
     .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
     .stop-list { max-height: 200px; overflow-y: auto; }
-    .vehicle-list, .stops-list { max-height: 400px; overflow-y: auto; }
-    .search-bar { max-width: 300px; }
+    .table-responsive { max-height: 400px; overflow-y: auto; }
+    @media (max-width: 992px) {
+      .controls-row > * { margin-right: 0; }
+    }
   </style>
 </head>
 <body>
@@ -98,10 +100,10 @@
         </div>
         <div class="row controls-row mt-2">
           <div class="col-md-6">
-            <button id="addPublicVehicleBtn" class="btn btn-primary">Add/Update Vehicle</button>
+            <button id="addPublicVehicleBtn" class="btn btn-primary">Add/Update Public Vehicle</button>
           </div>
           <div class="col-md-6">
-            <button id="deletePublicVehicleBtn" class="btn btn-danger">Delete Vehicle</button>
+            <button id="deletePublicVehicleBtn" class="btn btn-danger">Delete Public Vehicle</button>
           </div>
         </div>
       </div>
@@ -109,12 +111,9 @@
 
     <div class="card mb-4">
       <div class="card-body">
-        <h5 class="card-title">Existing Vehicles</h5>
-        <div class="mb-2">
-          <input id="searchVehicles" class="form-control search-bar" placeholder="Search by Vehicle ID or Route">
-          <button id="refreshVehiclesBtn" class="btn btn-secondary mt-2">Refresh List</button>
-        </div>
-        <div class="vehicle-list">
+        <h5 class="card-title">Existing Public Vehicles</h5>
+        <button id="refreshVehiclesBtn" class="btn btn-secondary mb-2">Refresh List</button>
+        <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
@@ -124,7 +123,7 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody id="vehicleList"></tbody>
+            <tbody id="vehicleListTbody"></tbody>
           </table>
         </div>
       </div>
@@ -167,10 +166,10 @@
         </div>
         <div class="row controls-row mt-2">
           <div class="col-md-6">
-            <button id="addBusStopBtn" class="btn btn-primary">Add/Update Stop</button>
+            <button id="addBusStopBtn" class="btn btn-primary">Add/Update Bus Stop</button>
           </div>
           <div class="col-md-6">
-            <button id="deleteBusStopBtn" class="btn btn-danger">Delete Stop</button>
+            <button id="deleteBusStopBtn" class="btn btn-danger">Delete Bus Stop</button>
           </div>
         </div>
       </div>
@@ -179,11 +178,8 @@
     <div class="card mb-4">
       <div class="card-body">
         <h5 class="card-title">Existing Bus Stops</h5>
-        <div class="mb-2">
-          <input id="searchStops" class="form-control search-bar" placeholder="Search by Stop ID or Name">
-          <button id="refreshStopsBtn" class="btn btn-secondary mt-2">Refresh List</button>
-        </div>
-        <div class="stops-list">
+        <button id="refreshStopsBtn" class="btn btn-secondary mb-2">Refresh List</button>
+        <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
@@ -192,7 +188,7 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody id="stopList"></tbody>
+            <tbody id="stopListTbody"></tbody>
           </table>
         </div>
       </div>
@@ -207,6 +203,13 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
   <script>
+    /****************************************************************
+     * Company Admin Panel — Navixera
+     * - Manages public vehicles and bus stops for Live Transit Dashboard
+     * - Supports listing, editing, deleting
+     * - Uses Firebase compat (v9 compat scripts)
+     ****************************************************************/
+
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -237,9 +240,8 @@
     const stopList = document.getElementById('stopList');
     const addPublicVehicleBtn = document.getElementById('addPublicVehicleBtn');
     const deletePublicVehicleBtn = document.getElementById('deletePublicVehicleBtn');
-    const searchVehicles = document.getElementById('searchVehicles');
     const refreshVehiclesBtn = document.getElementById('refreshVehiclesBtn');
-    const vehicleList = document.getElementById('vehicleList');
+    const vehicleListTbody = document.getElementById('vehicleListTbody');
     const stopId = document.getElementById('stopId');
     const stopNameInput = document.getElementById('stopNameInput');
     const stopGpsInput = document.getElementById('stopGpsInput');
@@ -251,17 +253,14 @@
     const stopVehicleList = document.getElementById('stopVehicleList');
     const addBusStopBtn = document.getElementById('addBusStopBtn');
     const deleteBusStopBtn = document.getElementById('deleteBusStopBtn');
-    const searchStops = document.getElementById('searchStops');
     const refreshStopsBtn = document.getElementById('refreshStopsBtn');
-    const stopListTable = document.getElementById('stopList');
+    const stopListTbody = document.getElementById('stopListTbody');
 
     // Local State
     let uid = null;
     let companyName = null;
     let tempStops = [];
     let tempStopVehicles = [];
-    let allVehicles = [];
-    let allStops = [];
 
     // Toast Helper
     const showToast = (message, type = 'info', ttl = 3500) => {
@@ -332,12 +331,10 @@
         addPublicVehicleBtn.addEventListener('click', handleAddPublicVehicle);
         deletePublicVehicleBtn.addEventListener('click', () => handleDeletePublicVehicle());
         refreshVehiclesBtn.addEventListener('click', loadVehiclesList);
-        searchVehicles.addEventListener('input', filterVehicles);
         addStopVehicleBtn.addEventListener('click', handleAddStopVehicle);
         addBusStopBtn.addEventListener('click', handleAddBusStop);
         deleteBusStopBtn.addEventListener('click', () => handleDeleteBusStop());
         refreshStopsBtn.addEventListener('click', loadStopsList);
-        searchStops.addEventListener('input', filterStops);
         logoutBtn.addEventListener('click', () => {
           console.log('Logging out user:', uid);
           auth.signOut();
@@ -357,7 +354,7 @@
         return;
       }
       if (!parseGps(gps)) {
-        showToast('Invalid GPS format (use lat,lng, e.g., 19.2183,72.9781)', 'warning');
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
         return;
       }
       tempStops.push({ name, gps });
@@ -391,11 +388,11 @@
       const gps = publicVehicleGps.value.trim();
       const routeName = publicRouteName.value.trim();
       if (!vid || !vtype || !gps || !routeName) {
-        showToast('Fill all vehicle fields', 'warning');
+        showToast('Fill all fields', 'warning');
         return;
       }
       if (!parseGps(gps)) {
-        showToast('Invalid GPS format (use lat,lng, e.g., 19.2183,72.9781)', 'warning');
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
         return;
       }
       try {
@@ -410,8 +407,8 @@
           stops: tempStops,
           fullRoutePath
         };
-        await db.ref(`public_transport/companies/${companyName}/vehicles/${vid}`).update(obj);
-        showToast('Vehicle added/updated', 'success');
+        await db.ref(`public_transport/vehicles/${vid}`).update(obj);
+        showToast('Public vehicle added/updated', 'success');
         publicVehicleId.value = '';
         publicVehicleType.value = '';
         publicVehicleGps.value = '';
@@ -419,10 +416,10 @@
         tempStops = [];
         renderStopList();
         loadVehiclesList();
-        console.log('Added/updated vehicle:', obj);
+        console.log('Added/updated public vehicle:', obj);
       } catch (err) {
-        console.error('Failed to add vehicle:', err);
-        showToast(`Failed to add vehicle: ${err.message}`, 'danger');
+        console.error('Failed to add public vehicle:', err);
+        showToast(`Failed to add public vehicle: ${err.message}`, 'danger');
       }
     };
 
@@ -432,17 +429,17 @@
         showToast('Enter or select vehicle ID to delete', 'warning');
         return;
       }
-      if (!confirm(`Delete vehicle ${vid}?`)) return;
+      if (!confirm(`Delete public vehicle ${vid}?`)) return;
       try {
-        await db.ref(`public_transport/companies/${companyName}/vehicles/${vid}`).remove();
-        showToast('Vehicle deleted', 'success');
+        await db.ref(`public_transport/vehicles/${vid}`).remove();
+        showToast('Public vehicle deleted', 'success');
         publicVehicleId.value = '';
         tempStops = [];
         renderStopList();
         loadVehiclesList();
-        console.log('Deleted vehicle:', vid);
+        console.log('Deleted public vehicle:', vid);
       } catch (err) {
-        console.error('Failed to delete vehicle:', err);
+        console.error('Failed to delete public vehicle:', err);
         showToast(`Delete failed: ${err.message}`, 'danger');
       }
     };
@@ -450,58 +447,48 @@
     // Load Vehicles List
     const loadVehiclesList = async () => {
       try {
-        const snap = await db.ref(`public_transport/companies/${companyName}/vehicles`).once('value');
-        allVehicles = snap.val() || {};
-        renderVehiclesList(allVehicles);
+        const snap = await db.ref('public_transport/vehicles').once('value');
+        const vehicles = snap.val() || {};
+        const tbody = document.getElementById('vehicleListTbody');
+        tbody.innerHTML = '';
+        Object.entries(vehicles).forEach(([vid, v]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${vid}</td>
+            <td>${v.vehicleType || 'Unknown'}</td>
+            <td>${v.routeName || 'N/A'}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary edit-vehicle" data-vid="${vid}">Edit</button>
+              <button class="btn btn-sm btn-outline-danger delete-vehicle" data-vid="${vid}">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        // Attach event listeners
+        tbody.querySelectorAll('.edit-vehicle').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const vid = btn.dataset.vid;
+            const snap = await db.ref(`public_transport/vehicles/${vid}`).once('value');
+            const v = snap.val();
+            publicVehicleId.value = vid;
+            publicVehicleType.value = v.vehicleType || '';
+            publicVehicleGps.value = v.gps || '';
+            publicRouteName.value = v.routeName || '';
+            tempStops = v.stops || [];
+            renderStopList();
+            showToast('Vehicle loaded for editing', 'info');
+          });
+        });
+        tbody.querySelectorAll('.delete-vehicle').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const vid = btn.dataset.vid;
+            handleDeletePublicVehicle(vid);
+          });
+        });
       } catch (err) {
-        console.error('Failed to load vehicles:', err);
+        console.error(err);
         showToast('Failed to load vehicles list', 'danger');
       }
-    };
-
-    // Render Vehicles List
-    const renderVehiclesList = (vehicles) => {
-      vehicleList.innerHTML = '';
-      Object.entries(vehicles).forEach(([vid, v]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${vid}</td>
-          <td>${v.vehicleType || 'Unknown'}</td>
-          <td>${v.routeName || 'N/A'}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary edit-vehicle" data-vid="${vid}">Edit</button>
-            <button class="btn btn-sm btn-outline-danger delete-vehicle" data-vid="${vid}">Delete</button>
-          </td>
-        `;
-        vehicleList.appendChild(tr);
-      });
-      // Attach event listeners
-      vehicleList.querySelectorAll('.edit-vehicle').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const vid = btn.dataset.vid;
-          const snap = await db.ref(`public_transport/companies/${companyName}/vehicles/${vid}`).once('value');
-          const v = snap.val();
-          publicVehicleId.value = vid;
-          publicVehicleType.value = v.vehicleType || '';
-          publicVehicleGps.value = v.gps || '';
-          publicRouteName.value = v.routeName || '';
-          tempStops = v.stops || [];
-          renderStopList();
-          showToast('Vehicle loaded for editing', 'info');
-        });
-      });
-      vehicleList.querySelectorAll('.delete-vehicle').forEach(btn => {
-        btn.addEventListener('click', () => handleDeletePublicVehicle(btn.dataset.vid));
-      });
-    };
-
-    // Filter Vehicles
-    const filterVehicles = () => {
-      const query = searchVehicles.value.trim().toLowerCase();
-      const filtered = Object.entries(allVehicles).filter(([vid, v]) =>
-        vid.toLowerCase().includes(query) || (v.routeName || '').toLowerCase().includes(query)
-      );
-      renderVehiclesList(Object.fromEntries(filtered));
     };
 
     // Handle Add Vehicle to Stop
@@ -520,7 +507,7 @@
       stopVehicleType.value = '';
       stopVehicleTimings.value = '';
       renderStopVehicleList();
-      showToast('Vehicle added to stop (save to persist)', 'info');
+      showToast('Vehicle added to stop (save stop to persist)', 'info');
     };
 
     // Render Stop Vehicle List
@@ -529,12 +516,11 @@
       tempStopVehicles.forEach((veh, index) => {
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `${veh.vehicleId} - ${veh.routeName} (${veh.type}${veh.timings ? `, ${veh.timings}` : ''})
+        li.innerHTML = `${veh.vehicleId} - ${veh.routeName} (${veh.type})
           <button class="btn btn-sm btn-outline-danger" data-index="${index}">Remove</button>`;
         li.querySelector('button').addEventListener('click', () => {
           tempStopVehicles.splice(index, 1);
           renderStopVehicleList();
-          console.log('Removed stop vehicle at index:', index);
         });
         stopVehicleList.appendChild(li);
       });
@@ -550,7 +536,7 @@
         return;
       }
       if (!parseGps(gps)) {
-        showToast('Invalid GPS format (use lat,lng, e.g., 19.2183,72.9781)', 'warning');
+        showToast('Invalid GPS format (use lat,lng)', 'warning');
         return;
       }
       try {
@@ -559,7 +545,7 @@
           gps,
           vehicles: tempStopVehicles
         };
-        await db.ref(`public_transport/companies/${companyName}/stops/${id}`).update(obj);
+        await db.ref(`public_transport/stops/${id}`).update(obj);
         showToast('Bus stop added/updated', 'success');
         stopId.value = '';
         stopNameInput.value = '';
@@ -582,7 +568,7 @@
       }
       if (!confirm(`Delete bus stop ${id}?`)) return;
       try {
-        await db.ref(`public_transport/companies/${companyName}/stops/${id}`).remove();
+        await db.ref(`public_transport/stops/${id}`).remove();
         showToast('Bus stop deleted', 'success');
         stopId.value = '';
         tempStopVehicles = [];
@@ -598,73 +584,65 @@
     // Load Stops List
     const loadStopsList = async () => {
       try {
-        const snap = await db.ref(`public_transport/companies/${companyName}/stops`).once('value');
-        allStops = snap.val() || {};
-        renderStopsList(allStops);
+        const snap = await db.ref('public_transport/stops').once('value');
+        const stops = snap.val() || {};
+        const tbody = document.getElementById('stopListTbody');
+        tbody.innerHTML = '';
+        Object.entries(stops).forEach(([id, s]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${id}</td>
+            <td>${s.name || 'Unknown'}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary edit-stop" data-id="${id}">Edit</button>
+              <button class="btn btn-sm btn-outline-danger delete-stop" data-id="${id}">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        // Attach event listeners
+        tbody.querySelectorAll('.edit-stop').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const snap = await db.ref(`public_transport/stops/${id}`).once('value');
+            const s = snap.val();
+            stopId.value = id;
+            stopNameInput.value = s.name || '';
+            stopGpsInput.value = s.gps || '';
+            tempStopVehicles = s.vehicles || [];
+            renderStopVehicleList();
+            showToast('Bus stop loaded for editing', 'info');
+          });
+        });
+        tbody.querySelectorAll('.delete-stop').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            handleDeleteBusStop(id);
+          });
+        });
       } catch (err) {
-        console.error('Failed to load stops:', err);
-        showToast('Failed to load stops list', 'danger');
+        console.error(err);
+        showToast('Failed to load bus stops list', 'danger');
       }
     };
 
-    // Render Stops List
-    const renderStopsList = (stops) => {
-      stopListTable.innerHTML = '';
-      Object.entries(stops).forEach(([id, s]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${id}</td>
-          <td>${s.name || 'Unknown'}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary edit-stop" data-id="${id}">Edit</button>
-            <button class="btn btn-sm btn-outline-danger delete-stop" data-id="${id}">Delete</button>
-          </td>
-        `;
-        stopListTable.appendChild(tr);
-      });
-      // Attach event listeners
-      stopListTable.querySelectorAll('.edit-stop').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.id;
-          const snap = await db.ref(`public_transport/companies/${companyName}/stops/${id}`).once('value');
-          const s = snap.val();
-          stopId.value = id;
-          stopNameInput.value = s.name || '';
-          stopGpsInput.value = s.gps || '';
-          tempStopVehicles = s.vehicles || [];
-          renderStopVehicleList();
-          showToast('Bus stop loaded for editing', 'info');
-        });
-      });
-      stopListTable.querySelectorAll('.delete-stop').forEach(btn => {
-        btn.addEventListener('click', () => handleDeleteBusStop(btn.dataset.id));
-      });
-    };
-
-    // Filter Stops
-    const filterStops = () => {
-      const query = searchStops.value.trim().toLowerCase();
-      const filtered = Object.entries(allStops).filter(([id, s]) =>
-        id.toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query)
-      );
-      renderStopsList(Object.fromEntries(filtered));
-    };
-
     // Load Stats
-    const loadStats = async () => {
+    async function loadStats() {
       try {
-        const snap = await db.ref(`public_transport/companies/${companyName}/vehicles`).once('value');
+        const snap = await db.ref(`users/${uid}/vehicle/companies/${companyName}/vehicle`).once('value');
         const vehicles = snap.val() || {};
         const vehicleCount = Object.keys(vehicles).length;
         let deliveries = 0;
         let alerts = 0;
         const today = new Date().toDateString();
+
         Object.values(vehicles).forEach(v => {
           const d = v.deliveries || {};
           deliveries += Object.keys(d).length;
           const lt = v.last_trigger;
           if (lt && lt.status === 'alert' && lt.time && new Date(lt.time).toDateString() === today) alerts++;
         });
+
         statVehicles.innerText = vehicleCount;
         statDeliveries.innerText = deliveries;
         statAlerts.innerText = alerts;
@@ -674,7 +652,7 @@
         console.error('Failed to load stats:', err);
         showToast(`Failed to load stats: ${err.message}`, 'danger');
       }
-    };
+    }
   </script>
 </body>
-          </html>
+            </html>
