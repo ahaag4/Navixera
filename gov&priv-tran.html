@@ -27,7 +27,7 @@
     .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
     .stop-list { max-height: 200px; overflow-y: auto; }
     .table-responsive { max-height: 400px; overflow-y: auto; }
-    #map { height: 300px; border-radius: 8px; margin-bottom: 1rem; }
+    .map-container { height: 300px; border-radius: 8px; margin-bottom: 1rem; }
     .is-invalid { border-color: #dc3545; }
     .invalid-feedback { display: block; color: #dc3545; font-size: 0.875rem; }
     @media (max-width: 992px) {
@@ -78,7 +78,7 @@
       <div class="card-body">
         <h5 class="card-title">Manage Public Vehicles</h5>
         <div class="mb-3">
-          <div id="map"></div>
+          <div id="vehicleMap" class="map-container"></div>
           <div class="form-text">Click on the map to set vehicle location</div>
         </div>
         <div class="row controls-row">
@@ -102,6 +102,10 @@
         <div class="row controls-row mt-2">
           <div class="col-12">
             <h6>Add Stops</h6>
+            <div class="mb-3">
+              <div id="stopMap" class="map-container"></div>
+              <div class="form-text">Click on the map to set stop location</div>
+            </div>
             <div class="input-group mb-2">
               <input id="stopName" class="form-control" placeholder="Stop Name">
               <input id="stopGps" class="form-control" placeholder="Stop GPS (lat,lng)" readonly>
@@ -147,7 +151,7 @@
       <div class="card-body">
         <h5 class="card-title">Manage Bus Stops</h5>
         <div class="mb-3">
-          <div id="stopMap"></div>
+          <div id="busStopMap" class="map-container"></div>
           <div class="form-text">Click on the map to set stop location</div>
         </div>
         <div class="row controls-row">
@@ -228,7 +232,7 @@
   <script>
     /****************************************************************
      * Company Admin Panel — Navixera
-     * - Enhanced with map integration and better validation
+     * - Enhanced with map integration for GPS coordinate selection
      ****************************************************************/
 
     const firebaseConfig = {
@@ -282,26 +286,31 @@
     let companyName = null;
     let tempStops = [];
     let tempStopVehicles = [];
-    let map, stopMap, vehicleMarker, stopMarker;
-    let vehicleListeners = [];
-    let stopListeners = [];
+    let vehicleMap, stopMap, busStopMap;
+    let vehicleMarker, stopMarker, busStopMarker;
 
     // Initialize maps
     function initMaps() {
-      // Main vehicle map
-      map = L.map('map').setView([20.5937, 78.9629], 5); // Default to India center
+      // Vehicle map
+      vehicleMap = L.map('vehicleMap').setView([20.5937, 78.9629], 5); // Default to India center
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+      }).addTo(vehicleMap);
       
-      // Stop management map
+      // Stop map (for adding stops to vehicles)
       stopMap = L.map('stopMap').setView([20.5937, 78.9629], 5);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(stopMap);
       
-      // Add click handlers to both maps
-      map.on('click', function(e) {
+      // Bus stop map (for managing bus stops)
+      busStopMap = L.map('busStopMap').setView([20.5937, 78.9629], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(busStopMap);
+      
+      // Add click handlers to all maps
+      vehicleMap.on('click', function(e) {
         const latlng = e.latlng;
         publicVehicleGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
         
@@ -309,16 +318,13 @@
         if (vehicleMarker) {
           vehicleMarker.setLatLng(latlng);
         } else {
-          vehicleMarker = L.marker(latlng).addTo(map)
+          vehicleMarker = L.marker(latlng).addTo(vehicleMap)
             .bindPopup('Vehicle Location').openPopup();
         }
-        
-        validateField(publicVehicleGps, 'gpsFeedback', isValidGps(publicVehicleGps.value));
       });
       
       stopMap.on('click', function(e) {
         const latlng = e.latlng;
-        stopGpsInput.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
         stopGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
         
         // Update or create marker
@@ -328,9 +334,19 @@
           stopMarker = L.marker(latlng).addTo(stopMap)
             .bindPopup('Stop Location').openPopup();
         }
+      });
+      
+      busStopMap.on('click', function(e) {
+        const latlng = e.latlng;
+        stopGpsInput.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
         
-        validateField(stopGpsInput, 'stopGpsFeedback', isValidGps(stopGpsInput.value));
-        validateField(stopGps, 'stopFeedback', isValidGps(stopGps.value));
+        // Update or create marker
+        if (busStopMarker) {
+          busStopMarker.setLatLng(latlng);
+        } else {
+          busStopMarker = L.marker(latlng).addTo(busStopMap)
+            .bindPopup('Bus Stop Location').openPopup();
+        }
       });
     }
 
@@ -349,31 +365,6 @@
       const t = new bootstrap.Toast(div, { delay: ttl });
       t.show();
       div.addEventListener('hidden.bs.toast', () => div.remove());
-    };
-
-    // Validation functions
-    const isValidGps = (gps) => {
-      if (!gps) return false;
-      const parts = String(gps).split(',').map(s => s.trim());
-      if (parts.length < 2) return false;
-      const lat = Number(parts[0]), lng = Number(parts[1]);
-      return isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
-    };
-
-    const isValidVehicleId = (id) => {
-      return id && id.length >= 3 && id.length <= 20;
-    };
-
-    const validateField = (field, feedbackId, isValid) => {
-      if (isValid) {
-        field.classList.remove('is-invalid');
-        field.classList.add('is-valid');
-        document.getElementById(feedbackId).textContent = '';
-      } else {
-        field.classList.remove('is-valid');
-        field.classList.add('is-invalid');
-      }
-      return isValid;
     };
 
     // Parse GPS
@@ -424,13 +415,9 @@
         // Initialize maps after user is authenticated
         initMaps();
         
-        // Set up real-time listeners
-        setupRealTimeListeners();
-        
-        // Add input validation
-        setupValidation();
-
         loadStats();
+        loadVehiclesList();
+        loadStopsList();
         addStopBtn.addEventListener('click', handleAddStop);
         addPublicVehicleBtn.addEventListener('click', handleAddPublicVehicle);
         deletePublicVehicleBtn.addEventListener('click', () => handleDeletePublicVehicle());
@@ -441,8 +428,6 @@
         refreshStopsBtn.addEventListener('click', loadStopsList);
         logoutBtn.addEventListener('click', () => {
           console.log('Logging out user:', uid);
-          // Remove all listeners before logout
-          removeAllListeners();
           auth.signOut();
         });
       } catch (err) {
@@ -451,119 +436,18 @@
       }
     });
 
-    // Setup input validation
-    function setupValidation() {
-      publicVehicleId.addEventListener('blur', () => {
-        validateField(publicVehicleId, 'vehicleIdFeedback', isValidVehicleId(publicVehicleId.value));
-      });
-      
-      publicVehicleType.addEventListener('blur', () => {
-        validateField(publicVehicleType, 'vehicleTypeFeedback', publicVehicleType.value.length > 0);
-      });
-      
-      publicRouteName.addEventListener('blur', () => {
-        validateField(publicRouteName, 'routeFeedback', publicRouteName.value.length > 0);
-      });
-      
-      stopId.addEventListener('blur', () => {
-        validateField(stopId, 'stopIdFeedback', stopId.value.length > 0);
-      });
-      
-      stopNameInput.addEventListener('blur', () => {
-        validateField(stopNameInput, 'stopNameFeedback', stopNameInput.value.length > 0);
-      });
-    }
-
-    // Setup real-time listeners
-    function setupRealTimeListeners() {
-      // Listen for vehicle changes
-      const vehiclesRef = db.ref('public_transport/vehicles');
-      vehicleListeners.push(
-        vehiclesRef.on('child_added', (data) => {
-          console.log('Vehicle added:', data.key);
-          loadVehiclesList();
-          loadStats();
-        })
-      );
-      
-      vehicleListeners.push(
-        vehiclesRef.on('child_changed', (data) => {
-          console.log('Vehicle changed:', data.key);
-          loadVehiclesList();
-          loadStats();
-        })
-      );
-      
-      vehicleListeners.push(
-        vehiclesRef.on('child_removed', (data) => {
-          console.log('Vehicle removed:', data.key);
-          loadVehiclesList();
-          loadStats();
-        })
-      );
-      
-      // Listen for stop changes
-      const stopsRef = db.ref('public_transport/stops');
-      stopListeners.push(
-        stopsRef.on('child_added', (data) => {
-          console.log('Stop added:', data.key);
-          loadStopsList();
-        })
-      );
-      
-      stopListeners.push(
-        stopsRef.on('child_changed', (data) => {
-          console.log('Stop changed:', data.key);
-          loadStopsList();
-        })
-      );
-      
-      stopListeners.push(
-        stopsRef.on('child_removed', (data) => {
-          console.log('Stop removed:', data.key);
-          loadStopsList();
-        })
-      );
-    }
-    
-    // Remove all listeners
-    function removeAllListeners() {
-      // Remove vehicle listeners
-      vehicleListeners.forEach((listener, index) => {
-        const ref = db.ref('public_transport/vehicles');
-        ref.off('child_added', listener);
-        ref.off('child_changed', listener);
-        ref.off('child_removed', listener);
-      });
-      vehicleListeners = [];
-      
-      // Remove stop listeners
-      stopListeners.forEach((listener, index) => {
-        const ref = db.ref('public_transport/stops');
-        ref.off('child_added', listener);
-        ref.off('child_changed', listener);
-        ref.off('child_removed', listener);
-      });
-      stopListeners = [];
-    }
-
     // Handle Add Stop (for vehicle)
     const handleAddStop = () => {
       const name = stopName.value.trim();
       const gps = stopGps.value.trim();
-      
-      if (!name) {
-        showToast('Enter stop name', 'warning');
-        validateField(stopName, 'stopFeedback', false);
+      if (!name || !gps) {
+        showToast('Enter stop name and select location on map', 'warning');
         return;
       }
-      
-      if (!isValidGps(gps)) {
-        showToast('Invalid GPS format (use lat,lng)', 'warning');
-        validateField(stopGps, 'stopFeedback', false);
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format', 'warning');
         return;
       }
-      
       tempStops.push({ name, gps });
       stopName.value = '';
       stopGps.value = '';
@@ -598,18 +482,14 @@
       const vtype = publicVehicleType.value.trim();
       const gps = publicVehicleGps.value.trim();
       const routeName = publicRouteName.value.trim();
-      
-      // Validate all fields
-      const isVidValid = validateField(publicVehicleId, 'vehicleIdFeedback', isValidVehicleId(vid));
-      const isTypeValid = validateField(publicVehicleType, 'vehicleTypeFeedback', vtype.length > 0);
-      const isGpsValid = validateField(publicVehicleGps, 'gpsFeedback', isValidGps(gps));
-      const isRouteValid = validateField(publicRouteName, 'routeFeedback', routeName.length > 0);
-      
-      if (!isVidValid || !isTypeValid || !isGpsValid || !isRouteValid) {
-        showToast('Please fix validation errors', 'warning');
+      if (!vid || !vtype || !gps || !routeName) {
+        showToast('Fill all fields', 'warning');
         return;
       }
-      
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format', 'warning');
+        return;
+      }
       try {
         const fullRoutePath = tempStops.map(s => parseGps(s.gps)).filter(g => g !== null);
         const obj = {
@@ -632,10 +512,11 @@
         publicRouteName.value = '';
         tempStops = [];
         if (vehicleMarker) {
-          map.removeLayer(vehicleMarker);
+          vehicleMap.removeLayer(vehicleMarker);
           vehicleMarker = null;
         }
         renderStopList();
+        loadVehiclesList();
         console.log('Added/updated public vehicle:', obj);
       } catch (err) {
         console.error('Failed to add public vehicle:', err);
@@ -656,6 +537,7 @@
         publicVehicleId.value = '';
         tempStops = [];
         renderStopList();
+        loadVehiclesList();
         console.log('Deleted public vehicle:', vid);
       } catch (err) {
         console.error('Failed to delete public vehicle:', err);
@@ -701,7 +583,7 @@
             if (gps && vehicleMarker) {
               vehicleMarker.setLatLng(gps);
             } else if (gps) {
-              vehicleMarker = L.marker(gps).addTo(map)
+              vehicleMarker = L.marker(gps).addTo(vehicleMap)
                 .bindPopup('Vehicle Location').openPopup();
             }
             
@@ -761,17 +643,14 @@
       const id = stopId.value.trim();
       const name = stopNameInput.value.trim();
       const gps = stopGpsInput.value.trim();
-      
-      // Validate all fields
-      const isIdValid = validateField(stopId, 'stopIdFeedback', id.length > 0);
-      const isNameValid = validateField(stopNameInput, 'stopNameFeedback', name.length > 0);
-      const isGpsValid = validateField(stopGpsInput, 'stopGpsFeedback', isValidGps(gps));
-      
-      if (!isIdValid || !isNameValid || !isGpsValid) {
-        showToast('Please fix validation errors', 'warning');
+      if (!id || !name || !gps) {
+        showToast('Fill all stop fields', 'warning');
         return;
       }
-      
+      if (!parseGps(gps)) {
+        showToast('Invalid GPS format', 'warning');
+        return;
+      }
       try {
         const obj = {
           name,
@@ -785,11 +664,12 @@
         stopNameInput.value = '';
         stopGpsInput.value = '';
         tempStopVehicles = [];
-        if (stopMarker) {
-          stopMap.removeLayer(stopMarker);
-          stopMarker = null;
+        if (busStopMarker) {
+          busStopMap.removeLayer(busStopMarker);
+          busStopMarker = null;
         }
         renderStopVehicleList();
+        loadStopsList();
         console.log('Added/updated bus stop:', obj);
       } catch (err) {
         console.error('Failed to add bus stop:', err);
@@ -851,11 +731,11 @@
             
             // Set map marker
             const gps = parseGps(s.gps);
-            if (gps && stopMarker) {
-              stopMarker.setLatLng(gps);
+            if (gps && busStopMarker) {
+              busStopMarker.setLatLng(gps);
             } else if (gps) {
-              stopMarker = L.marker(gps).addTo(stopMap)
-                .bindPopup('Stop Location').openPopup();
+              busStopMarker = L.marker(gps).addTo(busStopMap)
+                .bindPopup('Bus Stop Location').openPopup();
             }
             
             renderStopVehicleList();
@@ -903,4 +783,4 @@
     }
   </script>
 </body>
-  </html>
+          </html>
