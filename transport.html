@@ -426,6 +426,34 @@
       background-color: var(--warning-color);
     }
 
+    /* Bus icon styling */
+    .bus-icon {
+      background-color: var(--primary-color);
+      border-radius: 50% 50% 0 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transform: translate(-12px, -12px);
+    }
+
+    .bus-icon::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid var(--primary-color);
+    }
+
     @keyframes pulse {
       0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
       70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
@@ -723,15 +751,18 @@
       let vehiclesData = {};
       let busStops = [];
 
-      // Custom Icons
-      const vehicleIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-      });
+      // Custom Bus Icon
+      const createBusIcon = (color = '#2563eb') => {
+        return L.divIcon({
+          className: 'bus-marker',
+          html: `<div class="bus-icon" style="background-color: ${color}">
+                  <i class="bi bi-bus-front"></i>
+                </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+          popupAnchor: [0, -12]
+        });
+      };
 
       const stopIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -1073,7 +1104,8 @@
             if (newCoords) {
               bounds.push(newCoords);
               if (!markers[vid]) {
-                const marker = L.marker(newCoords, { icon: vehicleIcon, title: vid }).addTo(markerGroup);
+                // Use bus icon instead of default pointer
+                const marker = L.marker(newCoords, { icon: createBusIcon(), title: vid }).addTo(markerGroup);
                 marker.bindPopup(`
                   <strong>${vid}</strong><br>
                   ${v.vehicleType || 'Unknown'}<br>
@@ -1268,4 +1300,4 @@
     })();
   </script>
 </body>
-</html>
+  </html>
