@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>BEST Bus — Live Transit Dashboard</title>
+  <title>Live Public Transit Dashboard — Navixera</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,13 +13,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
+  
   <style>
     :root {
-      --primary-color: #f4a261; /* Orange from BEST Bus UI */
-      --primary-rgb: 244, 162, 97;
-      --secondary-color: #2a4494; /* Dark blue for contrast */
-      --bg-light: #fff3e6; /* Light orange background */
+      --primary-color: #0d6efd;
+      --primary-rgb: 13, 110, 253;
+      --secondary-color: #6c757d;
+      --bg-light: #f4f7f9;
       --card-bg: #ffffff;
       --font-family: 'Poppins', sans-serif;
       --border-radius: 12px;
@@ -36,12 +36,10 @@
 
     .navbar {
       background: var(--card-bg);
-      border-bottom: 2px solid var(--primary-color);
     }
 
     .navbar-brand {
       font-weight: 600;
-      color: var(--primary-color);
       display: flex;
       align-items: center;
     }
@@ -50,7 +48,6 @@
       border: none;
       border-radius: var(--border-radius);
       box-shadow: var(--shadow-sm);
-      background: var(--card-bg);
       transition: all 0.3s ease-in-out;
     }
 
@@ -98,11 +95,8 @@
       pointer-events: none;
     }
 
-    .search-panel, .best-bus-panel {
+    .search-panel {
       padding: 25px;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: var(--border-radius);
     }
 
     .result-list {
@@ -119,7 +113,7 @@
     }
 
     .vehicle-item:hover {
-      background-color: #f8f9fa;
+      background-color: #e9ecef;
       transform: translateX(4px);
     }
 
@@ -133,7 +127,6 @@
       box-shadow: var(--shadow-md);
       transform: translateX(120%);
       transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-      background: #fff;
     }
 
     .sidebar.is-visible {
@@ -164,7 +157,6 @@
       box-shadow: var(--shadow-md);
       transform: translateX(-120%);
       transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-      background: #fff;
     }
 
     .bus-stop-panel.is-visible {
@@ -176,13 +168,11 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 15px;
-      border-bottom: 1px solid #eee;
     }
 
     .bus-stop-title {
       font-weight: 600;
       margin: 0;
-      color: var(--primary-color);
     }
 
     .see-all-link {
@@ -199,7 +189,6 @@
     .bus-stop-name {
       font-weight: 500;
       margin-bottom: 5px;
-      color: #333;
     }
 
     .bus-stop-distance {
@@ -310,43 +299,6 @@
         transform: translateY(0);
       }
     }
-
-    /* BEST Bus Specific Styles */
-    .best-bus-section {
-      background: #fff9f0;
-      padding: 15px;
-      margin-bottom: 15px;
-      border-radius: var(--border-radius);
-      border: 1px solid #ffe0b2;
-    }
-
-    .best-bus-section h5 {
-      color: var(--primary-color);
-      font-weight: 600;
-    }
-
-    .best-bus-option {
-      background: #fff;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      text-align: center;
-    }
-
-    .best-bus-option.coming-soon {
-      opacity: 0.6;
-    }
-
-    .best-bus-option .btn {
-      background: var(--primary-color);
-      color: #fff;
-      border: none;
-    }
-
-    .best-bus-option .btn:hover {
-      background: #e07a39;
-    }
   </style>
 </head>
 <body>
@@ -357,7 +309,7 @@
           <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
           <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
         </svg>
-        BEST Bus — Live Transit
+        Navixera — Live Transit
       </a>
     </div>
   </nav>
@@ -383,58 +335,19 @@
         </div>
       </div>
       <div class="col-12 col-lg-4">
-        <div class="card best-bus-panel">
-          <h5 class="mb-3">BEST Bus</h5>
-          <div class="best-bus-section">
-            <div class="input-group mb-3">
-              <input type="text" class="form-control" placeholder="Find and track your bus" aria-label="Find and track your bus">
-              <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
-            </div>
-            <div class="best-bus-option coming-soon">
-              <h6>Online Card Recharge</h6>
-              <p>Coming soon - Enjoy 5% extra balance with Chalo Card</p>
-            </div>
-            <div class="best-bus-option">
-              <h6>Quick Payments</h6>
-              <p>Buy mobile ticket - Pay with wallet, UPI or cards</p>
-              <button class="btn btn-sm mt-2">Try Now</button>
-            </div>
-            <div class="best-bus-option">
-              <h6>Save More with Passes</h6>
-              <div class="row">
-                <div class="col-6">
-                  <p>Unlimited Rides</p>
-                  <p class="text-muted">Bestseller</p>
-                </div>
-                <div class="col-6">
-                  <p>Super Saver Plan</p>
-                  <p class="text-muted">Cheapest way to travel</p>
-                </div>
-              </div>
-              <button class="btn btn-sm mt-2">See All Passes</button>
-            </div>
-            <div class="best-bus-option">
-              <h6>Make the Smart Move</h6>
-              <p>Superfast payments with Chalo Pay</p>
-              <button class="btn btn-sm mt-2">Try Now</button>
-            </div>
+        <div class="card search-panel">
+          <h5 class="card-title mb-3">Find Your Ride</h5>
+          <div class="search-group">
+            <input type="text" id="searchVehicle" class="form-control" placeholder="Vehicle Number (e.g., MH-01-AB-1234)">
+            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">Search Vehicle</button>
           </div>
-          <div class="best-bus-section mt-3">
-            <h5>Nearest Bus Stop <a href="#" class="see-all-link float-end">See all stops</a></h5>
-            <div class="bus-stop-item">
-              <div class="bus-stop-name">Worli Sea Face Post Office</div>
-              <div class="bus-stop-distance">2 min away</div>
-              <div class="bus-timings">Timings not available</div>
-              <div class="bus-route-item">
-                <div class="bus-number">A-44</div>
-                <div class="bus-destination">To Shrawan Yeshwante Chowk</div>
-              </div>
-              <div class="bus-route-item">
-                <div class="bus-number">A-56</div>
-                <div class="bus-destination">To Vesave Or Yari Road Bus Station</div>
-              </div>
-            </div>
+          <hr>
+          <div class="search-group">
+            <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
+            <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
+            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">Search Route</button>
           </div>
+          <div class="result-list mt-3" id="searchResults"></div>
         </div>
       </div>
     </div>
@@ -492,11 +405,11 @@
         loader: document.getElementById('loader'),
         locateBtn: document.getElementById('locateBtn'),
         showBusStopsBtn: document.getElementById('showBusStopsBtn'),
-        searchVehicleInput: document.querySelector('.input-group input'),
-        searchVehicleBtn: document.querySelector('.input-group button'),
-        searchRouteFrom: null, // Removed for simplicity, can be re-added if needed
-        searchRouteTo: null,
-        searchRouteBtn: null,
+        searchVehicleInput: document.getElementById('searchVehicle'),
+        searchVehicleBtn: document.getElementById('searchVehicleBtn'),
+        searchRouteFrom: document.getElementById('searchRouteFrom'),
+        searchRouteTo: document.getElementById('searchRouteTo'),
+        searchRouteBtn: document.getElementById('searchRouteBtn'),
         searchResults: document.getElementById('searchResults'),
         vehicleDetails: document.getElementById('vehicleDetails'),
         vehicleTitle: document.getElementById('vehicleTitle'),
@@ -715,7 +628,7 @@
         // Add event listeners for view buttons
         dom.busStopContent.querySelectorAll('.view-stop-btn').forEach(btn => {
           btn.addEventListener('click', () => {
-            const stopId = btn.closest('.list-group-item').data.stopId;
+            const stopId = btn.closest('.list-group-item').dataset.stopId;
             const stop = busStops.find(s => s.id == stopId);
             if (stop) {
               const coords = parseGps(stop.gps);
@@ -934,8 +847,52 @@
       };
 
       const searchByRoute = () => {
-        // Simplified for this example; re-add logic if needed
-        showToast('Route search not implemented yet.', 'warning');
+        const from = dom.searchRouteFrom.value.trim().toLowerCase();
+        const to = dom.searchRouteTo.value.trim().toLowerCase();
+        if (!from || !to) {
+          showToast('Enter both "From" and "To" locations.', 'warning');
+          return;
+        }
+        dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
+        const results = [];
+        Object.entries(vehiclesData).forEach(([vid, v]) => {
+          const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
+          const hasFrom = stops.some(s => s.includes(from));
+          const hasTo = stops.some(s => s.includes(to));
+          if (hasFrom && hasTo) {
+            results.push({ vid, vehicle: v });
+          }
+        });
+        dom.searchResults.innerHTML = '';
+        if (results.length > 0) {
+          results.forEach(({ vid, vehicle }) => {
+            const div = document.createElement('div');
+            div.className = 'vehicle-item p-2 border-bottom';
+            div.innerHTML = `
+              <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+              <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+            `;
+            div.addEventListener('click', () => {
+              if (markers[vid]) {
+                const { marker } = markers[vid];
+                map.flyTo(marker.getLatLng(), 16);
+                marker.openPopup();
+                showVehicleDetails(vid, vehicle);
+              } else {
+                const coords = parseGps(vehicle.gps);
+                if (coords) {
+                  map.flyTo(coords, 16);
+                  showVehicleDetails(vid, vehicle);
+                } else {
+                  showToast('Vehicle location not available.', 'warning');
+                }
+              }
+            });
+            dom.searchResults.appendChild(div);
+          });
+        } else {
+          dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found.</div>';
+        }
       };
 
       // Event Listeners
@@ -950,9 +907,12 @@
           }
         });
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
+        dom.searchRouteBtn.addEventListener('click', searchByRoute);
         dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
         dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
         dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
+        dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+        dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
       };
 
       // Initialization
@@ -970,4 +930,4 @@
     })();
   </script>
 </body>
-</html>
+  </html>
