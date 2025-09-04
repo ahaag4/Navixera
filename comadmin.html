@@ -145,6 +145,19 @@
             <ul id="driverList" class="list-group"></ul>
           </div>
         </div>
+        
+        <!-- Government Portal Access -->
+        <div class="card p-3 mt-3">
+          <h5 class="mb-3">Government Portal</h5>
+          <div class="d-grid gap-2">
+            <button id="govPortalBtn" class="btn btn-warning" disabled>
+              Access Government Portal
+            </button>
+            <div id="govPortalStatus" class="small-muted text-center">
+              Access pending admin approval
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Right column (map + lists) -->
@@ -278,6 +291,10 @@
   const clearHistoryBtn = document.getElementById('clearHistoryBtn');
   const historyMapEl = document.getElementById('historyMap');
 
+  // Government portal button
+  const govPortalBtn = document.getElementById('govPortalBtn');
+  const govPortalStatus = document.getElementById('govPortalStatus');
+
   // Toast helper
   const toastContainer = document.querySelector('.toast-container');
   function showToast(message, type='info', ttl=3500) {
@@ -335,6 +352,20 @@
       companyName = me.companyName || 'default';
       currentUserEl.textContent = `${me.email || user.email} (${companyName})`;
 
+      // Check for government portal access
+      if (me.govPortalAccess === true) {
+        enableGovPortalButton();
+      } else {
+        // Set up a listener for govPortalAccess changes
+        db.ref(`users/${uid}/govPortalAccess`).on('value', (snap) => {
+          if (snap.exists() && snap.val() === true) {
+            enableGovPortalButton();
+          } else {
+            disableGovPortalButton();
+          }
+        });
+      }
+
       initMap();
       setupRealtimeListeners();
       loadStats();
@@ -364,6 +395,23 @@
       showToast('Initialization failed (see console)', 'danger');
     }
   });
+
+  // Government portal button functions
+  function enableGovPortalButton() {
+    govPortalBtn.disabled = false;
+    govPortalStatus.textContent = 'Access granted by admin';
+    govPortalStatus.className = 'small text-success text-center';
+    
+    govPortalBtn.addEventListener('click', () => {
+      window.location.href = 'https://svms.pages.dev/gov&priv-tran.html';
+    });
+  }
+
+  function disableGovPortalButton() {
+    govPortalBtn.disabled = true;
+    govPortalStatus.textContent = 'Access pending admin approval';
+    govPortalStatus.className = 'small-muted text-center';
+  }
 
   // ---------- Map setup ----------
   function initMap() {
@@ -754,4 +802,4 @@
   // done
   </script>
 </body>
-</html>
+  </html>
