@@ -28,3 +28,8 @@
   }
 
 }
+
+
+//To give access of government portal from companies admin page in Firebase add this field 
+
+govPortalAccess:true ----access get if false access not get
