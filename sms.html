@@ -8,26 +8,16 @@
   <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
-    :root {
-      --primary: #0d6efd;
-      --secondary: #1a7bff;
-      --muted: #6c757d;
-      --card-bg: #fff;
-      --page-bg: #f6f8fb;
-    }
-
     body {
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      font-family: Arial, sans-serif;
       margin: 0;
-      background: var(--page-bg);
+      background: #f7f9fc;
     }
-
     .dashboard {
-      max-width: 1200px;
+      max-width: 1000px;
       margin: auto;
-      padding: 15px;
+      padding: 20px;
     }
-
     header {
       display: flex;
       justify-content: space-between;
@@ -36,279 +26,69 @@
       color: white;
       padding: 10px 20px;
       border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
-
-    .logo {
-      height: 60px;
-      width: auto;
-      max-width: 150px;
-    }
-
-    h1 {
-      font-size: 1.8rem;
-      margin: 0;
-    }
-
+    .logo { height: 40px; }
     .card {
-      background: var(--card-bg);
+      background: white;
       padding: 20px;
       margin: 20px 0;
       border-radius: 12px;
-      box-shadow: 0 6px 18px rgba(13, 110, 253, 0.06);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-
-    h2 {
-      margin-top: 0;
-      color: var(--primary);
-      font-size: 1.5rem;
-    }
-
-    #map {
-      height: 300px;
-      width: 100%;
-      border-radius: 10px;
-    }
-
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
+      width: 100%; border-collapse: collapse; margin-top: 10px;
     }
-
     th, td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-      font-size: 0.9rem;
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
     }
-
     .switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 26px;
+      position: relative; display: inline-block; width: 60px; height: 30px;
     }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
+    .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: var(--muted);
-      transition: .4s;
-      border-radius: 26px;
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
     }
-
     .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 4px;
-      bottom: 4px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
     }
-
-    input:checked + .slider {
-      background-color: #28a745;
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(24px);
-    }
-
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
     .view-btn {
-      background-color: var(--primary);
-      color: white;
-      padding: 6px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: background-color 0.3s, transform 0.2s;
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
     }
-
-    .view-btn:hover {
-      background-color: var(--secondary);
-      transform: translateY(-2px);
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
     #logoutBtn {
-      background: #dc3545;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
     }
-
-    .status-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-top: 6px;
-    }
-
-    .badge {
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: #fff;
-    }
-
-    .badge.online {
-      background: #28a745;
-    }
-
-    .badge.offline {
-      background: #dc3545;
-    }
-
-    .components-list {
-      margin-top: 10px;
-      list-style: none;
-      padding-left: 0;
-    }
-
-    .components-list li {
-      padding: 6px 0;
-      border-bottom: 1px dashed #eee;
-    }
-
-    .comp-ok { color: #28a745; font-weight: 600; }
-    .comp-warn { color: #e67700; font-weight: 600; }
-    .comp-bad { color: #c82333; font-weight: 600; }
-    .comp-unknown { color: var(--muted); font-weight: 600; }
-
-    /* Responsive Adjustments */
-    @media (max-width: 992px) {
-      .dashboard {
-        padding: 10px;
-      }
-      header {
-        flex-wrap: wrap;
-        gap: 10px;
-        padding: 15px;
-      }
-      .logo {
-        height: 50px;
-        max-width: 120px;
-      }
-      h1 {
-        font-size: 1.5rem;
-      }
-      .card {
-        padding: 15px;
-      }
-      h2 {
-        font-size: 1.3rem;
-      }
-      #map {
-        height: 250px;
-      }
-      th, td {
-        font-size: 0.85rem;
-        padding: 8px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      header {
-        flex-direction: column;
-        align-items: flex-start;
-        text-align: center;
-      }
-      .user-info {
-        justify-content: center;
-        width: 100%;
-      }
-      .status-row {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .switch {
-        width: 45px;
-        height: 24px;
-      }
-      .slider:before {
-        height: 16px;
-        width: 16px;
-        left: 4px;
-        bottom: 4px;
-      }
-      input:checked + .slider:before {
-        transform: translateX(21px);
-      }
-      .view-btn, #logoutBtn {
-        padding: 5px 10px;
-        font-size: 0.85rem;
-      }
-    }
-
-    @media (max-width: 576px) {
-      .logo {
-        height: 45px;
-        max-width: 100px;
-      }
-      h1 {
-        font-size: 1.3rem;
-      }
-      h2 {
-        font-size: 1.2rem;
-      }
-      #map {
-        height: 200px;
-      }
-      th, td {
-        font-size: 0.8rem;
-        padding: 6px;
-      }
-      .status-row div {
-        font-size: 0.9rem;
-      }
-      .badge {
-        font-size: 0.8rem;
-        padding: 5px 8px;
-      }
-      .filter-group {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .filter-group label {
-        margin-left: 0;
-      }
-      .view-btn {
-        width: 100%;
-        margin-top: 5px;
-      }
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+    @media (max-width:600px) {
+      header { flex-direction: column; gap:8px; align-items:flex-start; }
+      .view-btn { margin-top:6px; }
     }
   </style>
 </head>
 <body>
   <div class="dashboard">
     <header>
-      <img src="assets/logo.png" alt="Navixera Logo" class="logo"/>
+      <img src="assets/logo.png" alt="Logo" class="logo"/>
+      <h1>Navixera</h1>
       <div class="user-info">
         <span id="userEmail">Loading...</span>
         <button id="logoutBtn">Logout</button>
@@ -350,11 +130,12 @@
 
     <section class="card history-card">
       <h2>📈 Movement History</h2>
-      <div class="filter-group" style="margin-bottom: 15px;">
-        <label>From: <input type="datetime-local" id="filterFrom" class="form-control"></label>
-        <label>To: <input type="datetime-local" id="filterTo" class="form-control"></label>
-        <button id="applyFilterBtn" class="view-btn">Apply</button>
-        <button id="resetFilterBtn" class="view-btn" style="background: var(--muted);">Reset</button>
+      <!-- Filter UI -->
+      <div style="margin-bottom: 10px;">
+        <label>From: <input type="datetime-local" id="filterFrom"></label>
+        <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
+        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply</button>
+        <button id="resetFilterBtn" class="view-btn" style="background:#6c757d;margin-left:5px;">Reset</button>
       </div>
       <table>
         <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
