@@ -350,7 +350,7 @@
 
       <div class="contact-form">
         <h2>Send Us a Message</h2>
-        <form target="_blank" action="https://formsubmit.co/navixera@gmail.com" method="POST" id="contactForm">
+        <form target="_blank" action="https://formsubmit.co/navixera@gmail.com" method="POST" id="contactForm" enctype="multipart/form-data">
           <input type="hidden" name="_subject" value="New Contact Form Submission - Navixera">
           <input type="hidden" name="_captcha" value="false">
           <input type="hidden" name="_next" value="https://svms.pages.dev/thank-you.html">
@@ -364,7 +364,7 @@
           </div>
           <div class="form-group">
              <label for="Attachment">Attachment</label>
-             <input name="attachment" type="file" />
+             <input name="_attachment" type="file" />
           </div>
           <div class="form-group">
             <label for="subject">Subject</label>
@@ -391,7 +391,7 @@
       <h2>Frequently Asked Questions</h2>
       <div class="faq-item">
         <div class="faq-question">
-          How accurate is the Navixera GPS? <i class="fas fa-chevron-down"></i>
+          How accurate is the Smart Tracker GPS? <i class="fas fa-chevron-down"></i>
         </div>
         <div class="faq-answer">
           Our GPS tracking is accurate within 5 meters under normal conditions. In urban areas with tall buildings, accuracy might be slightly reduced, but we use multiple technologies to ensure the best possible tracking precision.
