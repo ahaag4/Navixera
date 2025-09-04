@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -16,15 +16,31 @@
   
   <style>
     :root {
-      --primary-color: #0d6efd;
-      --primary-rgb: 13, 110, 253;
-      --secondary-color: #6c757d;
-      --bg-light: #f4f7f9;
+      --primary-color: #2563eb;
+      --primary-rgb: 37, 99, 235;
+      --primary-hover: #1d4ed8;
+      --secondary-color: #64748b;
+      --accent-color: #8b5cf6;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --danger-color: #ef4444;
+      --bg-light: #f8fafc;
       --card-bg: #ffffff;
-      --font-family: 'Poppins', sans-serif;
+      --card-border: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --font-family: 'Inter', sans-serif;
       --border-radius: 12px;
-      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 8px 24px rgba(var(--primary-rgb), 0.08);
+      --border-radius-sm: 8px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     html, body {
@@ -32,28 +48,57 @@
       margin: 0;
       font-family: var(--font-family);
       background-color: var(--bg-light);
+      color: var(--text-primary);
+      line-height: 1.5;
     }
 
     .navbar {
       background: var(--card-bg);
+      box-shadow: var(--shadow-sm);
+      padding: 0.75rem 0;
     }
 
     .navbar-brand {
-      font-weight: 600;
+      font-weight: 700;
       display: flex;
       align-items: center;
+      color: var(--primary-color);
+      font-size: 1.25rem;
+    }
+
+    .navbar-brand svg {
+      color: var(--primary-color);
     }
 
     .card {
-      border: none;
+      border: 1px solid var(--card-border);
       border-radius: var(--border-radius);
       box-shadow: var(--shadow-sm);
-      transition: all 0.3s ease-in-out;
+      transition: var(--transition);
+      background: var(--card-bg);
+      overflow: hidden;
     }
 
     .card:hover {
-      transform: translateY(-3px);
+      transform: translateY(-2px);
       box-shadow: var(--shadow-md);
+    }
+
+    .card-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+    }
+
+    .card-title {
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-body {
+      padding: 1.25rem;
     }
 
     #map {
@@ -73,6 +118,24 @@
       top: 15px;
       right: 15px;
       z-index: 401;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .map-controls .btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
+    }
+
+    .map-controls .btn:hover {
+      transform: scale(1.05);
     }
 
     .loader-overlay {
@@ -81,13 +144,14 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.85);
       display: flex;
       justify-content: center;
       align-items: center;
       z-index: 10;
       transition: opacity 0.3s ease;
       opacity: 1;
+      backdrop-filter: blur(4px);
     }
 
     .loader-overlay.hidden {
@@ -96,24 +160,86 @@
     }
 
     .search-panel {
-      padding: 25px;
+      padding: 1.5rem;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .search-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-control {
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      transition: var(--transition);
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .btn {
+      border-radius: var(--border-radius-sm);
+      padding: 0.75rem 1.5rem;
+      font-weight: 500;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+      border-color: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-light {
+      background-color: white;
+      border-color: var(--card-border);
+    }
+
+    .btn-light:hover {
+      background-color: #f8f9fa;
+      border-color: #d1d7e0;
     }
 
     .result-list {
       max-height: 350px;
       overflow-y: auto;
+      margin-top: 1rem;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
     }
 
     .vehicle-item {
       cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-      border-radius: 8px;
+      transition: var(--transition);
+      border-radius: var(--border-radius-sm);
       opacity: 0;
       animation: fadeIn 0.5s ease forwards;
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .vehicle-item:last-child {
+      border-bottom: none;
     }
 
     .vehicle-item:hover {
-      background-color: #e9ecef;
+      background-color: #f1f5f9;
       transform: translateX(4px);
     }
 
@@ -121,12 +247,15 @@
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 350px;
+      width: 380px;
       max-width: 90%;
       z-index: 1020;
-      box-shadow: var(--shadow-md);
+      box-shadow: var(--shadow-lg);
       transform: translateX(120%);
       transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
     }
 
     .sidebar.is-visible {
@@ -134,29 +263,39 @@
     }
 
     .sidebar .card-body {
-      max-height: calc(100vh - 150px);
       overflow-y: auto;
+      flex: 1;
     }
 
     #stopList .list-group-item {
       cursor: pointer;
-      transition: background-color 0.2s ease;
+      transition: var(--transition);
+      border: none;
+      border-bottom: 1px solid var(--card-border);
+      padding: 0.75rem 1rem;
+    }
+
+    #stopList .list-group-item:last-child {
+      border-bottom: none;
     }
 
     #stopList .list-group-item:hover {
-      background-color: #f8f9fa;
+      background-color: #f8fafc;
     }
 
     .bus-stop-panel {
       position: fixed;
       top: 80px;
       left: 20px;
-      width: 350px;
+      width: 380px;
       max-width: 90%;
       z-index: 1020;
-      box-shadow: var(--shadow-md);
+      box-shadow: var(--shadow-lg);
       transform: translateX(-120%);
       transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
     }
 
     .bus-stop-panel.is-visible {
@@ -167,65 +306,95 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
+      margin-bottom: 1rem;
     }
 
     .bus-stop-title {
       font-weight: 600;
       margin: 0;
+      color: var(--text-primary);
     }
 
     .see-all-link {
       color: var(--primary-color);
       text-decoration: none;
       font-size: 0.9rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .see-all-link:hover {
+      text-decoration: underline;
     }
 
     .bus-stop-item {
-      padding: 12px 15px;
-      border-bottom: 1px solid #eee;
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      background: #f8fafc;
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 1rem;
     }
 
     .bus-stop-name {
-      font-weight: 500;
-      margin-bottom: 5px;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
     }
 
     .bus-stop-distance {
-      color: #6c757d;
+      color: var(--success-color);
       font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
     }
 
     .bus-route {
-      margin-top: 20px;
-      padding-top: 15px;
-      border-top: 1px solid #eee;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
     }
 
     .bus-route-title {
       font-weight: 600;
-      margin-bottom: 10px;
-      color: #333;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+      font-size: 1rem;
     }
 
     .bus-route-item {
-      padding: 10px 0;
+      padding: 0.75rem;
+      background: #f8fafc;
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 0.75rem;
+    }
+
+    .bus-route-item:last-child {
+      margin-bottom: 0;
     }
 
     .bus-number {
-      font-weight: 500;
+      font-weight: 600;
       color: var(--primary-color);
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .bus-destination {
-      color: #6c757d;
+      color: var(--text-secondary);
       font-size: 0.9rem;
+      margin-bottom: 0.25rem;
     }
 
     .bus-timings {
-      color: #6c757d;
+      color: var(--success-color);
       font-size: 0.85rem;
-      margin-top: 3px;
+      font-weight: 500;
     }
 
     .user-location-icon {
@@ -236,6 +405,25 @@
       height: 20px;
       box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
       animation: pulse 1.5s infinite;
+    }
+
+    .badge {
+      font-weight: 500;
+      padding: 0.35em 0.65em;
+      border-radius: 50px;
+      font-size: 0.75em;
+    }
+
+    .badge-primary {
+      background-color: var(--primary-color);
+    }
+
+    .badge-success {
+      background-color: var(--success-color);
+    }
+
+    .badge-warning {
+      background-color: var(--warning-color);
     }
 
     @keyframes pulse {
@@ -251,6 +439,12 @@
       z-index: 1080;
     }
 
+    .toast {
+      border-radius: var(--border-radius-sm);
+      box-shadow: var(--shadow-lg);
+      border: none;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -260,13 +454,24 @@
     .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
     .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
 
-    @media (max-width: 991px) {
-      #map {
-        height: 50vh;
+    /* Responsive adjustments */
+    @media (max-width: 1199.98px) {
+      .sidebar, .bus-stop-panel {
+        width: 340px;
       }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 991.98px) {
+      #map {
+        height: 50vh;
+      }
+      
+      .sidebar, .bus-stop-panel {
+        width: 320px;
+      }
+    }
+
+    @media (max-width: 767.98px) {
       .sidebar {
         width: 100%;
         max-width: 100%;
@@ -298,11 +503,78 @@
       .bus-stop-panel.is-visible {
         transform: translateY(0);
       }
+      
+      .map-controls {
+        flex-direction: row;
+        bottom: 15px;
+        top: auto;
+      }
+      
+      .navbar-brand {
+        font-size: 1.1rem;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .container {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+      
+      .search-panel {
+        padding: 1rem;
+      }
+      
+      .card-body {
+        padding: 1rem;
+      }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Utility classes */
+    .text-muted {
+      color: var(--text-muted) !important;
+    }
+
+    .text-primary {
+      color: var(--primary-color) !important;
+    }
+
+    .text-success {
+      color: var(--success-color) !important;
+    }
+
+    .fw-medium {
+      font-weight: 500;
+    }
+
+    .divider {
+      height: 1px;
+      background-color: var(--card-border);
+      margin: 1rem 0;
     }
   </style>
 </head>
 <body>
-  <nav class="navbar shadow-sm">
+  <nav class="navbar navbar-expand-lg shadow-sm">
     <div class="container">
       <a class="navbar-brand" href="#">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
@@ -311,6 +583,10 @@
         </svg>
         Navixera — Live Transit
       </a>
+      <div class="d-flex align-items-center">
+        <span class="badge bg-primary me-2">Live</span>
+        <small class="text-muted d-none d-md-block">Real-time transit tracking</small>
+      </div>
     </div>
   </nav>
 
@@ -320,10 +596,10 @@
         <div class="card map-card">
           <div id="map"></div>
           <div class="map-controls">
-            <button id="locateBtn" class="btn btn-light bg-white shadow-sm" title="Find My Location">
+            <button id="locateBtn" class="btn btn-light" title="Find My Location">
               <i class="bi bi-geo-alt-fill text-primary"></i>
             </button>
-            <button id="showBusStopsBtn" class="btn btn-light bg-white shadow-sm ms-2" title="Show Bus Stops">
+            <button id="showBusStopsBtn" class="btn btn-light" title="Show Bus Stops">
               <i class="bi bi-signpost text-primary"></i>
             </button>
           </div>
@@ -338,16 +614,30 @@
         <div class="card search-panel">
           <h5 class="card-title mb-3">Find Your Ride</h5>
           <div class="search-group">
-            <input type="text" id="searchVehicle" class="form-control" placeholder="Vehicle Number (e.g., MH-01-AB-1234)">
-            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">Search Vehicle</button>
+            <label for="searchVehicle" class="form-label fw-medium">Vehicle Number</label>
+            <input type="text" id="searchVehicle" class="form-control" placeholder="e.g., MH-01-AB-1234">
+            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">
+              <i class="bi bi-search"></i> Search Vehicle
+            </button>
           </div>
-          <hr>
+          <div class="divider"></div>
           <div class="search-group">
+            <label for="searchRouteFrom" class="form-label fw-medium">Route Planner</label>
             <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
             <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
-            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">Search Route</button>
+            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">
+              <i class="bi bi-signpost-split"></i> Find Route
+            </button>
           </div>
-          <div class="result-list mt-3" id="searchResults"></div>
+          <div class="mt-auto">
+            <h6 class="fw-medium mb-2">Search Results</h6>
+            <div class="result-list" id="searchResults">
+              <div class="text-center p-3 text-muted">
+                <i class="bi bi-inbox d-block fs-1 mb-2"></i>
+                <span>Your search results will appear here</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -360,7 +650,7 @@
     </div>
     <div class="card-body">
       <div id="vehicleInfo" class="mb-3"></div>
-      <h6>Route Stops</h6>
+      <h6 class="fw-medium mb-3">Route Stops</h6>
       <ul id="stopList" class="list-group list-group-flush"></ul>
     </div>
   </div>
@@ -470,7 +760,10 @@
         toastEl.setAttribute('aria-live', 'assertive');
         toastEl.innerHTML = `
           <div class="d-flex">
-            <div class="toast-body">${message}</div>
+            <div class="toast-body d-flex align-items-center">
+              <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'warning' ? 'bi-exclamation-triangle-fill' : type === 'danger' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2"></i>
+              ${message}
+            </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>`;
         dom.toastContainer.appendChild(toastEl);
@@ -575,22 +868,28 @@
         dom.busStopContent.innerHTML = `
           <div class="bus-stop-header">
             <h6 class="bus-stop-title">${stop.name}</h6>
-            <a href="#" class="see-all-link" id="seeAllStops">See all stops</a>
+            <a href="#" class="see-all-link" id="seeAllStops">
+              See all stops <i class="bi bi-arrow-right"></i>
+            </a>
           </div>
           <div class="bus-stop-item">
             <div class="bus-stop-name">${stop.name}</div>
-            <div class="bus-stop-distance">${formatDistance(stop.distance)}</div>
+            <div class="bus-stop-distance">
+              <i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)} away
+            </div>
           </div>
           ${(stop.vehicles || []).map(v => `
             <div class="bus-route">
               <h6 class="bus-route-title">${v.type || 'Unknown'}</h6>
               <div class="bus-route-item">
-                <div class="bus-number">${v.vehicleId}</div>
+                <div class="bus-number">
+                  <i class="bi bi-bus-front"></i> ${v.vehicleId}
+                </div>
                 <div class="bus-destination">${v.routeName || 'N/A'}</div>
                 <div class="bus-timings">${v.timings || 'Timings not available'}</div>
               </div>
             </div>
-          `).join('') || '<div class="text-muted">No vehicles available at this stop.</div>'}
+          `).join('') || '<div class="text-muted p-3 text-center"><i class="bi bi-info-circle"></i> No vehicles available at this stop.</div>'}
         `;
         dom.busStopPanel.classList.add('is-visible');
 
@@ -613,10 +912,10 @@
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
                     <strong>${stop.name}</strong><br>
-                    <small>${formatDistance(stop.distance)}</small>
+                    <small class="text-success"><i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)}</small>
                   </div>
                   <button class="btn btn-sm btn-outline-primary view-stop-btn">
-                    <i class="bi bi-geo-alt"></i>
+                    <i class="bi bi-geo-alt"></i> View
                   </button>
                 </div>
               </li>
@@ -649,7 +948,7 @@
         stopMarkers = {};
         const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
         if (routePath.length > 1) {
-          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+          L.polyline(routePath, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(routeLayer);
         }
         const stops = vehicle.stops || [];
         stops.forEach((stop, index) => {
@@ -663,7 +962,7 @@
             stopMarkers[`stop-${index}`] = marker;
             L.circleMarker(coords, {
               radius: 6,
-              color: '#198754',
+              color: '#10b981',
               fillColor: '#fff',
               fillOpacity: 1,
               weight: 2
@@ -675,13 +974,47 @@
       // UI Update Functions
       const showVehicleDetails = (vid, vehicle) => {
         dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
+        
+        // Create battery indicator
+        const batteryLevel = vehicle.battery ?? 0;
+        let batteryColor = 'success';
+        let batteryIcon = 'bi-battery-full';
+        
+        if (batteryLevel < 20) {
+          batteryColor = 'danger';
+          batteryIcon = 'bi-battery';
+        } else if (batteryLevel < 50) {
+          batteryColor = 'warning';
+          batteryIcon = 'bi-battery-half';
+        }
+        
         dom.vehicleInfo.innerHTML = `
-          <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
-          <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
-          <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
-          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
-          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>
+          <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="d-flex align-items-center">
+              <i class="bi bi-bus-front text-primary me-2"></i>
+              <span>${vehicle.vehicleType || 'Unknown'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi bi-signpost text-primary me-2"></i>
+              <span>${vehicle.routeName || 'N/A'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi ${batteryIcon} text-${batteryColor} me-2"></i>
+              <span>${batteryLevel}%</span>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+              <i class="bi bi-building text-primary me-2"></i>
+              <span>${vehicle.companyName || 'N/A'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi bi-speedometer2 text-primary me-2"></i>
+              <span>${vehicle.speed || 'N/A'} km/h</span>
+            </div>
+          </div>
         `;
+        
         dom.stopList.innerHTML = '';
         const stops = vehicle.stops || [];
         if (stops.length > 0) {
@@ -694,7 +1027,7 @@
                   <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}
                 </div>
                 <button class="btn btn-sm btn-outline-primary view-stop-btn" data-index="${index}">
-                  <i class="bi bi-geo-alt"></i>
+                  <i class="bi bi-geo-alt"></i> View
                 </button>
               </div>
             `;
@@ -710,7 +1043,7 @@
             });
           });
         } else {
-          dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
+          dom.stopList.innerHTML = '<li class="list-group-item text-muted text-center py-3"><i class="bi bi-info-circle"></i> No stops available.</li>';
         }
         drawVehicleRoute(vehicle);
         dom.vehicleDetails.classList.add('is-visible');
@@ -853,7 +1186,7 @@
           showToast('Enter both "From" and "To" locations.', 'warning');
           return;
         }
-        dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
+        dom.searchResults.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Searching...</div>';
         const results = [];
         Object.entries(vehiclesData).forEach(([vid, v]) => {
           const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
@@ -867,10 +1200,15 @@
         if (results.length > 0) {
           results.forEach(({ vid, vehicle }) => {
             const div = document.createElement('div');
-            div.className = 'vehicle-item p-2 border-bottom';
+            div.className = 'vehicle-item p-3 border-bottom';
             div.innerHTML = `
-              <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
-              <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+              <div class="d-flex align-items-center">
+                <i class="bi bi-bus-front text-primary me-2"></i>
+                <div>
+                  <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+                  <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+                </div>
+              </div>
             `;
             div.addEventListener('click', () => {
               if (markers[vid]) {
@@ -891,7 +1229,7 @@
             dom.searchResults.appendChild(div);
           });
         } else {
-          dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found.</div>';
+          dom.searchResults.innerHTML = '<div class="text-muted p-3 text-center"><i class="bi bi-exclamation-circle"></i> No routes found.</div>';
         }
       };
 
