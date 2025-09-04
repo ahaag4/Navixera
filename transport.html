@@ -1,933 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Live Public Transit Dashboard — Navixera</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-  
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navixera Live Transit Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    :root {
-      --primary-color: #0d6efd;
-      --primary-rgb: 13, 110, 253;
-      --secondary-color: #6c757d;
-      --bg-light: #f4f7f9;
-      --card-bg: #ffffff;
-      --font-family: 'Poppins', sans-serif;
-      --border-radius: 12px;
-      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 8px 24px rgba(var(--primary-rgb), 0.08);
-    }
-
-    html, body {
+    body, html { height: 100%; margin: 0; overflow: hidden; }
+    #map { height: 100%; }
+    #sidebar {
       height: 100%;
-      margin: 0;
-      font-family: var(--font-family);
-      background-color: var(--bg-light);
-    }
-
-    .navbar {
-      background: var(--card-bg);
-    }
-
-    .navbar-brand {
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-    }
-
-    .card {
-      border: none;
-      border-radius: var(--border-radius);
-      box-shadow: var(--shadow-sm);
-      transition: all 0.3s ease-in-out;
-    }
-
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-md);
-    }
-
-    #map {
-      height: 70vh;
-      min-height: 500px;
-      border-radius: var(--border-radius);
-      z-index: 1;
-    }
-
-    .map-card {
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .map-controls {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      z-index: 401;
-    }
-
-    .loader-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 10;
-      transition: opacity 0.3s ease;
-      opacity: 1;
-    }
-
-    .loader-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .search-panel {
-      padding: 25px;
-    }
-
-    .result-list {
-      max-height: 350px;
+      width: 320px;
+      position: fixed;
+      top: 0; right: -320px;
+      background: #fff;
+      border-left: 1px solid #ddd;
+      transition: right 0.3s;
       overflow-y: auto;
+      z-index: 1000;
     }
-
-    .vehicle-item {
-      cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-      border-radius: 8px;
-      opacity: 0;
-      animation: fadeIn 0.5s ease forwards;
-    }
-
-    .vehicle-item:hover {
-      background-color: #e9ecef;
-      transform: translateX(4px);
-    }
-
-    .sidebar {
-      position: fixed;
-      top: 80px;
-      right: 20px;
-      width: 350px;
-      max-width: 90%;
-      z-index: 1020;
-      box-shadow: var(--shadow-md);
-      transform: translateX(120%);
-      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-
-    .sidebar.is-visible {
-      transform: translateX(0);
-    }
-
-    .sidebar .card-body {
-      max-height: calc(100vh - 150px);
-      overflow-y: auto;
-    }
-
-    #stopList .list-group-item {
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    #stopList .list-group-item:hover {
-      background-color: #f8f9fa;
-    }
-
-    .bus-stop-panel {
-      position: fixed;
-      top: 80px;
-      left: 20px;
-      width: 350px;
-      max-width: 90%;
-      z-index: 1020;
-      box-shadow: var(--shadow-md);
-      transform: translateX(-120%);
-      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-
-    .bus-stop-panel.is-visible {
-      transform: translateX(0);
-    }
-
-    .bus-stop-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .bus-stop-title {
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .see-all-link {
-      color: var(--primary-color);
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-
-    .bus-stop-item {
-      padding: 12px 15px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .bus-stop-name {
-      font-weight: 500;
-      margin-bottom: 5px;
-    }
-
-    .bus-stop-distance {
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-
-    .bus-route {
-      margin-top: 20px;
-      padding-top: 15px;
-      border-top: 1px solid #eee;
-    }
-
-    .bus-route-title {
-      font-weight: 600;
-      margin-bottom: 10px;
-      color: #333;
-    }
-
-    .bus-route-item {
-      padding: 10px 0;
-    }
-
-    .bus-number {
-      font-weight: 500;
-      color: var(--primary-color);
-    }
-
-    .bus-destination {
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-
-    .bus-timings {
-      color: #6c757d;
-      font-size: 0.85rem;
-      margin-top: 3px;
-    }
-
-    .user-location-icon {
-      background-color: var(--primary-color);
-      border: 2px solid white;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
-      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
-    }
-
-    .toast-container {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      z-index: 1080;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
-    .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
-    .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
-
-    @media (max-width: 991px) {
-      #map {
-        height: 50vh;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .sidebar {
-        width: 100%;
-        max-width: 100%;
-        right: 0;
-        bottom: 0;
-        top: auto;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
-        transform: translateY(120%);
-      }
-
-      .sidebar.is-visible {
-        transform: translateY(0);
-      }
-
-      .sidebar .card-body {
-        max-height: 50vh;
-      }
-
-      .bus-stop-panel {
-        width: 100%;
-        max-width: 100%;
-        left: 0;
-        bottom: 0;
-        top: auto;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
-        transform: translateY(120%);
-      }
-
-      .bus-stop-panel.is-visible {
-        transform: translateY(0);
-      }
-    }
+    #sidebar.is-visible { right: 0; }
+    .sidebar-header { padding: 1rem; border-bottom: 1px solid #ddd; }
+    .sidebar-body { padding: 1rem; }
+    .close-btn { float: right; cursor: pointer; }
+    .vehicle-icon { font-size: 1.2rem; margin-right: 8px; }
   </style>
 </head>
 <body>
-  <nav class="navbar shadow-sm">
-    <div class="container">
-      <a class="navbar-brand" href="#">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
-          <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-          <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
-        </svg>
-        Navixera — Live Transit
-      </a>
-    </div>
-  </nav>
 
-  <main class="container my-4">
-    <div class="row g-4">
-      <div class="col-12 col-lg-8">
-        <div class="card map-card">
-          <div id="map"></div>
-          <div class="map-controls">
-            <button id="locateBtn" class="btn btn-light bg-white shadow-sm" title="Find My Location">
-              <i class="bi bi-geo-alt-fill text-primary"></i>
-            </button>
-            <button id="showBusStopsBtn" class="btn btn-light bg-white shadow-sm ms-2" title="Show Bus Stops">
-              <i class="bi bi-signpost text-primary"></i>
-            </button>
-          </div>
-          <div class="loader-overlay" id="loader">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-lg-4">
-        <div class="card search-panel">
-          <h5 class="card-title mb-3">Find Your Ride</h5>
-          <div class="search-group">
-            <input type="text" id="searchVehicle" class="form-control" placeholder="Vehicle Number (e.g., MH-01-AB-1234)">
-            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">Search Vehicle</button>
-          </div>
-          <hr>
-          <div class="search-group">
-            <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
-            <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
-            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">Search Route</button>
-          </div>
-          <div class="result-list mt-3" id="searchResults"></div>
-        </div>
-      </div>
-    </div>
-  </main>
+<div id="map"></div>
 
-  <div class="card sidebar" id="vehicleDetails">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0" id="vehicleTitle">Vehicle Details</h5>
-      <button type="button" class="btn-close" aria-label="Close" id="closeSidebarBtn"></button>
-    </div>
-    <div class="card-body">
-      <div id="vehicleInfo" class="mb-3"></div>
-      <h6>Route Stops</h6>
-      <ul id="stopList" class="list-group list-group-flush"></ul>
-    </div>
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h5 id="vehicleTitle">Vehicle Details</h5>
+    <span class="close-btn text-danger">&times;</span>
   </div>
-
-  <div class="card bus-stop-panel" id="busStopPanel">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0">Nearest Bus Stop</h5>
-      <button type="button" class="btn-close" aria-label="Close" id="closeBusStopPanelBtn"></button>
-    </div>
-    <div class="card-body" id="busStopContent">
-      <!-- Dynamically populated -->
-    </div>
+  <div class="sidebar-body">
+    <div id="vehicleInfo"></div>
+    <h6 class="mt-3">Stops</h6>
+    <ul id="stopList" class="list-group"></ul>
   </div>
+</div>
 
-  <div class="toast-container"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+  // ===== Firebase Config =====
+  const firebaseConfig = {
+  apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+  authDomain: "svms-c0232.firebaseapp.com",
+  databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+  projectId: "svms-c0232",
+  storageBucket: "svms-c0232.appspot.com",
+  messagingSenderId: "359201898609",
+  appId: "1:359201898609:web:893ef076207abb06471bd0"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  // ===== Leaflet Map =====
+  const map = L.map('map').setView([19.0760, 72.8777], 12); // Mumbai default
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
 
-  <script>
-    (function () {
-      'use strict';
+  // ===== Global State =====
+  const vehicleMarkers = {};
+  const stopMarkers = {};
+  const vehicleRoutes = {};
 
-      // Firebase Configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-        authDomain: "svms-c0232.firebaseapp.com",
-        databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-        projectId: "svms-c0232",
-        storageBucket: "svms-c0232.appspot.com",
-        messagingSenderId: "359201898609",
-        appId: "1:359201898609:web:893ef076207abb06471bd0"
-      };
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.database();
+  // ===== DOM Elements =====
+  const dom = {
+    sidebar: document.getElementById('sidebar'),
+    closeBtn: document.querySelector('.close-btn'),
+    vehicleTitle: document.getElementById('vehicleTitle'),
+    vehicleInfo: document.getElementById('vehicleInfo'),
+    stopList: document.getElementById('stopList'),
+    vehicleDetails: document.getElementById('sidebar')
+  };
 
-      // DOM Element Caching
-      const dom = {
-        loader: document.getElementById('loader'),
-        locateBtn: document.getElementById('locateBtn'),
-        showBusStopsBtn: document.getElementById('showBusStopsBtn'),
-        searchVehicleInput: document.getElementById('searchVehicle'),
-        searchVehicleBtn: document.getElementById('searchVehicleBtn'),
-        searchRouteFrom: document.getElementById('searchRouteFrom'),
-        searchRouteTo: document.getElementById('searchRouteTo'),
-        searchRouteBtn: document.getElementById('searchRouteBtn'),
-        searchResults: document.getElementById('searchResults'),
-        vehicleDetails: document.getElementById('vehicleDetails'),
-        vehicleTitle: document.getElementById('vehicleTitle'),
-        vehicleInfo: document.getElementById('vehicleInfo'),
-        stopList: document.getElementById('stopList'),
-        closeSidebarBtn: document.getElementById('closeSidebarBtn'),
-        busStopPanel: document.getElementById('busStopPanel'),
-        busStopContent: document.getElementById('busStopContent'),
-        closeBusStopPanelBtn: document.getElementById('closeBusStopPanelBtn'),
-        toastContainer: document.querySelector('.toast-container')
-      };
+  // ===== Helpers =====
+  const parseGps = gps => {
+    if (!gps) return null;
+    const parts = gps.split(',').map(Number);
+    return parts.length === 2 ? parts : null;
+  };
 
-      // State & Map Variables
-      let map;
-      const markers = {};
-      let stopMarkers = {};
-      let markerGroup = L.featureGroup();
-      let routeLayer = L.featureGroup();
-      let userLocationMarker = null;
-      let userLocation = null;
-      let vehiclesData = {};
-      let busStops = [];
+  const getVehicleIcon = type => {
+    const colors = { bus: 'blue', taxi: 'green', auto: 'orange', bike: 'red' };
+    return L.divIcon({
+      html: `<i class="fas fa-${type || 'bus'} vehicle-icon" style="color:${colors[type] || 'gray'}"></i>`,
+      className: '',
+      iconSize: [24, 24]
+    });
+  };
 
-      // Custom Icons
-      const vehicleIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+  // ===== Sidebar =====
+  const showVehicleDetails = (vid, vehicle) => {
+    dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
+    dom.vehicleInfo.innerHTML = `
+      <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
+      <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
+      <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
+      <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
+      <p class="mb-1"><strong>Last Updated:</strong> ${vehicle.lastUpdated || 'Unknown'}</p>
+    `;
+
+    dom.stopList.innerHTML = '';
+    (vehicle.stops || []).forEach((stop, index) => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item';
+      li.textContent = `${index + 1}. ${stop.name || 'Unnamed Stop'}`;
+      li.addEventListener('click', () => {
+        const coords = parseGps(stop.gps);
+        if (coords) {
+          map.flyTo(coords, 16);
+          if (stopMarkers[`stop-${vid}-${index}`]) {
+            setTimeout(() => stopMarkers[`stop-${vid}-${index}`].openPopup(), 1000);
+          }
+        }
       });
+      dom.stopList.appendChild(li);
+    });
 
-      const stopIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+    dom.vehicleDetails.classList.add('is-visible');
+    drawVehicleRoute(vid, vehicle);
+  };
+
+  dom.closeBtn.addEventListener('click', () => {
+    dom.vehicleDetails.classList.remove('is-visible');
+  });
+
+  // ===== Draw Routes =====
+  const drawVehicleRoute = (vid, vehicle) => {
+    if (vehicleRoutes[vid]) map.removeLayer(vehicleRoutes[vid]);
+    const coords = (vehicle.stops || []).map(stop => parseGps(stop.gps)).filter(Boolean);
+    if (coords.length > 1) {
+      vehicleRoutes[vid] = L.polyline(coords, { color: 'blue', weight: 3 }).addTo(map);
+    }
+  };
+
+  // ===== Firebase Live Listener =====
+  db.ref("vehicles").on("value", snapshot => {
+    const vehicles = snapshot.val() || {};
+    Object.keys(vehicles).forEach(vid => {
+      const vehicle = vehicles[vid];
+      const coords = parseGps(vehicle.gps);
+      if (!coords) return;
+
+      // Marker update
+      if (!vehicleMarkers[vid]) {
+        vehicleMarkers[vid] = L.marker(coords, { icon: getVehicleIcon(vehicle.vehicleType) })
+          .addTo(map)
+          .on('click', () => showVehicleDetails(vid, vehicle));
+      } else {
+        vehicleMarkers[vid].setLatLng(coords);
+      }
+
+      // Stops update
+      (vehicle.stops || []).forEach((stop, index) => {
+        const stopCoords = parseGps(stop.gps);
+        if (!stopCoords) return;
+        const key = `stop-${vid}-${index}`;
+        if (!stopMarkers[key]) {
+          stopMarkers[key] = L.marker(stopCoords, { title: stop.name || 'Stop' })
+            .bindPopup(`<b>${stop.name || 'Stop'}</b>`)
+            .addTo(map);
+        } else {
+          stopMarkers[key].setLatLng(stopCoords);
+        }
       });
-
-      const userLocationIcon = L.divIcon({
-        className: 'user-location-icon',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-        popupAnchor: [0, -12]
-      });
-
-      // Helper Functions
-      const showLoader = () => dom.loader.classList.remove('hidden');
-      const hideLoader = () => dom.loader.classList.add('hidden');
-
-      const showToast = (message, type = 'info', ttl = 3500) => {
-        const toastEl = document.createElement('div');
-        toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
-        toastEl.setAttribute('role', 'alert');
-        toastEl.setAttribute('aria-live', 'assertive');
-        toastEl.innerHTML = `
-          <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-          </div>`;
-        dom.toastContainer.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl, { delay: ttl });
-        toast.show();
-        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
-      };
-
-      const parseGps = (gps) => {
-        if (!gps) return null;
-        if (typeof gps === 'object' && gps.latitude && gps.longitude) {
-          return [gps.latitude, gps.longitude];
-        }
-        const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
-        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
-          return null;
-        }
-        return [parts[0], parts[1]];
-      };
-
-      const calculateDistance = (lat1, lon1, lat2, lon2) => {
-        const R = 6371; // Earth's radius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c; // Distance in km
-      };
-
-      const formatDistance = (distance) => {
-        if (distance < 1) {
-          return `${Math.round(distance * 1000)} m`;
-        }
-        return `${distance.toFixed(2)} km`;
-      };
-
-      // Map Functions
-      const initMap = () => {
-        map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-        markerGroup.addTo(map);
-        routeLayer.addTo(map);
-      };
-
-      const locateUser = () => {
-        if (!navigator.geolocation) {
-          showToast("Geolocation is not supported by your browser.", "warning");
-          return Promise.reject("Geolocation not supported");
-        }
-        showToast("Locating you...", "info");
-        return new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude, longitude } = position.coords;
-              userLocation = [latitude, longitude];
-              if (userLocationMarker) {
-                userLocationMarker.setLatLng(userLocation);
-              } else {
-                userLocationMarker = L.marker(userLocation, { icon: userLocationIcon }).addTo(map);
-                userLocationMarker.bindPopup("<b>You are here</b>");
-              }
-              map.flyTo(userLocation, 16);
-              setTimeout(() => userLocationMarker.openPopup(), 1000);
-              findNearestBusStops();
-              resolve();
-            },
-            (err) => {
-              showToast("Unable to retrieve your location. Please check permissions.", "danger");
-              reject(err);
-            }
-          );
-        });
-      };
-
-      const findNearestBusStops = () => {
-        if (!userLocation || busStops.length === 0) {
-          showToast("Location or bus stops data not available.", "warning");
-          return;
-        }
-        busStops.forEach(stop => {
-          const coords = parseGps(stop.gps);
-          if (coords) {
-            stop.distance = calculateDistance(userLocation[0], userLocation[1], coords[0], coords[1]);
-          } else {
-            stop.distance = Infinity;
-          }
-        });
-        busStops.sort((a, b) => a.distance - b.distance);
-        if (busStops[0].distance !== Infinity) {
-          showBusStopPanel(busStops[0]);
-        } else {
-          showToast("No valid bus stops found.", "warning");
-        }
-      };
-
-      const showBusStopPanel = (stop) => {
-        dom.busStopContent.innerHTML = `
-          <div class="bus-stop-header">
-            <h6 class="bus-stop-title">${stop.name}</h6>
-            <a href="#" class="see-all-link" id="seeAllStops">See all stops</a>
-          </div>
-          <div class="bus-stop-item">
-            <div class="bus-stop-name">${stop.name}</div>
-            <div class="bus-stop-distance">${formatDistance(stop.distance)}</div>
-          </div>
-          ${(stop.vehicles || []).map(v => `
-            <div class="bus-route">
-              <h6 class="bus-route-title">${v.type || 'Unknown'}</h6>
-              <div class="bus-route-item">
-                <div class="bus-number">${v.vehicleId}</div>
-                <div class="bus-destination">${v.routeName || 'N/A'}</div>
-                <div class="bus-timings">${v.timings || 'Timings not available'}</div>
-              </div>
-            </div>
-          `).join('') || '<div class="text-muted">No vehicles available at this stop.</div>'}
-        `;
-        dom.busStopPanel.classList.add('is-visible');
-
-        // Handle "See all stops" click
-        const seeAllLink = dom.busStopContent.querySelector('#seeAllStops');
-        seeAllLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          showAllStops();
-        });
-      };
-
-      const showAllStops = () => {
-        dom.busStopContent.innerHTML = `
-          <div class="bus-stop-header">
-            <h6 class="bus-stop-title">All Bus Stops</h6>
-          </div>
-          <ul class="list-group list-group-flush">
-            ${busStops.map(stop => `
-              <li class="list-group-item" data-stop-id="${stop.id}">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>${stop.name}</strong><br>
-                    <small>${formatDistance(stop.distance)}</small>
-                  </div>
-                  <button class="btn btn-sm btn-outline-primary view-stop-btn">
-                    <i class="bi bi-geo-alt"></i>
-                  </button>
-                </div>
-              </li>
-            `).join('')}
-          </ul>
-        `;
-        dom.busStopPanel.classList.add('is-visible');
-
-        // Add event listeners for view buttons
-        dom.busStopContent.querySelectorAll('.view-stop-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const stopId = btn.closest('.list-group-item').dataset.stopId;
-            const stop = busStops.find(s => s.id == stopId);
-            if (stop) {
-              const coords = parseGps(stop.gps);
-              if (coords) {
-                map.flyTo(coords, 16);
-                if (stopMarkers[stop.id]) {
-                  setTimeout(() => stopMarkers[stop.id].openPopup(), 1000);
-                }
-              }
-            }
-          });
-        });
-      };
-
-      const drawVehicleRoute = (vehicle) => {
-        routeLayer.clearLayers();
-        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
-        stopMarkers = {};
-        const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
-        if (routePath.length > 1) {
-          L.polyline(routePath, { color: '#0d6efd', weight: 5, opacity: 0.8 }).addTo(routeLayer);
-        }
-        const stops = vehicle.stops || [];
-        stops.forEach((stop, index) => {
-          const coords = parseGps(stop.gps);
-          if (coords) {
-            const marker = L.marker(coords, { icon: stopIcon }).addTo(routeLayer);
-            marker.bindPopup(`
-              <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}<br>
-              <small>Click to view on map</small>
-            `);
-            stopMarkers[`stop-${index}`] = marker;
-            L.circleMarker(coords, {
-              radius: 6,
-              color: '#198754',
-              fillColor: '#fff',
-              fillOpacity: 1,
-              weight: 2
-            }).addTo(routeLayer);
-          }
-        });
-      };
-
-      // UI Update Functions
-      const showVehicleDetails = (vid, vehicle) => {
-        dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
-        dom.vehicleInfo.innerHTML = `
-          <p class="mb-1"><strong>Type:</strong> ${vehicle.vehicleType || 'Unknown'}</p>
-          <p class="mb-1"><strong>Route:</strong> ${vehicle.routeName || 'N/A'}</p>
-          <p class="mb-1"><strong>Battery:</strong> ${vehicle.battery ?? 'N/A'}%</p>
-          <p class="mb-1"><strong>Company:</strong> ${vehicle.companyName || 'N/A'}</p>
-          <p class="mb-1"><strong>Speed:</strong> ${vehicle.speed || 'N/A'} km/h</p>
-        `;
-        dom.stopList.innerHTML = '';
-        const stops = vehicle.stops || [];
-        if (stops.length > 0) {
-          stops.forEach((stop, index) => {
-            const li = document.createElement('li');
-            li.className = 'list-group-item';
-            li.innerHTML = `
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}
-                </div>
-                <button class="btn btn-sm btn-outline-primary view-stop-btn" data-index="${index}">
-                  <i class="bi bi-geo-alt"></i>
-                </button>
-              </div>
-            `;
-            dom.stopList.appendChild(li);
-            li.querySelector('.view-stop-btn').addEventListener('click', () => {
-              const coords = parseGps(stop.gps);
-              if (coords) {
-                map.flyTo(coords, 16);
-                if (stopMarkers[`stop-${index}`]) {
-                  setTimeout(() => stopMarkers[`stop-${index}`].openPopup(), 1000);
-                }
-              }
-            });
-          });
-        } else {
-          dom.stopList.innerHTML = '<li class="list-group-item text-muted">No stops available.</li>';
-        }
-        drawVehicleRoute(vehicle);
-        dom.vehicleDetails.classList.add('is-visible');
-      };
-
-      const hideVehicleDetails = () => {
-        dom.vehicleDetails.classList.remove('is-visible');
-        routeLayer.clearLayers();
-        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
-        stopMarkers = {};
-      };
-
-      const hideBusStopPanel = () => dom.busStopPanel.classList.remove('is-visible');
-
-      // Data & Business Logic
-      const loadPublicVehicles = () => {
-        const vehiclesRef = db.ref('public_transport/vehicles');
-        vehiclesRef.on('value', snap => {
-          hideLoader();
-          vehiclesData = snap.val() || {};
-          const presentVehicleIds = new Set();
-          const bounds = [];
-
-          Object.entries(vehiclesData).forEach(([vid, v]) => {
-            presentVehicleIds.add(vid);
-            const newCoords = parseGps(v.gps);
-            if (newCoords) {
-              bounds.push(newCoords);
-              if (!markers[vid]) {
-                const marker = L.marker(newCoords, { icon: vehicleIcon, title: vid }).addTo(markerGroup);
-                marker.bindPopup(`
-                  <strong>${vid}</strong><br>
-                  ${v.vehicleType || 'Unknown'}<br>
-                  ${v.routeName ? `Route: ${v.routeName}` : ''}
-                `);
-                marker.on('click', () => showVehicleDetails(vid, v));
-                markers[vid] = { marker, prevCoords: newCoords };
-              } else {
-                const { marker, prevCoords } = markers[vid];
-                marker.setLatLng(newCoords);
-                marker.setPopupContent(`
-                  <strong>${vid}</strong><br>
-                  ${v.vehicleType || 'Unknown'}<br>
-                  ${v.routeName ? `Route: ${v.routeName}` : ''}
-                `);
-                markers[vid].prevCoords = newCoords;
-              }
-            }
-          });
-
-          Object.keys(markers).forEach(vid => {
-            if (!presentVehicleIds.has(vid)) {
-              markerGroup.removeLayer(markers[vid].marker);
-              delete markers[vid];
-            }
-          });
-
-          if (bounds.length && map.getZoom() <= 12) {
-            try {
-              map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-            } catch (e) {
-              console.error("Error fitting bounds:", e);
-            }
-          }
-        }, err => {
-          console.error('Vehicles listener error:', err);
-          showToast('Failed to load vehicles.', 'danger');
-          hideLoader();
-        });
-      };
-
-      const loadBusStops = () => {
-        const stopsRef = db.ref('public_transport/stops');
-        stopsRef.once('value', snap => {
-          const stops = snap.val() || {};
-          busStops = Object.entries(stops).map(([id, stop]) => ({
-            id,
-            name: stop.name,
-            gps: stop.gps,
-            vehicles: stop.vehicles || []
-          }));
-          busStops.forEach(stop => {
-            const coords = parseGps(stop.gps);
-            if (coords) {
-              const marker = L.marker(coords, { icon: stopIcon }).addTo(map);
-              marker.bindPopup(`
-                <strong>${stop.name}</strong><br>
-                <small>Click for more info</small>
-              `);
-              marker.on('click', () => showBusStopPanel(stop));
-              stopMarkers[stop.id] = marker;
-            }
-          });
-          if (userLocation) {
-            findNearestBusStops();
-          }
-        }, err => {
-          console.error('Bus stops listener error:', err);
-          showToast('Failed to load bus stops.', 'danger');
-        });
-      };
-
-      const searchByVehicleNumber = () => {
-        const query = dom.searchVehicleInput.value.trim().toUpperCase();
-        if (!query) {
-          showToast('Please enter a vehicle number.', 'warning');
-          return;
-        }
-        const foundVid = Object.keys(vehiclesData).find(vid => vid.toUpperCase().includes(query));
-        if (foundVid && markers[foundVid]) {
-          const { marker } = markers[foundVid];
-          map.flyTo(marker.getLatLng(), 16);
-          marker.openPopup();
-          showVehicleDetails(foundVid, vehiclesData[foundVid]);
-        } else {
-          db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
-            if (snap.exists()) {
-              const vehicleData = snap.val();
-              const coords = parseGps(vehicleData.gps);
-              if (coords) {
-                map.flyTo(coords, 16);
-                showVehicleDetails(foundVid, vehicleData);
-              } else {
-                showToast('Vehicle has no valid location.', 'warning');
-              }
-            } else {
-              showToast('Vehicle not found.', 'warning');
-            }
-          }).catch(err => {
-            console.error('Error fetching vehicle:', err);
-            showToast('Error fetching vehicle data.', 'danger');
-          });
-        }
-      };
-
-      const searchByRoute = () => {
-        const from = dom.searchRouteFrom.value.trim().toLowerCase();
-        const to = dom.searchRouteTo.value.trim().toLowerCase();
-        if (!from || !to) {
-          showToast('Enter both "From" and "To" locations.', 'warning');
-          return;
-        }
-        dom.searchResults.innerHTML = '<div class="text-muted p-2">Searching...</div>';
-        const results = [];
-        Object.entries(vehiclesData).forEach(([vid, v]) => {
-          const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
-          const hasFrom = stops.some(s => s.includes(from));
-          const hasTo = stops.some(s => s.includes(to));
-          if (hasFrom && hasTo) {
-            results.push({ vid, vehicle: v });
-          }
-        });
-        dom.searchResults.innerHTML = '';
-        if (results.length > 0) {
-          results.forEach(({ vid, vehicle }) => {
-            const div = document.createElement('div');
-            div.className = 'vehicle-item p-2 border-bottom';
-            div.innerHTML = `
-              <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
-              <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
-            `;
-            div.addEventListener('click', () => {
-              if (markers[vid]) {
-                const { marker } = markers[vid];
-                map.flyTo(marker.getLatLng(), 16);
-                marker.openPopup();
-                showVehicleDetails(vid, vehicle);
-              } else {
-                const coords = parseGps(vehicle.gps);
-                if (coords) {
-                  map.flyTo(coords, 16);
-                  showVehicleDetails(vid, vehicle);
-                } else {
-                  showToast('Vehicle location not available.', 'warning');
-                }
-              }
-            });
-            dom.searchResults.appendChild(div);
-          });
-        } else {
-          dom.searchResults.innerHTML = '<div class="text-muted p-2">No routes found.</div>';
-        }
-      };
-
-      // Event Listeners
-      const addEventListeners = () => {
-        dom.locateBtn.addEventListener('click', locateUser);
-        dom.showBusStopsBtn.addEventListener('click', () => {
-          if (userLocation) {
-            findNearestBusStops();
-          } else {
-            showToast("Please enable location services first.", "warning");
-            locateUser();
-          }
-        });
-        dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
-        dom.searchRouteBtn.addEventListener('click', searchByRoute);
-        dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
-        dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
-        dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
-        dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
-        dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
-      };
-
-      // Initialization
-      document.addEventListener('DOMContentLoaded', () => {
-        showLoader();
-        initMap();
-        loadPublicVehicles();
-        loadBusStops();
-        addEventListeners();
-        locateUser().catch(() => {
-          console.log("Initial geolocation attempt failed; user can manually trigger location.");
-          hideLoader();
-        });
-      });
-    })();
-  </script>
+    });
+  });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 </body>
-  </html>
+</html>
