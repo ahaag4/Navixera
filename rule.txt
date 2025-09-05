@@ -33,3 +33,120 @@
 //To give access of government portal from companies admin page in Firebase add this field 
 
 govPortalAccess:true ----access get if false access not get
+
+
+//third rule
+
+{
+
+  "rules": {
+
+    ".read": true,
+
+    ".write": false,
+
+    "users": {
+
+      "$uid": {
+
+        ".read": true,
+
+        ".write": "(auth != null && auth.uid == $uid) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true))"
+
+      }
+
+    },
+
+    "admin": {
+
+      ".read": true,
+
+      "ads": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true)"
+
+      },
+
+      "payments": {
+
+        "$paymentId": {
+
+          ".write": "(!data.exists() && newData.hasChildren(['uid', 'feature', 'amount', 'currency', 'status', 'created', 'expiry', 'payment_method']) && newData.child('uid').val() == auth.uid && newData.child('status').val() == 'pending' && auth != null) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true))"
+
+        }
+
+      },
+
+      "upgrade_requests": {
+
+        "$reqId": {
+
+          ".write": "(!data.exists() && newData.hasChildren(['uid', 'requestedPlan', 'status', 'request_time']) && newData.child('uid').val() == auth.uid && newData.child('status').val() == 'pending' && auth != null) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true))"
+
+        }
+
+      },
+
+      "approvals": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true)"
+
+      },
+
+      "downgrades": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true)"
+
+      },
+
+      "subscription_approvals": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true)"
+
+      }
+
+    },
+
+    "public_transport": {
+
+      ".read": true,
+
+      ".write": "(auth != null && root.child('users/' + auth.uid + '/role').val() == 'company') || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true))"
+
+    },
+
+    "products": {
+
+      ".read": true,
+
+      ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/admin').val() == true)"
+
+    },
+
+    "orders": {
+
+      "$orderId": {
+
+        ".read": true,
+
+        ".write": "!data.exists()"
+
+      }
+
+    },
+
+    "contact_submissions": {
+
+      "$submissionId": {
+
+        ".read": true,
+
+        ".write": "!data.exists()"
+
+      }
+
+    }
+
+  }
+
+}
