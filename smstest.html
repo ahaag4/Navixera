@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Navixera Dashboard</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="assets/favicon.ico"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f9fc;
+    }
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+    .logo { height: 40px; }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; color: #343a40; }
+    #map { height: 300px; width: 100%; border-radius: 10px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      padding: 10px; text-align: left; border-bottom: 1px solid #ccc;
+    }
+    .switch {
+      position: relative; display: inline-block; width: 60px; height: 30px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: .4s; border-radius: 30px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 22px; width: 22px; left: 4px; bottom: 4px;
+      background-color: white; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .view-btn {
+      background-color: #007bff; color: white; padding: 5px 12px;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .view-btn:hover { background-color: #0056b3; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    #logoutBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+    .badge { padding:6px 10px; border-radius:6px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .components-list { margin-top:10px; list-style:none; padding-left:0; }
+    .components-list li { padding:6px 0; border-bottom:1px dashed #eee; }
+    .comp-ok { color:#28a745; font-weight:600 }
+    .comp-warn { color:#e67700; font-weight:600 }
+    .comp-bad { color:#c82333; font-weight:600 }
+    .comp-unknown { color:#6c757d; font-weight:600 }
+    /* New buzzer button styles */
+    .buzzer-container {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .buzzer-btn {
+      background-color: #ffc107;
+      color: #000;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .buzzer-btn:hover {
+      background-color: #e0a800;
+    }
+    .buzzer-btn:active {
+      background-color: #d39e00;
+    }
+    @media (max-width:600px) {
+      header { flex-direction: column; gap:8px; align-items:flex-start; }
+      .view-btn { margin-top:6px; }
+      .buzzer-container { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <header>
+      <img src="assets/logo2.png" alt="Logo" class="logo"/>
+      <div class="user-info">
+        <span id="userEmail">Loading...</span>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </header>
+
+    <section class="card status-card">
+      <h2>🔍 Live Status</h2>
+      <div class="status-row">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class="badge offline">Checking...</span></span></div>
+        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
+      </div>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+      <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
+      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
+      <div id="componentsBlock">
+        <h4>Components</h4>
+        <ul id="componentsList" class="components-list">
+          <li class="comp-unknown">No data</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card alarm-card">
+      <h2>🔔 Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <p id="alarmStatusText">Loading alarm status...</p>
+      
+      <!-- Buzzer button section -->
+      <div class="buzzer-container">
+        <button id="buzzerBtn" class="buzzer-btn">🔊 Sound Buzzer</button>
+        <span id="buzzerStatus">Press to activate buzzer sound</span>
+      </div>
+    </section>
+
+    <section class="card map-card">
+      <h2>🗼 Live Map</h2>
+      <div id="map">Loading map...</div>
+    </section>
+
+    <section class="card history-card">
+      <h2>📈 Movement History</h2>
+      <!-- Filter UI -->
+      <div style="margin-bottom: 10px;">
+        <label>From: <input type="datetime-local" id="filterFrom"></label>
+        <label style="margin-left:10px;">To: <input type="datetime-local" id="filterTo"></label>
+        <button id="applyFilterBtn" class="view-btn" style="margin-left:10px;">Apply</button>
+        <button id="resetFilterBtn" class="view-btn" style="background:#6c757d;margin-left:5px;">Reset</button>
+      </div>
+      <table>
+        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+        <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+      authDomain: "svms-c0232.firebaseapp.com",
+      databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+      projectId: "svms-c0232",
+      storageBucket: "svms-c0232.appspot.com",
+      messagingSenderId: "359201898609",
+      appId: "1:359201898609:web:893ef076207abb06471bd0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // DOM refs
+    const locationEl = document.getElementById("location");
+    const lastActiveEl = document.getElementById("lastActive");
+    const statusEl = document.getElementById("status");
+    const batteryHealthEl = document.getElementById("batteryHealth");
+    const historyEl = document.getElementById("history");
+    const alarmToggle = document.getElementById("alarmToggle");
+    const alarmStatusText = document.getElementById("alarmStatusText");
+    const alarmTriggerEl = document.getElementById("alarmTrigger");
+    const onlineStatusEl = document.getElementById("onlineStatus");
+    const lastSeenEl = document.getElementById("lastSeen");
+    const componentsListEl = document.getElementById("componentsList");
+    const filterFrom = document.getElementById("filterFrom");
+    const filterTo = document.getElementById("filterTo");
+    const applyFilterBtn = document.getElementById("applyFilterBtn");
+    const resetFilterBtn = document.getElementById("resetFilterBtn");
+    // New buzzer elements
+    const buzzerBtn = document.getElementById("buzzerBtn");
+    const buzzerStatus = document.getElementById("buzzerStatus");
+
+    let map, marker, routePolyline = null, startMarker = null, endMarker = null;
+    let fullHistory = [];
+    let buzzerAudio = null;
+    let uidGlobal = null;
+
+    // Initialize buzzer sound
+    function initBuzzer() {
+      try {
+        // Create an oscillator for the buzzer sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start();
+        
+        return {
+          play: function() {
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            setTimeout(() => {
+              gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            }, 1000); // Play for 1 second
+          },
+          stop: function() {
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          }
+        };
+      } catch (e) {
+        console.error("Could not initialize buzzer sound:", e);
+        return {
+          play: function() {
+            console.log("Buzzer sound would play here");
+          },
+          stop: function() {
+            console.log("Buzzer sound would stop here");
+          }
+        };
+      }
+    }
+
+    // ---- MAP HELPERS ----
+    function _initMapIfNeeded(lat, lng, zoom = 13) {
+      if (!map) {
+        map = L.map('map').setView([lat, lng], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      }
+    }
+    function updateMap(lat, lng, popupText = null) {
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
+      map.setView([lat, lng], 15);
+      if (popupText) marker.bindPopup(popupText).openPopup();
+    }
+    function focusOnMap(lat, lng) {
+      if (lat == null || lng == null) return;
+      _initMapIfNeeded(lat, lng, 15);
+      map.setView([lat, lng], 15);
+      if (!marker) marker = L.marker([lat, lng]).addTo(map);
+      marker.setLatLng([lat, lng]);
+      marker.bindPopup(`📍 History Location<br>${lat}, ${lng}`).openPopup();
+    }
+    window.focusOnMap = focusOnMap;
+
+    // ---- POLYLINE PLOT HELPERS ----
+    function clearRouteLayers() {
+      if (routePolyline) { try { map.removeLayer(routePolyline); } catch(e){} routePolyline = null; }
+      if (startMarker) { try { map.removeLayer(startMarker); } catch(e){} startMarker = null; }
+      if (endMarker) { try { map.removeLayer(endMarker); } catch(e){} endMarker = null; }
+    }
+    function plotRoute(points) {
+      clearRouteLayers();
+      if (!map || !points || points.length === 0) return;
+      if (points.length > 1) {
+        routePolyline = L.polyline(points, {color:"blue",weight:5,opacity:0.8}).addTo(map);
+        map.fitBounds(routePolyline.getBounds(), {padding:[40,40]});
+        startMarker = L.marker(points[0], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/green-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('Start').openPopup();
+        endMarker = L.marker(points[points.length-1], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('End');
+      } else if (points.length === 1) {
+        map.setView(points[0], 15);
+        startMarker = L.marker(points[0], {
+          icon: L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',iconSize:[32,32],iconAnchor:[16,32]})
+        }).addTo(map).bindPopup('Location');
+      }
+    }
+
+    // ---- FILTERING ----
+    function parseDateTimeLocalToMs(dtLocal) {
+      if (!dtLocal) return null;
+      return new Date(dtLocal).getTime();
+    }
+    function parseTimestampToMs(ts) {
+      if (!ts || typeof ts !== 'string') return null;
+      const trimmed = ts.trim();
+      const parts = trimmed.split(' ');
+      if (parts.length >= 2 && parts[0].includes('-') && parts[1].includes(':')) {
+        const dateParts = parts[0].split('-');
+        const timeParts = parts[1].split(':');
+        if (dateParts.length >= 3 && timeParts.length >= 2) {
+          const y = parseInt(dateParts[0], 10);
+          const m = parseInt(dateParts[1], 10) - 1;
+          const d = parseInt(dateParts[2], 10);
+          const hh = parseInt(timeParts[0], 10) || 0;
+          const mm = parseInt(timeParts[1], 10) || 0;
+          const ss = parseInt(timeParts[2], 10) || 0;
+          return new Date(y, m, d, hh, mm, ss).getTime();
+        }
+      }
+      const fallback = Date.parse(trimmed);
+      return isNaN(fallback) ? null : fallback;
+    }
+
+    function renderHistoryTable(arr) {
+      historyEl.innerHTML = "";
+      if (!arr || !arr.length) {
+        historyEl.innerHTML = `<tr><td colspan="3">No history found.</td></tr>`;
+        return;
+      }
+      arr.slice().reverse().forEach(entry => {
+        const loc = entry.location || "";
+        const time = entry.time || "";
+        const [lat, lng] = (loc + "").split(",");
+        const safeLat = parseFloat(lat) || 0;
+        const safeLng = parseFloat(lng) || 0;
+        historyEl.innerHTML += `
+          <tr>
+            <td>${time}</td>
+            <td>${loc}</td>
+            <td><button class="view-btn" onclick="focusOnMap(${safeLat}, ${safeLng})">View</button></td>
+          </tr>`;
+      });
+    }
+
+    function applyFilter() {
+      const fromMs = parseDateTimeLocalToMs(filterFrom.value);
+      const toMs = parseDateTimeLocalToMs(filterTo.value);
+      const filtered = (fullHistory || []).filter(entry => {
+        if (!entry.time || !entry.location) return false;
+        const entryMs = parseTimestampToMs(entry.time);
+        if (entryMs === null) return false;
+        if ((fromMs && entryMs < fromMs) || (toMs && entryMs > toMs)) return false;
+        const arr = entry.location.split(',').map(Number);
+        return arr[0] !== 0 && arr[1] !== 0;
+      });
+      renderHistoryTable(filtered);
+      plotRoute(filtered.map(h => h.location.split(",").map(Number)));
+    }
+    function resetFilter() {
+      filterFrom.value = "";
+      filterTo.value = "";
+      renderHistoryTable(fullHistory);
+      clearRouteLayers(); // Don't plot any path on reset!
+    }
+    applyFilterBtn.addEventListener("click", applyFilter);
+    resetFilterBtn.addEventListener("click", resetFilter);
+
+    // ---- YOUR EXISTING COMPONENTS, ONLINE, ETC. LOGIC UNCHANGED ----
+
+    function renderComponents(obj) {
+      componentsListEl.innerHTML = "";
+      if (!obj) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No data</li>';
+        return;
+      }
+      const order = Object.keys(obj);
+      if (order.length === 0) {
+        componentsListEl.innerHTML = '<li class="comp-unknown">No components</li>';
+        return;
+      }
+      order.forEach(k => {
+        const v = obj[k];
+        let cls = "comp-unknown";
+        if (v === "ok" || v === "activity") cls = "comp-ok";
+        else if (v === "no_fix" || v === "idle") cls = "comp-warn";
+        else if (v === "down") cls = "comp-bad";
+        componentsListEl.innerHTML += `<li class="${cls}"><strong>${k}:</strong> ${v}</li>`;
+      });
+    }
+
+    function computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr) {
+      const lastActiveMs = parseTimestampToMs(lastActiveStr);
+      if (!lastActiveMs) return !!firebaseOnlineFlag;
+      const age = Date.now() - lastActiveMs;
+      if (age > 90000) return false;
+      return !!firebaseOnlineFlag;
+    }
+
+    function renderOnlineAndLastActive(firebaseOnlineFlag, lastActiveStr) {
+      const isOnline = computeOnlineDisplay(firebaseOnlineFlag, lastActiveStr);
+      onlineStatusEl.innerHTML = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
+      lastActiveEl.textContent = lastActiveStr || "Unknown";
+    }
+    function startLastActivePoll(uid) {
+      if (!uid) return;
+      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      setInterval(() => {
+        currentRef.once('value').then(snap => {
+          const lastActive = snap.val();
+          db.ref(`users/${uid}/vehicle/online`).once('value').then(onlineSnap => {
+            renderOnlineAndLastActive(onlineSnap.val(), lastActive);
+          });
+        });
+      }, 30000);
+    }
+    function loadDashboard(uid) {
+      uidGlobal = uid;
+      const vehicleRef = db.ref(`users/${uid}/vehicle`);
+
+      vehicleRef.child("current").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const { latitude, longitude, status, last_active, battery } = data;
+
+        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
+          locationEl.textContent = `${latitude}, ${longitude}`;
+          updateMap(latitude, longitude);
+        } else {
+          locationEl.textContent = "No location";
+        }
+        lastActiveEl.textContent = last_active || "Unknown";
+        statusEl.textContent = status || "Unknown";
+        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
+        vehicleRef.child("online").once("value").then(onlineSnap => {
+          renderOnlineAndLastActive(onlineSnap.val(), last_active);
+        });
+      });
+
+      vehicleRef.child("history").on("value", (snapshot) => {
+        const history = snapshot.val();
+        fullHistory = [];
+        if (history) {
+          fullHistory = Object.values(history)
+            .filter(e=> e && e.location && e.time)
+            .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
+        }
+        renderHistoryTable(fullHistory);
+        clearRouteLayers(); // Route is NOT plotted unless filtered!
+      });
+
+      vehicleRef.child("components").on("value", (snapshot) => {
+        renderComponents(snapshot.val());
+      });
+
+      vehicleRef.child("online").on("value", (snapshot) => {
+        vehicleRef.child("current/last_active").once("value").then(snap => {
+          renderOnlineAndLastActive(snapshot.val(), snap.val());
+        });
+      });
+
+      vehicleRef.child("last_seen").on("value", (snapshot) => {
+        lastSeenEl.textContent = snapshot.val() || "N/A";
+      });
+
+      vehicleRef.child("alarm").on("value", (snapshot) => {
+        const status = snapshot.val() || "off";
+        alarmToggle.checked = (status === "on");
+        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
+      });
+
+      vehicleRef.child("last_trigger").on("value", (snapshot) => {
+        const trigger = snapshot.val();
+        if (trigger && trigger.time && trigger.status === "alert") {
+          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+        } else {
+          alarmTriggerEl.textContent = "No triggers";
+        }
+      });
+
+      vehicleRef.child("current/status").on("value", (snapshot) => {
+        const s = snapshot.val();
+        if (s) statusEl.textContent = s;
+      });
+
+      alarmToggle.addEventListener("change", () => {
+        const newState = alarmToggle.checked ? "on" : "off";
+        vehicleRef.child("alarm").set(newState).catch(err => {
+          console.error("Failed to set alarm:", err);
+        });
+      });
+
+      // Initialize buzzer
+      buzzerAudio = initBuzzer();
+      
+      // Set up buzzer button handler
+      buzzerBtn.addEventListener("click", () => {
+        buzzerStatus.textContent = "Buzzer activated!";
+        buzzerAudio.play();
+        
+        // Reset status text after 1.5 seconds
+        setTimeout(() => {
+          buzzerStatus.textContent = "Press to activate buzzer sound";
+        }, 1500);
+      });
+
+      startLastActivePoll(uid);
+    }
+
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user.uid);
+        document.getElementById("userEmail").textContent = user.email;
+        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    window.focusOnMap = focusOnMap;
+  </script>
+</body>
+</html>
