@@ -1,0 +1,373 @@
+#include <ESP8266WiFi.h>
+#include <FirebaseESP8266.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS++.h>
+#include <FS.h>
+#include <time.h>
+
+// ===== CONFIG =====
+#define WIFI_SSID     "sarth"
+#define WIFI_PASSWORD "123456789"
+#define FIREBASE_HOST "https://svms-c0232-default-rtdb.firebaseio.com/"
+#define FIREBASE_AUTH "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M"
+#define USER_ID       "hFcielg1J6SLceVwYynrCZosfPp2"
+
+// ===== AUTH (Required for secure write) =====
+#define FIREBASE_EMAIL    "miniproject@gmail.com"     // replace with your admin email
+#define FIREBASE_PASSWORD "12345678"                  // replace with your Firebase password
+
+// ===== HW PINS =====
+#define GPS_RX D5
+#define GPS_TX D6
+#define MOTION_SENSOR D7
+#define BUZZER D8
+#define BATTERY_PIN A0
+
+// ===== TIMING CONFIG =====
+#define LOOP_DELAY_MS        2000UL
+#define STATUS_UPDATE_MS    10000UL
+#define HISTORY_PUSH_MS     30000UL
+#define STOPPED_THRESHOLD   15000UL
+#define TRIGGER_COOLDOWN    60000UL
+#define ONLINE_TTL_MS       90000UL
+#define HEARTBEAT_RATE_MS   (ONLINE_TTL_MS / 3)
+#define MOTION_STABLE_MS      300UL
+#define BUZZER_DURATION      1000UL  // Buzzer sound duration in ms
+
+// ===== GLOBALS =====
+SoftwareSerial gpsSerial(GPS_RX, GPS_TX);
+TinyGPSPlus gps;
+
+double latitude = 0.0, longitude = 0.0;
+String alarmState = "off";
+unsigned long lastLocationUpdate = 0, lastMotion = 0, lastTriggerTime = 0;
+bool motionDetected = false;
+unsigned long lastHeartbeat = 0;
+bool lastOnlineState = false;
+unsigned long lastStatusWrite = 0, lastHistoryPush = 0, motionRiseTime = 0;
+unsigned long buzzerStartTime = 0;
+bool buzzerActive = false;
+
+FirebaseConfig config;
+FirebaseAuth auth;
+FirebaseData fbdo;
+bool spiFFSmounted = false;
+
+// ===== Function declarations =====
+void setOnlineFlag(bool on);
+void readGPS();
+void getAlarmStatusFromFirebase();
+void handleMotion();
+bool isStopped();
+void triggerAlarm();
+void updateVehicleStatus();
+int getBatteryLevel();
+String getTimestamp();
+void saveOfflineLog(String location, String timeStr);
+void uploadOfflineLogs();
+void heartbeat();
+void checkBuzzerCommand();
+void handleBuzzer();
+
+void connectWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to WiFi");
+  int retry = 0;
+  while (WiFi.status() != WL_CONNECTED && retry < 30) {
+    delay(500);
+    Serial.print(".");
+    retry++;
+  }
+  Serial.println(WiFi.status() == WL_CONNECTED ? "\n✅ WiFi Connected: " + WiFi.localIP().toString() : "\n❌ WiFi Failed");
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+
+  gpsSerial.begin(9600);
+  pinMode(MOTION_SENSOR, INPUT);
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+
+  spiFFSmounted = SPIFFS.begin();
+  Serial.println(spiFFSmounted ? "✅ SPIFFS mounted" : "⚠️ SPIFFS failed to mount");
+
+  connectWiFi();
+
+  config.database_url = FIREBASE_HOST;
+  config.api_key = FIREBASE_AUTH;
+
+  auth.user.email = FIREBASE_EMAIL;
+  auth.user.password = FIREBASE_PASSWORD;
+
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+  configTime(19800, 0, "pool.ntp.org", "time.nist.gov");
+
+  setOnlineFlag(false);
+  Serial.println("✅ Setup complete");
+}
+
+void loop() {
+  readGPS();
+  getAlarmStatusFromFirebase();
+  handleMotion();
+  checkBuzzerCommand();
+  handleBuzzer();
+
+  if (millis() - lastStatusWrite >= STATUS_UPDATE_MS) {
+    updateVehicleStatus();
+    lastStatusWrite = millis();
+  }
+
+  if (millis() - lastHeartbeat >= HEARTBEAT_RATE_MS) {
+    heartbeat();
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    static unsigned long lastReconnectAttempt = 0;
+    if (millis() - lastReconnectAttempt > 5000) {
+      lastReconnectAttempt = millis();
+      Serial.println("WiFi not connected - reconnecting...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+    }
+  }
+
+  delay(LOOP_DELAY_MS);
+}
+
+void readGPS() {
+  while (gpsSerial.available()) {
+    gps.encode(gpsSerial.read());
+    if (gps.location.isUpdated() && gps.location.isValid()) {
+      latitude = gps.location.lat();
+      longitude = gps.location.lng();
+      lastLocationUpdate = millis();
+      Serial.printf("📍 GPS: %.6f, %.6f\n", latitude, longitude);
+    }
+  }
+}
+
+void getAlarmStatusFromFirebase() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  String path = "/users/" + String(USER_ID) + "/vehicle/alarm";
+  if (Firebase.getString(fbdo, path)) {
+    alarmState = fbdo.stringData();
+    alarmState.toLowerCase();
+  } else {
+    Serial.println("FB get alarm failed: " + fbdo.errorReason());
+  }
+}
+
+void checkBuzzerCommand() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  String path = "/users/" + String(USER_ID) + "/vehicle/buzzer";
+  if (Firebase.getString(fbdo, path)) {
+    String buzzerCommand = fbdo.stringData();
+    if (buzzerCommand == "activate") {
+      Serial.println("🔊 Buzzer activated from dashboard");
+      // Activate the buzzer
+      buzzerActive = true;
+      buzzerStartTime = millis();
+      digitalWrite(BUZZER, HIGH);
+      
+      // Reset the command in Firebase
+      Firebase.setString(fbdo, path, "inactive");
+    }
+  }
+}
+
+void handleBuzzer() {
+  if (buzzerActive && (millis() - buzzerStartTime >= BUZZER_DURATION)) {
+    digitalWrite(BUZZER, LOW);
+    buzzerActive = false;
+    Serial.println("🔇 Buzzer turned off");
+  }
+}
+
+void handleMotion() {
+  int sensor = digitalRead(MOTION_SENSOR);
+  unsigned long now = millis();
+
+  if (sensor == HIGH) {
+    if (motionRiseTime == 0) motionRiseTime = now;
+    if (!motionDetected && (now - motionRiseTime) >= MOTION_STABLE_MS) {
+      Serial.println("🚨 Motion Detected (stable)");
+      motionDetected = true;
+      if (alarmState == "on" && isStopped() && (now - lastTriggerTime > TRIGGER_COOLDOWN)) {
+        triggerAlarm();
+        lastTriggerTime = now;
+      }
+      lastMotion = now;
+    }
+  } else {
+    motionRiseTime = 0;
+    if (motionDetected) {
+      Serial.println("Motion ended");
+      motionDetected = false;
+    }
+  }
+}
+
+bool isStopped() {
+  return (millis() - lastMotion > STOPPED_THRESHOLD);
+}
+
+void triggerAlarm() {
+  Serial.println("🔔 Trigger alarm");
+  
+  // Activate the buzzer
+  buzzerActive = true;
+  buzzerStartTime = millis();
+  digitalWrite(BUZZER, HIGH);
+
+  String loc = String(latitude, 6) + "," + String(longitude, 6);
+  String t = getTimestamp();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    String base = "/users/" + String(USER_ID) + "/vehicle/last_trigger";
+    Firebase.setString(fbdo, base + "/location", loc);
+    Firebase.setString(fbdo, base + "/time", t);
+    Firebase.setString(fbdo, base + "/status", "alert");
+
+    if (millis() - lastHistoryPush >= HISTORY_PUSH_MS) {
+      FirebaseJson h;
+      h.set("location", loc);
+      h.set("time", t);
+      Firebase.pushJSON(fbdo, "/users/" + String(USER_ID) + "/vehicle/history", h);
+      lastHistoryPush = millis();
+    }
+    Serial.println("✅ Alarm logged: " + loc + " @ " + t);
+  } else {
+    saveOfflineLog(loc, t);
+  }
+}
+
+void updateVehicleStatus() {
+  String status;
+  if (latitude == 0.0 && longitude == 0.0) {
+    status = "No GPS Signal";
+  } else if (WiFi.status() != WL_CONNECTED) {
+    status = "Offline";
+  } else if (millis() - lastMotion < 10000) {
+    status = "Moving";
+  } else {
+    status = "Stopped";
+  }
+
+  String locStr = String(latitude, 6) + "," + String(longitude, 6);
+  String timeNow = getTimestamp();
+  int batteryPercent = getBatteryLevel();
+
+  FirebaseJson comp;
+  comp.set("wifi", WiFi.status() == WL_CONNECTED ? "ok" : "down");
+  comp.set("gps", (gps.location.isValid() && (millis() - lastLocationUpdate) < 60000) ? "ok" : "no_fix");
+  comp.set("motion_sensor", motionDetected ? "activity" : "idle");
+  comp.set("buzzer", "ok");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    uploadOfflineLogs();
+
+    String base = "/users/" + String(USER_ID) + "/vehicle";
+
+    Firebase.setFloat(fbdo, base + "/current/latitude", latitude);
+    Firebase.setFloat(fbdo, base + "/current/longitude", longitude);
+    Firebase.setString(fbdo, base + "/current/location", locStr);
+    Firebase.setString(fbdo, base + "/current/last_active", timeNow);
+    Firebase.setString(fbdo, base + "/current/status", status);
+    Firebase.setInt(fbdo, base + "/current/battery", batteryPercent);
+    Firebase.setJSON(fbdo, base + "/components", comp);
+
+    if (millis() - lastHistoryPush >= HISTORY_PUSH_MS) {
+      FirebaseJson history;
+      history.set("location", locStr);
+      history.set("time", timeNow);
+      Firebase.pushJSON(fbdo, base + "/history", history);
+      lastHistoryPush = millis();
+    }
+
+    setOnlineFlag(true);
+    Serial.println("✅ Firebase updated: " + status + " | " + locStr);
+  } else {
+    saveOfflineLog(locStr, timeNow);
+  }
+}
+
+int getBatteryLevel() {
+  int analogVal = analogRead(BATTERY_PIN);
+  float voltage = analogVal * (3.3 / 1023.0) * 2.0;
+  int percent = map((int)(voltage * 100), 330, 420, 0, 100);
+  return constrain(percent, 0, 100);
+}
+
+String getTimestamp() {
+  time_t now = time(nullptr);
+  struct tm* t = localtime(&now);
+  char buffer[30];
+  if (t) {
+    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", t->tm_year + 1900, t->tm_mon + 1,
+            t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
+    return String(buffer);
+  } else {
+    return String(millis());
+  }
+}
+
+void saveOfflineLog(String location, String timeStr) {
+  if (!spiFFSmounted) return;
+  File file = SPIFFS.open("/offline.txt", "a+");
+  if (file) {
+    file.println(location + "," + timeStr);
+    file.close();
+  }
+}
+
+void uploadOfflineLogs() {
+  if (!spiFFSmounted || !SPIFFS.exists("/offline.txt")) return;
+  File file = SPIFFS.open("/offline.txt", "r");
+  if (!file) return;
+
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) continue;
+    int lastComma = line.lastIndexOf(',');
+    if (lastComma < 0) continue;
+    String location = line.substring(0, lastComma);
+    String timeStr = line.substring(lastComma + 1);
+
+    FirebaseJson history;
+    history.set("location", location);
+    history.set("time", timeStr);
+    Firebase.pushJSON(fbdo, "/users/" + String(USER_ID) + "/vehicle/history", history);
+    delay(100);
+  }
+  file.close();
+  SPIFFS.remove("/offline.txt");
+  Serial.println("☁️ Offline logs uploaded");
+}
+
+void setOnlineFlag(bool on) {
+  String base = "/users/" + String(USER_ID) + "/vehicle";
+  String t = getTimestamp();
+
+  if (on != lastOnlineState || (millis() - lastHeartbeat) > ONLINE_TTL_MS) {
+    Firebase.setBool(fbdo, base + "/online", on);
+    if (on) {
+      Firebase.setString(fbdo, base + "/last_seen", t);
+    }
+    lastOnlineState = on;
+    lastHeartbeat = millis();
+  } else {
+    lastHeartbeat = millis();
+  }
+}
+
+void heartbeat() {
+  if (WiFi.status() == WL_CONNECTED) setOnlineFlag(true);
+  else setOnlineFlag(false);
+}
