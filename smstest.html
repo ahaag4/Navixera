@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Navixera Dashboard</title>
-  <link rel="stylesheet" href="style.css"/>
-  <link rel="icon" href="assets/favicon.ico"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
     body {
@@ -377,8 +375,6 @@
     applyFilterBtn.addEventListener("click", applyFilter);
     resetFilterBtn.addEventListener("click", resetFilter);
 
-    // ---- YOUR EXISTING COMPONENTS, ONLINE, ETC. LOGIC UNCHANGED ----
-
     function renderComponents(obj) {
       componentsListEl.innerHTML = "";
       if (!obj) {
@@ -413,9 +409,10 @@
       onlineStatusEl.innerHTML = isOnline ? '<span class="badge online">ONLINE</span>' : '<span class="badge offline">OFFLINE</span>';
       lastActiveEl.textContent = lastActiveStr || "Unknown";
     }
+    
     function startLastActivePoll(uid) {
       if (!uid) return;
-      const currentRef = db.ref(`users/${uid}/vehicle/current/last_active`);
+      const currentRef = db.ref(`users/${uid}/vehicle/last_seen`);
       setInterval(() => {
         currentRef.once('value').then(snap => {
           const lastActive = snap.val();
@@ -425,76 +422,71 @@
         });
       }, 30000);
     }
+    
     function loadDashboard(uid) {
       uidGlobal = uid;
       const vehicleRef = db.ref(`users/${uid}/vehicle`);
 
-      vehicleRef.child("current").on("value", (snapshot) => {
+      // Current location and status
+      vehicleRef.on("value", (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        const { latitude, longitude, status, last_active, battery } = data;
-
-        if (typeof latitude !== 'undefined' && typeof longitude !== 'undefined') {
+        // Handle location data
+        if (data.location) {
+          const [latitude, longitude] = data.location.split(",").map(Number);
           locationEl.textContent = `${latitude}, ${longitude}`;
           updateMap(latitude, longitude);
         } else {
           locationEl.textContent = "No location";
         }
-        lastActiveEl.textContent = last_active || "Unknown";
-        statusEl.textContent = status || "Unknown";
-        batteryHealthEl.textContent = (typeof battery !== 'undefined') ? `${battery}%` : "N/A";
-        vehicleRef.child("online").once("value").then(onlineSnap => {
-          renderOnlineAndLastActive(onlineSnap.val(), last_active);
-        });
+
+        // Handle other data
+        lastSeenEl.textContent = data.last_seen || "Unknown";
+        statusEl.textContent = data.status || "Unknown";
+        
+        // Handle online status
+        if (data.online !== undefined) {
+          renderOnlineAndLastActive(data.online, data.last_seen);
+        }
+        
+        // Handle alarm status
+        if (data.alarm !== undefined) {
+          alarmToggle.checked = (data.alarm === "on");
+          alarmStatusText.textContent = `Alarm is ${data.alarm.toUpperCase()}`;
+        }
+        
+        // Handle last trigger
+        if (data.last_trigger) {
+          const trigger = data.last_trigger;
+          if (trigger.time && trigger.status === "alert") {
+            alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
+          } else {
+            alarmTriggerEl.textContent = "No triggers";
+          }
+        }
       });
 
+      // Handle history
       vehicleRef.child("history").on("value", (snapshot) => {
         const history = snapshot.val();
         fullHistory = [];
         if (history) {
-          fullHistory = Object.values(history)
-            .filter(e=> e && e.location && e.time)
-            .sort((a, b) => parseTimestampToMs(a.time)-parseTimestampToMs(b.time));
+          // Convert object to array
+          fullHistory = Object.keys(history).map(key => {
+            return { ...history[key], id: key };
+          }).filter(e => e && e.location && e.time);
         }
         renderHistoryTable(fullHistory);
-        clearRouteLayers(); // Route is NOT plotted unless filtered!
+        clearRouteLayers();
       });
 
+      // Handle components
       vehicleRef.child("components").on("value", (snapshot) => {
         renderComponents(snapshot.val());
       });
 
-      vehicleRef.child("online").on("value", (snapshot) => {
-        vehicleRef.child("current/last_active").once("value").then(snap => {
-          renderOnlineAndLastActive(snapshot.val(), snap.val());
-        });
-      });
-
-      vehicleRef.child("last_seen").on("value", (snapshot) => {
-        lastSeenEl.textContent = snapshot.val() || "N/A";
-      });
-
-      vehicleRef.child("alarm").on("value", (snapshot) => {
-        const status = snapshot.val() || "off";
-        alarmToggle.checked = (status === "on");
-        alarmStatusText.textContent = `Alarm is ${status.toUpperCase()}`;
-      });
-
-      vehicleRef.child("last_trigger").on("value", (snapshot) => {
-        const trigger = snapshot.val();
-        if (trigger && trigger.time && trigger.status === "alert") {
-          alarmTriggerEl.innerHTML = `<span style="color: red;">⚠️ ${trigger.time} at ${trigger.location}</span>`;
-        } else {
-          alarmTriggerEl.textContent = "No triggers";
-        }
-      });
-
-      vehicleRef.child("current/status").on("value", (snapshot) => {
-        const s = snapshot.val();
-        if (s) statusEl.textContent = s;
-      });
-
+      // Alarm toggle handler
       alarmToggle.addEventListener("change", () => {
         const newState = alarmToggle.checked ? "on" : "off";
         vehicleRef.child("alarm").set(newState).catch(err => {
@@ -521,9 +513,18 @@
 
     auth.onAuthStateChanged((user) => {
       if (user) {
-        loadDashboard(user.uid);
-        document.getElementById("userEmail").textContent = user.email;
-        document.getElementById("logoutBtn").onclick = () => auth.signOut();
+        // Check if user is approved
+        db.ref(`users/${user.uid}/approved`).once('value').then(snapshot => {
+          const approved = snapshot.val();
+          if (approved) {
+            loadDashboard(user.uid);
+            document.getElementById("userEmail").textContent = user.email;
+            document.getElementById("logoutBtn").onclick = () => auth.signOut();
+          } else {
+            alert("Your account is not approved yet.");
+            auth.signOut();
+          }
+        });
       } else {
         window.location.href = "login.html";
       }
