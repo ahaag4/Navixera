@@ -235,3 +235,175 @@ govPortalAccess:true ----access get if false access not get
     }
   }
 }
+
+//final rules
+
+{
+
+  "rules": {
+
+    ".read": true, // Public read access (adjust based on privacy needs)
+
+    ".write": false, // Default write denial
+
+    "users": {
+
+      "$uid": {
+
+        ".read": true, // Users can read their own data
+
+        ".write": "(auth != null && auth.uid == $uid) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true))"
+
+      }
+
+    },
+
+    "admin": {
+
+      ".read": true, // Admins can read admin data
+
+      "ads": {
+
+        "$adId": {
+
+          ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true)"
+
+        }
+
+      },
+
+      "payments": {
+
+        "$paymentId": {
+
+          ".write": "(!data.exists() && newData.hasChildren(['uid', 'feature', 'amount', 'currency', 'status', 'created', 'expiry', 'payment_method']) && newData.child('uid').val() == auth.uid && newData.child('status').val() == 'pending' && auth != null) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true))",
+
+          ".validate": "newData.hasChildren(['uid', 'feature', 'amount', 'currency', 'status', 'created', 'expiry', 'payment_method']) && newData.child('amount').isNumber() && newData.child('amount').val() >= 0 && newData.child('currency').val() === 'inr' && newData.child('status').val().matches(/^(pending|approved|rejected)$/) && newData.child('created').isString() && newData.child('expiry').isString() && newData.child('payment_method').val().matches(/^(upi|stripe|card|other)$/)",
+
+          "transaction_id": {
+
+            ".write": "auth != null && (newData.val() != null || data.val() == null) && root.child('admin/payments/' + $paymentId + '/uid').val() == auth.uid"
+
+          },
+
+          "transaction_submitted_at": {
+
+            ".write": "auth != null && (newData.val() != null || data.val() == null) && root.child('admin/payments/' + $paymentId + '/uid').val() == auth.uid"
+
+          },
+
+          "status": {
+
+            ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true) && newData.val().matches(/^(pending|approved|rejected)$/) && (data.val() == 'pending' || !newData.val().matches(/^(approved|rejected)$/))"
+
+          }
+
+        }
+
+      },
+
+      "upgrade_requests": {
+
+        "$reqId": {
+
+          ".write": "(!data.exists() && newData.hasChildren(['uid', 'requestedPlan', 'status', 'request_time']) && newData.child('uid').val() == auth.uid && newData.child('status').val() == 'pending' && auth != null) || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true))"
+
+        }
+
+      },
+
+      "approvals": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true)"
+
+      },
+
+      "downgrades": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true)"
+
+      },
+
+      "subscription_approvals": {
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true)"
+
+      }
+
+    },
+
+    "public_transport": {
+
+      "vehicles": {
+
+        "$vid": {
+
+          ".read": true,
+
+          ".write": "(auth != null && root.child('users/' + auth.uid + '/role').val() == 'company') || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true))"
+
+        }
+
+      },
+
+      "stops": {
+
+        "$stopId": {
+
+          ".read": true,
+
+          ".write": "(auth != null && root.child('users/' + auth.uid + '/role').val() == 'company') || (auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true))"
+
+        }
+
+      }
+
+    },
+
+    "products": {
+
+      "$productId": {
+
+        ".read": true,
+
+        ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true)"
+
+      }
+
+    },
+
+    "orders": {
+
+      "$orderId": {
+
+        ".read": true,
+
+        ".write": "!data.exists() && newData.hasChildren(['productId', 'productName', 'price', 'name', 'email', 'phone', 'address', 'zipcode', 'state', 'country', 'status', 'createdAt']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('status').val() === 'Pending' && newData.child('createdAt').isString()",
+
+        ".validate": "newData.child('productId').isString() && newData.child('productName').isString() && newData.child('name').isString() && newData.child('email').isString() && newData.child('phone').isString() && newData.child('address').isString() && newData.child('zipcode').isString() && newData.child('state').isString() && newData.child('country').isString()",
+
+        "$other": {
+
+          ".write": "auth != null && (root.child('users/' + auth.uid + '/role').val() == 'super-admin' || root.child('users/' + auth.uid + '/role').val() == 'admin' || root.child('users/' + auth.uid + '/admin').val() == true || root.child('users/' + auth.uid + '/isAdmin').val() == true) && newData.val().matches(/^(Pending|approved|rejected)$/) && (data.val() == 'Pending' || !newData.val().matches(/^(approved|rejected)$/))"
+
+        }
+
+      }
+
+    },
+
+    "contact_submissions": {
+
+      "$submissionId": {
+
+        ".read": true,
+
+        ".write": "!data.exists() && newData.hasChildren(['name', 'email', 'message']) && newData.child('name').isString() && newData.child('email').isString() && newData.child('message').isString()"
+
+      }
+
+    }
+
+  }
+
+}
