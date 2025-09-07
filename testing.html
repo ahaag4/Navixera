@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Navixera Dashboard</title>
+  <link rel="icon" href="assets/favicon.ico"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"/>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f7f9fc; }
+    .dashboard { max-width: 1080px; margin:28px auto; padding:0 24px 36px 24px; }
+    header {
+      background: #222c37;
+      color: #fff;
+      padding: 22px 24px;
+      border-radius: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.075);
+    }
+    .header-left { display: flex; align-items: center; gap: 20px; }
+    .logo { height:48px; }
+    .app-title { font-size: 25px; font-weight: 800; letter-spacing: 0.015em; }
+    .app-desc { font-size: 15px; color:#b3b8c7; margin-top: 2px; font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 18px;}
+    .header-email { font-size:15px; color:#e2e6ed; font-weight: 500; }
+    .plan-pill { background: linear-gradient(90deg,#2670ff,#31ffa7); color:#fff; font-weight:700; border-radius:20px; font-size:15px; padding:6px 18px; letter-spacing:0.04em; }
+    .header-logout { background: #2636ad; color: #fff; font-weight:700; border:none;border-radius:8px;padding:8px 22px; cursor: pointer; font-size:15px;}
+    .header-logout:hover { background:#386afa;}
+    .card { background:#fff; padding:22px; margin:20px 0; border-radius:14px; box-shadow:0 2px 15px rgba(40,50,90,.09);}
+    h2 { margin:0 0 10px 0; color:#191f2a; font-size:22px; font-weight:900;}
+    .ad-banner { width:100%; min-height:70px; background:#e9ecef; display:flex; align-items:center; justify-content:center; border-radius:10px; margin:20px 0 22px 0; color:#333; font-weight:700; }
+    #adArea img, #adArea video {border-radius:8px;object-fit:contain;display:block;max-width:100%;height:auto;}
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; vertical-align:middle; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 30px;}
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;}
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(30px); }
+    .badge { padding:6px 14px; border-radius:8px; font-weight:600; font-size:13px; color:#fff; }
+    .badge.online { background:#28a745; }
+    .badge.offline { background:#dc3545; }
+    .pending-pill { background:#ffd966; color:#4a2900; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .approved-pill { background:#31ffa7; color:#167054; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .rejected-pill { background:#f8d7da; color:#721c24; padding:7px 16px; border-radius:8px; font-weight:700; font-size:15px;}
+    .small-muted { color:#6c757d; font-size:14px; }
+    .components-list { margin-top:11px; list-style:none; padding-left:0; }
+    .components-list li { padding:7px 0; border-bottom:1px dashed #f0f3fa; }
+    .comp-ok { color:#25ad45; font-weight:700;}
+    .comp-warn { color:#e67700; font-weight:700;}
+    .comp-bad { color:#c82333; font-weight:700;}
+    .comp-unknown { color:#6c757d; font-weight:700;}
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th,td { padding:11px; border-bottom:1px solid #f2f5fc; text-align:left; font-size:15px;}
+    .view-btn { background:#2670ff; color:#fff; padding:7px 15px; border-radius:8px; border:none; cursor:pointer; font-size:15px; }
+    .admin-panel, .analytics-card, .fleet-card, .admin-panel-payments { margin-top:12px;}
+    .btn { padding:8px 15px; border-radius:7px; border:none; cursor:pointer; font-size:15px;}
+    .btn-primary { background:#2670ff; color:#fff; font-weight:700;}
+    .btn-warning { background:#ffd966; color:#4a2900; font-weight:700;}
+    .btn-danger { background:#dc3545; color:#fff; font-weight:700;}
+    .btn-ghost { background:transparent; border:1px solid #ddd; font-weight:700;}
+    .btn-stripe { background:#635bff; color:#fff; font-weight:700;}
+    #modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10000; }
+    #modal .dialog { background:#fff; padding:18px; border-radius:10px; width:92%; max-width:520px; }
+    .modal-content { padding: 20px; }
+    .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+    .close:hover { color: black; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 12px 0;}
+    .toolbar label { font-size:14px; color:#333; }
+    .toolbar input[type="date"], .toolbar select { padding:6px 8px; border:1px solid #e5e9f2; border-radius:8px; font-size:14px;}
+    .toolbar .inline { display:flex; gap:8px; align-items:center; }
+    .kpi { display:flex; gap:14px; flex-wrap:wrap; margin-top:6px; }
+    .kpi .pill { background:#f4f7ff; border:1px solid #e7ecff; padding:8px 12px; border-radius:10px; font-weight:700; color:#2b3a67; }
+    .hint { font-size:12px; color:#6c757d; }
+    .analytics-card canvas { max-width: 100%; height: 300px; margin-top: 10px; }
+    .fleet-card ul { list-style: none; padding: 0; }
+    .fleet-card ul li { padding: 8px 0; border-bottom: 1px solid #f2f5fc; }
+    @media (max-width:600px) {
+      .dashboard {padding:0 7px;}
+      header {flex-direction:column;align-items:flex-start;padding:16px 5px;}
+      .header-left{gap:10px;}
+      .app-title{font-size:18px;}
+      .plan-pill{font-size:13px;}
+      .header-logout{font-size:13px;padding:7px 13px;}
+      .card{padding:13px;}
+      th,td{font-size:14px;}
+      .pending-pill,.approved-pill,.rejected-pill{font-size:13px;}
+      .toolbar {gap:6px;}
+      .analytics-card canvas { height: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <header>
+      <div class="header-left">
+        <img src="assets/logo.png" alt="Logo" class="logo"/>
+        <div>
+          <div class="app-title"> <span style="font-size:15px;font-weight:normal;background:rgba(38,112,255,.1);border-radius:7px;padding:2px 11px;color:#2670ff;margin-left:7px;" id="planPillHeader"></span></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="header-email" id="userEmail">Loading...</span>
+        <span class="plan-pill" id="planPill">—</span>
+        <button id="logoutBtn" class="header-logout">Logout</button>
+      </div>
+    </header>
+
+    <div id="adArea" class="ad-banner">Ad placeholder</div>
+
+    <section class="card status-card">
+      <h2>🔍 Live Status</h2>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:2px;">
+        <div><strong>Online:</strong> <span id="onlineStatus"><span class='badge offline'>Checking...</span></span></div>
+        <div><strong>Last seen:</strong> <span id="lastSeen">N/A</span></div>
+      </div>
+      <p><strong>Location:</strong> <span id="location">Loading...</span></p>
+      <p><strong>Last Active:</strong> <span id="lastActive">Loading...</span></p>
+      <p><strong>Status:</strong> <span id="status">Loading...</span></p>
+      <p><strong>Battery Health:</strong> <span id="batteryHealth">Loading...</span></p>
+      <p><strong>Alarm Last Trigger:</strong> <span id="alarmTrigger">No triggers</span></p>
+      <div id="componentsBlock">
+        <h4 style="font-size:16px;border-bottom:1px solid #f3f6ff;">Components</h4>
+        <ul id="componentsList" class="components-list">
+          <li class="comp-unknown">No data</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card alarm-card">
+      <h2>🔔 Alarm</h2>
+      <label class="switch">
+        <input type="checkbox" id="alarmToggle">
+        <span class="slider round"></span>
+      </label>
+      <span id="alarmStatusText" style="margin-left:14px;">Loading alarm status...</span>
+    </section>
+
+    <section class="card subscription-card">
+      <h2>💳 Subscription & Upgrades</h2>
+      <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+        <div>Plan: <strong id="currentPlan">Loading</strong></div>
+        <div class="small-muted">Expiry: <span id="planExpiry">-</span></div>
+        <div class="small-muted">Vehicle limit: <span id="vehicleLimit">-</span></div>
+        <div id="upgradeBtns" style="margin-left:auto;">
+          <button id="upgradeToSilver" class="btn btn-warning">Request Silver (₹149/mo)</button>
+          <button id="upgradeToGold" class="btn btn-primary">Request Gold (₹249/mo)</button>
+          <button id="watchAdBtn" class="btn btn-ghost">Watch Ad for Premium</button>
+          <button id="buyExportBtn" class="btn btn-primary" style="display:none;">Buy Export (₹15)</button>
+          <button id="buyAnalyticsBtn" class="btn btn-primary" style="display:none;">Buy Analytics (₹49)</button>
+          <button id="buyFleetBtn" class="btn btn-primary" style="display:none;">Buy Fleet (₹49)</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <span id="requestStatusArea"></span>
+      </div>
+      <div style="margin-top:14px;" class="small-muted">
+        Plans: Basic (24h history, ads) • Silver (7d history, limited ads, CSV export) • Gold (90d, no ads, CSV & analytics)
+      </div>
+    </section>
+
+    <section class="card map-card">
+      <h2>🗺 Live Map</h2>
+      <div class="toolbar" id="mapToolbar" style="display:flex;">
+        <div class="inline" id="mapTypeBlock" style="display:none;">
+          <label>Map:</label>
+          <select id="mapType">
+            <option value="street">Street</option>
+            <option value="satellite">Satellite</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="inline" id="heatToggleBlock" style="display:none;">
+          <label>Heatmap:</label>
+          <label class="switch"><input type="checkbox" id="heatToggle"><span class="slider"></span></label>
+        </div>
+        <div class="inline" id="customIconBlock" style="display:none;">
+          <label>Marker Icon:</label>
+          <input type="file" id="iconUploader" accept="image/*"/>
+          <span class="hint">PNG/JPG, ~32×32 works best</span>
+        </div>
+        <div class="inline" id="geofenceControls" style="display:none;">
+          <button class="btn btn-ghost" id="gfEnableDraw">Add Zone</button>
+          <button class="btn btn-ghost" id="gfSave">Save Zones</button>
+          <button class="btn btn-ghost" id="gfClear">Clear Zones</button>
+          <span class="hint" id="gfHint"></span>
+        </div>
+      </div>
+      <div id="map" style="height:300px;border-radius:8px;">Loading map...</div>
+      <div class="kpi">
+        <div class="pill">Distance: <span id="kpiDistance">0.00 km</span></div>
+        <div class="pill">Stops: <span id="kpiStops">0</span></div>
+        <div class="pill">Refresh: <span id="kpiRefresh">—</span></div>
+      </div>
+    </section>
+
+    <section class="card history-card">
+      <h2>📈 Movement History</h2>
+      <div class="toolbar" id="dateFilterSection" style="display:none;">
+        <div class="inline">
+          <label>From:</label><input type="date" id="startDate"/>
+        </div>
+        <div class="inline">
+          <label>To:</label><input type="date" id="endDate"/>
+        </div>
+        <button class="btn btn-primary" id="applyFilterBtn">Filter</button>
+        <button class="btn btn-ghost" id="clearFilterBtn">Clear</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="small-muted">Recent movements</div>
+        <div>
+          <button id="exportCSVBtn" class="btn btn-primary" style="display:none;">Export CSV</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Time</th><th>Location</th><th>Map</th></tr></thead>
+        <tbody id="history"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="analyticsSection" class="card analytics-card" style="display:none;">
+      <h2>📊 Analytics</h2>
+      <p id="analyticsMessage">Analytics loading...</p>
+      <canvas id="analyticsChart"></canvas>
+    </section>
+
+    <section id="fleetSection" class="card fleet-card" style="display:none;">
+      <h2>🚗 Fleet Management</h2>
+      <p id="fleetMessage">Loading fleet...</p>
+      <button id="addVehicleBtn" class="btn btn-primary" style="display:none;">Add Vehicle</button>
+      <ul id="fleetList"></ul>
+    </section>
+
+    <section id="adminPanel" class="card admin-panel" style="display:none;">
+      <h2>🔧 Admin Panel — Upgrade Requests</h2>
+      <div id="adminList">Loading admin data…</div>
+      <hr/>
+      <h3>Recent admin logs</h3>
+      <div id="adminLogs">Loading logs…</div>
+    </section>
+
+    <section id="adminPanelPayments" class="card admin-panel-payments" style="display:none;">
+      <h2>💸 Payment Requests</h2>
+      <div id="paymentList">Loading payment data…</div>
+    </section>
+
+    <div id="modal">
+      <div class="dialog">
+        <div class="modal-content" id="modalContent"></div>
+        <div style="margin-top:12px;text-align:right;">
+          <button id="modalClose" class="btn btn-ghost">Close</button>
+          <button id="modalPayUPI" class="btn btn-primary" style="display:none;">Pay with UPI</button>
+          <button id="modalPayStripe" class="btn btn-stripe" style="display:none;">Pay with Stripe</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <!-- Leaflet core -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Leaflet.heat (for heatmap) -->
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <!-- Leaflet.draw (for geofences) -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <!-- Leaflet PIP -->
+    <script src="https://unpkg.com/@mapbox/leaflet-pip@1.1.0/leaflet-pip.js"></script>
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Main script -->
+    <script src="testing.js"></script>
+</body>
+</html>
