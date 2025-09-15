@@ -103,7 +103,8 @@
           return db.ref('users/' + userId).set({
             email: email,
             // vehicleType: vehicleType, // Uncomment if needed
-            role: role
+            role: role,
+            approved: false
           });
         })
         .then(() => {
