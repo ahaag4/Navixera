@@ -555,7 +555,7 @@ function loadPendingApprovals() {
     list.innerHTML = '';
     for (const uid in users) {
       const u = users[uid];
-      if ((u.role === "company" || u.role === "customer") && u.approved !== true) {
+      if ((u.role === "company" || u.role === "customer"||u.role==="parent"||u.role==="school-transport") && u.approved !== true) {
         found = true;
         const name = u.companyName || u.email || uid;
         list.innerHTML += `<li class="list-group-item d-flex justify-content-between">
