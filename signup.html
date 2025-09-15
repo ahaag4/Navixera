@@ -1,8 +1,10 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up - Smart Monitoring System</title>
+  <title>Sign Up - Navixera</title>
+  <!-- Bootstrap CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
@@ -13,7 +15,7 @@
       height: 100vh;
     }
     .signup-box {
-      background: white;
+      background: #fff;
       padding: 2rem;
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -25,18 +27,19 @@
 <body>
   <div class="signup-box">
     <h2 class="text-center mb-4">Create an Account</h2>
-    <form id="signupForm">
+    <form id="signupForm" autocomplete="on">
       <div class="mb-3">
         <label for="email" class="form-label">Email address</label>
-        <input type="email" class="form-control" id="email" required>
+        <input type="email" class="form-control" id="email" required aria-required="true" autocomplete="email">
       </div>
       <div class="mb-3">
         <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" required>
+        <input type="password" class="form-control" id="password" required aria-required="true" autocomplete="new-password">
       </div>
-      <!--<div class="mb-3">
+      <!-- Uncomment below if vehicleType is required in future
+      <div class="mb-3">
         <label for="vehicleType" class="form-label">Vehicle Type</label>
-        <select class="form-select" id="vehicleType" required>
+        <select class="form-select" id="vehicleType">
           <option value="">Select</option>
           <option value="car">Car</option>
           <option value="bike">Bike</option>
@@ -44,21 +47,29 @@
           <option value="student">Student</option>
           <option value="cycle">Cycle</option>
         </select>
-      </div>-->
-      
+      </div>
+      -->
+      <div class="mb-3">
         <label for="role" class="form-label">Role</label>
-        <select class="form-select" id="role" required>
+        <select class="form-select" id="role" required aria-required="true">
           <option value="">Select</option>
           <option value="customer">customer</option>
           <option value="parent">parent</option>
           <option value="company">company</option>
           <option value="super-admin">super-admin</option>
         </select>
-      
+      </div>
       <button type="submit" class="btn btn-primary w-100">Sign Up</button>
     </form>
     <p class="text-center mt-3">Already have an account? <a href="login.html">Login</a></p>
-  </div>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>  <script>
+  </div>
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script>
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
       authDomain: "svms-c0232.firebaseapp.com",
@@ -68,6 +79,7 @@
       messagingSenderId: "359201898609",
       appId: "1:359201898609:web:893ef076207abb06471bd0"
     };
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
 
     const auth = firebase.auth();
@@ -75,18 +87,23 @@
 
     document.getElementById('signupForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      const email = document.getElementById('email').value;
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-     /*const vehicleType = document.getElementById('vehicleType').value;*/
+      // const vehicleType = document.getElementById('vehicleType').value; // For future use
       const role = document.getElementById('role').value;
-
+      // Input validation (extra security client-side)
+      if (!email || !password || !role) {
+        alert("Please fill in all required fields.");
+        return;
+      }
       auth.createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
           const userId = userCredential.user.uid;
+          // Save additional user info to Realtime Database
           return db.ref('users/' + userId).set({
             email: email,
-           /* vehicleType: vehicleType,*/
-            role: role,
+            // vehicleType: vehicleType, // Uncomment if needed
+            role: role
           });
         })
         .then(() => {
@@ -94,8 +111,16 @@
           window.location.href = "dashboard.html";
         })
         .catch(error => {
-          alert("Error: " + error.message);
+          // More user-friendly error display
+          if (error.code === 'auth/email-already-in-use') {
+            alert("This email address is already registered.");
+          } else if (error.code === 'auth/weak-password') {
+            alert("Password should be at least 6 characters.");
+          } else {
+            alert("Error: " + error.message);
+          }
         });
     });
-  </script></body>
+  </script>
+</body>
 </html>
