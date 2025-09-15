@@ -137,7 +137,7 @@ function loadApprovedUsers(){
     let rows = "";
     for(const uid in users){
       const u=users[uid];
-      if(u.approved===true && (u.role==="company"||u.role==="customer")){
+      if(u.approved===true && (u.role==="company"||u.role==="customer"||u.role==="parent"||u.role==="school-transport")){
         let compsCount=0, vehCount=0, delCount=0;
         if(u.vehicle?.companies){
           compsCount=Object.keys(u.vehicle.companies).length;
