@@ -45,8 +45,11 @@ export async function initializeDashboard() {
         case "customer":
           window.location.href = "sms.html";
           break;
-       case "parent":
+        case "parent":
           window.location.href = "parents-dash-navixera.html";
+          break;
+        case "school-transport":
+          window.location.href = "school-tran-dash.html";
           break;
         case "company":
           window.location.href = "comadmin.html";
