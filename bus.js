@@ -1,3 +1,4 @@
+<script>
 (function () {
   'use strict';
 
@@ -13,7 +14,7 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
-  const functions = firebase.functions();
+  const functions = firebase.functions ? firebase.functions() : null;
 
   // DOM Element Caching
   const dom = {
@@ -64,9 +65,9 @@
       html: `<div class="bus-icon" style="background-color: ${color}">
               <i class="bi bi-bus-front"></i>
             </div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -14]
     });
   };
 
@@ -81,38 +82,47 @@
 
   const userLocationIcon = L.divIcon({
     className: 'user-location-icon',
+    html: `<div class="user-dot"></div>`,
     iconSize: [20, 20],
     iconAnchor: [10, 10],
     popupAnchor: [0, -12]
   });
 
   // Helper Functions
-  const showLoader = () => dom.loader.classList.remove('hidden');
-  const hideLoader = () => dom.loader.classList.add('hidden');
+  const showLoader = () => dom.loader && dom.loader.classList && dom.loader.classList.remove('hidden');
+  const hideLoader = () => dom.loader && dom.loader.classList && dom.loader.classList.add('hidden');
 
   const showToast = (message, type = 'info', ttl = 3500) => {
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
-    toastEl.setAttribute('role', 'alert');
-    toastEl.setAttribute('aria-live', 'assertive');
-    toastEl.innerHTML = `
-      <div class="d-flex">
-        <div class极oast-body d-flex align-items-center">
-          <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'warning' ? 'bi-exclamation-triangle-fill' : type === 'danger' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2"></i>
-          ${message}
-        </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>`;
-    dom.toastContainer.appendChild(toastEl);
-    const toast = new bootstrap.Toast(toastEl, { delay: ttl });
-    toast.show();
-    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    try {
+      if (!dom.toastContainer) {
+        console.warn('No toast container found. Message:', message);
+        return;
+      }
+      const toastEl = document.createElement('div');
+      toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
+      toastEl.setAttribute('role', 'alert');
+      toastEl.setAttribute('aria-live', 'assertive');
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body d-flex align-items-center">
+            <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'warning' ? 'bi-exclamation-triangle-fill' : type === 'danger' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2"></i>
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>`;
+      dom.toastContainer.appendChild(toastEl);
+      const toast = new bootstrap.Toast(toastEl, { delay: ttl });
+      toast.show();
+      toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    } catch (e) {
+      console.error('showToast error', e);
+    }
   };
 
   const parseGps = (gps) => {
     if (!gps) return null;
-    if (typeof gps === 'object' && gps.latitude && gps.longitude) {
-      return [gps.latitude, gps.longitude];
+    if (typeof gps === 'object' && gps.latitude != null && gps.longitude != null) {
+      return [Number(gps.latitude), Number(gps.longitude)];
     }
     const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
     if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
@@ -122,6 +132,7 @@
   };
 
   const formatDistance = (distance) => {
+    if (!isFinite(distance)) return 'N/A';
     if (distance < 1) {
       return `${Math.round(distance * 1000)} m`;
     }
@@ -132,22 +143,25 @@
     const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) *极in(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
-  // Backend ETA Caller
+  // Backend ETA Caller (optional; will fall back if functions not available)
   const getETA = async (vehicle, previousCoords, previousTime) => {
+    if (!functions) {
+      return { eta: 'N/A', nextStop: 'N/A', speed: 0 };
+    }
     try {
       const calculateETA = functions.httpsCallable('calculateETA');
       const result = await calculateETA({ vehicle, previousCoords, previousTime });
-      return result.data;
+      return result.data || { eta: 'N/A', nextStop: 'N/A', speed: 0 };
     } catch (err) {
       console.error('ETA calculation error:', err);
-      showToast('Failed to calculate ETA. Using default.', 'warning');
+      // don't spam toasts; optional single warning
       return { eta: 'N/A', nextStop: 'N/A', speed: 0 };
     }
   };
@@ -188,13 +202,14 @@
         (err) => {
           showToast("Unable to retrieve your location. Please check permissions.", "danger");
           reject(err);
-        }
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     });
   };
 
   const findNearestBusStops = () => {
-    if (!userLocation || busStops.length === 0) {
+    if (!userLocation || !Array.isArray(busStops) || busStops.length === 0) {
       showToast("Location or bus stops data not available.", "warning");
       return;
     }
@@ -207,7 +222,7 @@
       }
     });
     busStops.sort((a, b) => a.distance - b.distance);
-    if (busStops[0].distance !== Infinity) {
+    if (busStops.length > 0 && busStops[0].distance !== Infinity) {
       showBusStopPanel(busStops[0]);
     } else {
       showToast("No valid bus stops found.", "warning");
@@ -217,13 +232,13 @@
   const showBusStopPanel = (stop) => {
     dom.busStopContent.innerHTML = `
       <div class="bus-stop-header">
-        <h6 class="bus-stop-title">${stop.name}</h6>
+        <h6 class="bus-stop-title">${stop.name || 'Unnamed Stop'}</h6>
         <a href="#" class="see-all-link" id="seeAllStops">
           See all stops <i class="bi bi-arrow-right"></i>
         </a>
       </div>
       <div class="bus-stop-item">
-        <div class="bus-stop-name">${stop.name}</div>
+        <div class="bus-stop-name">${stop.name || 'Unnamed Stop'}</div>
         <div class="bus-stop-distance">
           <i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)} away
         </div>
@@ -233,10 +248,10 @@
           <h6 class="bus-route-title">${v.type || 'Unknown'}</h6>
           <div class="bus-route-item">
             <div class="bus-number">
-              <i class="bi bi-bus-front"></i> ${v.vehicleId}
+              <i class="bi bi-bus-front"></i> ${v.vehicleId || ''}
             </div>
             <div class="bus-destination">${v.routeName || 'N/A'}</div>
-            <div class="bus-t极ings">${v.timings || 'Timings not available'}</div>
+            <div class="bus-timings">${v.timings || 'Timings not available'}</div>
           </div>
         </div>
       `).join('') || '<div class="text-muted p-3 text-center"><i class="bi bi-info-circle"></i> No vehicles available at this stop.</div>'}
@@ -244,14 +259,25 @@
     dom.busStopPanel.classList.add('is-visible');
 
     // Handle "See all stops" click
-    const seeAllLink = dom.busStopContent.querySelector('#seeAll极ops');
-    seeAllLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      showAllStops();
-    });
+    const seeAllLink = dom.busStopContent.querySelector('#seeAllStops');
+    if (seeAllLink) {
+      seeAllLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showAllStops();
+      });
+    }
   };
 
   const showAllStops = () => {
+    // Ensure each stop has distance calculated (if userLocation present)
+    if (userLocation) {
+      busStops.forEach(stop => {
+        const coords = parseGps(stop.gps);
+        stop.distance = coords ? calculateDistance(userLocation[0], userLocation[1], coords[0], coords[1]) : Infinity;
+      });
+      busStops.sort((a, b) => a.distance - b.distance);
+    }
+
     dom.busStopContent.innerHTML = `
       <div class="bus-stop-header">
         <h6 class="bus-stop-title">All Bus Stops</h6>
@@ -261,7 +287,7 @@
           <li class="list-group-item" data-stop-id="${stop.id}">
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <strong>${stop.name}</strong><br>
+                <strong>${stop.name || 'Unnamed Stop'}</strong><br>
                 <small class="text-success"><i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)}</small>
               </div>
               <button class="btn btn-sm btn-outline-primary view-stop-btn">
@@ -286,6 +312,8 @@
             if (stopMarkers[stop.id]) {
               setTimeout(() => stopMarkers[stop.id].openPopup(), 1000);
             }
+          } else {
+            showToast('Stop has no valid coordinates.', 'warning');
           }
         }
       });
@@ -294,7 +322,9 @@
 
   const drawVehicleRoute = (vehicle) => {
     routeLayer.clearLayers();
-    Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
+    Object.values(stopMarkers).forEach(marker => {
+      if (map.hasLayer(marker)) map.removeLayer(marker);
+    });
     stopMarkers = {};
     const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
     if (routePath.length > 1) {
@@ -309,7 +339,10 @@
           <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}<br>
           <small>Click to view on map</small>
         `);
-        stopMarkers[`stop-${index}`] = marker;
+        marker.on('click', () => {
+          // nothing extra
+        });
+        stopMarkers[stop.id || `stop-${index}`] = marker;
         L.circleMarker(coords, {
           radius: 6,
           color: '#10b981',
@@ -324,19 +357,18 @@
   // UI Update Functions
   const showVehicleDetails = async (vid, vehicle) => {
     dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
-    
+
     // Calculate ETA for the detailed view
-    const vehicleHistory = markers[vid];
     let etaInfoForDetails = { eta: 'Calculating...', nextStop: 'N/A', speed: 0 };
-    if (vehicleHistory) {
-        etaInfoForDetails = await getETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
+    if (markers[vid]) {
+      etaInfoForDetails = await getETA(vehicle, markers[vid].prevCoords, markers[vid].prevTime);
     }
-    
+
     // Create battery indicator
     const batteryLevel = vehicle.battery ?? 0;
     let batteryColor = 'success';
     let batteryIcon = 'bi-battery-full';
-    
+
     if (batteryLevel < 20) {
       batteryColor = 'danger';
       batteryIcon = 'bi-battery';
@@ -344,7 +376,7 @@
       batteryColor = 'warning';
       batteryIcon = 'bi-battery-half';
     }
-    
+
     dom.vehicleInfo.innerHTML = `
       <div class="d-flex flex-wrap gap-3 mb-3">
         <div class="d-flex align-items-center">
@@ -361,7 +393,7 @@
         </div>
       </div>
       <div class="d-flex flex-wrap gap-3">
-        <div class极-flex align-items-center">
+        <div class="d-flex align-items-center">
           <i class="bi bi-building text-primary me-2"></i>
           <span>${vehicle.companyName || 'N/A'}</span>
         </div>
@@ -380,7 +412,7 @@
         </div>
       </div>
     `;
-    
+
     dom.stopList.innerHTML = '';
     const stops = vehicle.stops || [];
     if (stops.length > 0) {
@@ -402,9 +434,12 @@
           const coords = parseGps(stop.gps);
           if (coords) {
             map.flyTo(coords, 16);
-            if (stopMarkers[`stop-${index}`]) {
-              setTimeout(() => stopMarkers[`stop-${index}`].openPopup(), 1000);
+            const key = stop.id || `stop-${index}`;
+            if (stopMarkers[key]) {
+              setTimeout(() => stopMarkers[key].openPopup(), 1000);
             }
+          } else {
+            showToast('Stop location not available.', 'warning');
           }
         });
       });
@@ -418,7 +453,9 @@
   const hideVehicleDetails = () => {
     dom.vehicleDetails.classList.remove('is-visible');
     routeLayer.clearLayers();
-    Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
+    Object.values(stopMarkers).forEach(marker => {
+      if (map.hasLayer(marker)) map.removeLayer(marker);
+    });
     stopMarkers = {};
   };
 
@@ -426,33 +463,37 @@
 
   // Bus Alert Functions
   const updateBusAlertDropdown = () => {
-    dom.busAlertSelect.innerHTML = '<option value="">Select a bus to track</option>';
-    dom.lostBagBusSelect.innerHTML = '<option value="">Select the bus you were on</option>';
-    
+    if (dom.busAlertSelect) dom.busAlertSelect.innerHTML = '<option value="">Select a bus to track</option>';
+    if (dom.lostBagBusSelect) dom.lostBagBusSelect.innerHTML = '<option value="">Select the bus you were on</option>';
+
     Object.keys(vehiclesData).forEach(vid => {
-      const option = document.createElement('option');
-      option.value = vid;
-      option.textContent = `${vid} - ${vehiclesData[vid].routeName || 'Unknown Route'}`;
-      dom.busAlertSelect.appendChild(option);
-      
-      const option2 = document.createElement('option');
-      option2.value = vid;
-      option2.textContent = `${vid} - ${vehiclesData[vid].routeName || 'Unknown Route'}`;
-      dom.lostBagBusSelect.appendChild(option2);
+      const routeName = vehiclesData[vid].routeName || 'Unknown Route';
+      if (dom.busAlertSelect) {
+        const option = document.createElement('option');
+        option.value = vid;
+        option.textContent = `${vid} - ${routeName}`;
+        dom.busAlertSelect.appendChild(option);
+      }
+      if (dom.lostBagBusSelect) {
+        const option2 = document.createElement('option');
+        option2.value = vid;
+        option2.textContent = `${vid} - ${routeName}`;
+        dom.lostBagBusSelect.appendChild(option2);
+      }
     });
   };
 
   const setBusAlert = () => {
-    const selectedBus = dom.busAlertSelect.value;
+    const selectedBus = dom.busAlertSelect ? dom.busAlertSelect.value : '';
     if (!selectedBus) {
       showToast('Please select a bus first.', 'warning');
       return;
     }
-    
+
     busAlerts[selectedBus] = true;
     localStorage.setItem('busAlerts', JSON.stringify(busAlerts));
     showToast(`Alert set for bus ${selectedBus}. You'll be notified when it arrives near you.`, 'success');
-    
+
     // Add visual indicator to the bus marker
     if (markers[selectedBus]) {
       markers[selectedBus].marker.setIcon(createBusIcon('#f59e0b'));
@@ -461,7 +502,7 @@
 
   const checkBusAlerts = () => {
     if (!userLocation) return;
-    
+
     Object.keys(busAlerts).forEach(vid => {
       if (vehiclesData[vid] && markers[vid]) {
         const busCoords = parseGps(vehiclesData[vid].gps);
@@ -470,15 +511,15 @@
             userLocation[0], userLocation[1],
             busCoords[0], busCoords[1]
           );
-          
+
           // Notify if bus is within 500 meters
           if (distance < 0.5) {
             showToast(`Bus ${vid} is approaching! It's ${formatDistance(distance)} away.`, 'success', 5000);
-            
+
             // Remove the alert after notifying
             delete busAlerts[vid];
             localStorage.setItem('busAlerts', JSON.stringify(busAlerts));
-            
+
             // Reset bus icon color
             if (markers[vid]) {
               markers[vid].marker.setIcon(createBusIcon());
@@ -491,42 +532,42 @@
 
   // Lost Bag Function
   const reportLostBag = () => {
-    const selectedBus = dom.lostBagBusSelect.value;
-    const description = dom.bagDescription.value.trim();
-    const confirmed = dom.confirmLocation.checked;
-    
+    const selectedBus = dom.lostBagBusSelect ? dom.lostBagBusSelect.value : '';
+    const description = dom.bagDescription ? dom.bagDescription.value.trim() : '';
+    const confirmed = dom.confirmLocation ? dom.confirmLocation.checked : false;
+
     if (!selectedBus || !description) {
       showToast('Please select a bus and describe your bag.', 'warning');
       return;
     }
-    
+
     if (!confirmed) {
       showToast('Please confirm that you are near the bus.', 'warning');
       return;
     }
-    
+
     // Check if user is actually near the bus
     if (!userLocation || !vehiclesData[selectedBus]) {
       showToast('Unable to verify your location.', 'danger');
       return;
     }
-    
+
     const busCoords = parseGps(vehiclesData[selectedBus].gps);
     if (!busCoords) {
       showToast('Unable to get bus location.', 'danger');
       return;
     }
-    
+
     const distance = calculateDistance(
       userLocation[0], userLocation[1],
       busCoords[0], busCoords[1]
     );
-    
+
     if (distance > 0.5) {
       showToast('You are not near the selected bus. Please move closer to report a lost bag.', 'warning');
       return;
     }
-    
+
     // Send notification to driver/database
     db.ref(`public_transport/vehicles/${selectedBus}/notifications`).push({
       type: 'lost_bag',
@@ -535,7 +576,12 @@
       userLocation: userLocation
     }).then(() => {
       showToast('Driver notified about your lost bag.', 'success');
-      $('#lostBagModal').modal('hide');
+      // hide modal if using bootstrap modal with id lostBagModal
+      const modalEl = document.getElementById('lostBagModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+      }
     }).catch(err => {
       console.error('Error reporting lost bag:', err);
       showToast('Failed to report lost bag. Please try again.', 'danger');
@@ -551,13 +597,13 @@
       const presentVehicleIds = new Set();
       const bounds = [];
 
+      // Add new & update existing markers
       Object.entries(vehiclesData).forEach(([vid, v]) => {
         presentVehicleIds.add(vid);
         const newCoords = parseGps(v.gps);
         if (newCoords) {
           bounds.push(newCoords);
           if (!markers[vid]) {
-            // Use special icon if this bus has an alert
             const iconColor = busAlerts[vid] ? '#f59e0b' : '#2563eb';
             const marker = L.marker(newCoords, { icon: createBusIcon(iconColor), title: vid }).addTo(markerGroup);
             marker.bindPopup(`
@@ -568,19 +614,19 @@
               ${busAlerts[vid] ? '<div class="alert-badge">Alert Set</div>' : ''}
             `);
             marker.on('click', () => showVehicleDetails(vid, v));
-            markers[vid] = { 
-              marker, 
-              prevCoords: newCoords, 
-              prevTime: v.lastUpdated || Date.now() 
+            markers[vid] = {
+              marker,
+              prevCoords: newCoords,
+              prevTime: v.lastUpdated || Date.now()
             };
           } else {
-            const { marker, prevCoords, prevTime } = markers[vid];
+            const { marker } = markers[vid];
             marker.setLatLng(newCoords);
-            
+
             // Update icon based on alert status
             const iconColor = busAlerts[vid] ? '#f59e0b' : '#2563eb';
             marker.setIcon(createBusIcon(iconColor));
-            
+
             marker.setPopupContent(`
               <strong>${vid}</strong><br>
               ${v.vehicleType || 'Unknown'}<br>
@@ -594,14 +640,18 @@
         }
       });
 
+      // Remove markers for vehicles no longer present
       Object.keys(markers).forEach(vid => {
         if (!presentVehicleIds.has(vid)) {
-          markerGroup.removeLayer(markers[vid].marker);
+          try {
+            markerGroup.removeLayer(markers[vid].marker);
+          } catch (e) { /* ignore */ }
           delete markers[vid];
         }
       });
 
-      if (bounds.length && map.getZoom() <= 12) {
+      // Fit map to bounds if helpful
+      if (bounds.length && map && map.getZoom && map.getZoom() <= 12) {
         try {
           map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
         } catch (e) {
@@ -612,19 +662,29 @@
       // Update dropdowns with current vehicles
       updateBusAlertDropdown();
 
-      // Update ETAs asynchronously
-      for (const vid of presentVehicleIds) {
-        const { marker, prevCoords, prevTime } = markers[vid];
-        const v = vehiclesData[vid];
-        const etaInfo = await getETA(v, prevCoords, prevTime);
-        marker.setPopupContent(`
-          <strong>${vid}</strong><br>
-          ${v.vehicleType || 'Unknown'}<br>
-          ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
-          <span class="text-success"><i class="bi极i-clock"></i> ETA: ${etaInfo.eta}</span>
-          ${busAlerts[vid] ? '<div class="alert-badge">Alert Set</div>' : ''}
-        `);
-      }
+      // Update ETAs asynchronously (do not block UI)
+      (async () => {
+        for (const vid of presentVehicleIds) {
+          try {
+            if (!markers[vid]) continue;
+            const { marker, prevCoords, prevTime } = markers[vid];
+            const v = vehiclesData[vid];
+            const etaInfo = await getETA(v, prevCoords, prevTime);
+            if (marker && marker.setPopupContent) {
+              marker.setPopupContent(`
+                <strong>${vid}</strong><br>
+                ${v.vehicleType || 'Unknown'}<br>
+                ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
+                ${busAlerts[vid] ? '<div class="alert-badge">Alert Set</div>' : ''}
+              `);
+            }
+          } catch (e) {
+            console.error('ETA update error for', vid, e);
+          }
+        }
+      })();
+
     }, err => {
       console.error('Vehicles listener error:', err);
       showToast('Failed to load vehicles.', 'danger');
@@ -664,41 +724,36 @@
   };
 
   const searchByVehicleNumber = () => {
-    const query = dom.searchVehicleInput.value.trim().toUpperCase();
+    const query = dom.searchVehicleInput ? dom.searchVehicleInput.value.trim().toUpperCase() : '';
     if (!query) {
       showToast('Please enter a vehicle number.', 'warning');
       return;
     }
+    // try to find in local vehiclesData
     const foundVid = Object.keys(vehiclesData).find(vid => vid.toUpperCase().includes(query));
-    if (foundVid && markers[foundVid]) {
-      const { marker } = markers[foundVid];
-      map.flyTo(marker.getLatLng(), 16);
-      marker.openPopup();
-      showVehicleDetails(foundVid, vehiclesData[foundVid]);
-    } else {
-      db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
-        if (snap.exists()) {
-          const vehicleData极nap.val();
-          const coords = parseGps(vehicleData.gps);
-          if (coords) {
-            map.flyTo(coords, 16);
-            showVehicleDetails(foundVid, vehicleData);
-          } else {
-            showToast('Vehicle has no valid location.', 'warning');
-          }
+    if (foundVid) {
+      if (markers[foundVid]) {
+        const { marker } = markers[foundVid];
+        map.flyTo(marker.getLatLng(), 16);
+        marker.openPopup();
+        showVehicleDetails(foundVid, vehiclesData[foundVid]);
+      } else {
+        const coords = parseGps(vehiclesData[foundVid].gps);
+        if (coords) {
+          map.flyTo(coords, 16);
+          showVehicleDetails(foundVid, vehiclesData[foundVid]);
         } else {
-          showToast('Vehicle not found.', 'warning');
+          showToast('Vehicle has no valid location.', 'warning');
         }
-      }).catch(err => {
-        console.error('Error fetching vehicle:', err);
-        showToast('Error fetching vehicle data.', 'danger');
-      });
+      }
+    } else {
+      showToast('Vehicle not found.', 'warning');
     }
   };
 
   const searchByRoute = async () => {
-    const from = dom.searchRouteFrom.value.trim().toLowerCase();
-    const to = dom.searchRouteTo.value.trim().toLowerCase();
+    const from = dom.searchRouteFrom ? dom.searchRouteFrom.value.trim().toLowerCase() : '';
+    const to = dom.searchRouteTo ? dom.searchRouteTo.value.trim().toLowerCase() : '';
     if (!from || !to) {
       showToast('Enter both "From" and "To" locations.', 'warning');
       return;
@@ -721,7 +776,7 @@
           const { prevCoords, prevTime } = markers[vid];
           etaInfo = await getETA(vehicle, prevCoords, prevTime);
         }
-        
+
         const div = document.createElement('div');
         div.className = 'vehicle-item p-3 border-bottom';
         div.innerHTML = `
@@ -761,8 +816,8 @@
 
   // Event Listeners
   const addEventListeners = () => {
-    dom.locateBtn.addEventListener('click', locateUser);
-    dom.showBusStopsBtn.addEventListener('click', () => {
+    if (dom.locateBtn) dom.locateBtn.addEventListener('click', locateUser);
+    if (dom.showBusStopsBtn) dom.showBusStopsBtn.addEventListener('click', () => {
       if (userLocation) {
         findNearestBusStops();
       } else {
@@ -770,40 +825,42 @@
         locateUser();
       }
     });
-    dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
-    dom.searchRouteBtn.addEventListener('click', searchByRoute);
-    dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
-    dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
-    dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
-    dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
-    dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
-    
-    // New event listeners for alerts and lost bag
-    dom.setAlertBtn.addEventListener('click', setBusAlert);
-    dom.reportLostBagBtn.addEventListener('click', reportLostBag);
+    if (dom.searchVehicleBtn) dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
+    if (dom.searchRouteBtn) dom.searchRouteBtn.addEventListener('click', searchByRoute);
+    if (dom.closeSidebarBtn) dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
+    if (dom.closeBusStopPanelBtn) dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
+    if (dom.searchVehicleInput) dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
+    if (dom.searchRouteFrom) dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+    if (dom.searchRouteTo) dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+
+    // Alerts and lost bag
+    if (dom.setAlertBtn) dom.setAlertBtn.addEventListener('click', setBusAlert);
+    if (dom.reportLostBagBtn) dom.reportLostBagBtn.addEventListener('click', reportLostBag);
   };
 
   // Initialization
   document.addEventListener('DOMContentLoaded', () => {
     showLoader();
-    
+
     // Load any saved bus alerts
     const savedAlerts = localStorage.getItem('busAlerts');
     if (savedAlerts) {
-      busAlerts = JSON.parse(savedAlerts);
+      try { busAlerts = JSON.parse(savedAlerts); } catch (e) { busAlerts = {}; }
     }
-    
+
     initMap();
     loadPublicVehicles();
     loadBusStops();
     addEventListeners();
-    
+
     // Start checking for bus alerts
     alertCheckInterval = setInterval(checkBusAlerts, 10000); // Check every 10 seconds
-    
+
+    // initial locate, but don't block if fails
     locateUser().catch(() => {
       console.log("Initial geolocation attempt failed; user can manually trigger location.");
       hideLoader();
     });
   });
 })();
+</script>
