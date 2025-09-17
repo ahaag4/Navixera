@@ -56,6 +56,7 @@
   let busStops = [];
   let busAlerts = {};
   let alertCheckInterval = null;
+  const alertSound = new Audio('https://freesound.org/data/previews/66/66157_634166-lq.mp3');
 
   // Custom Bus Icon
   const createBusIcon = (color = '#2563eb') => {
@@ -363,6 +364,8 @@
       etaInfoForDetails = await getETA(vehicle, markers[vid].prevCoords, markers[vid].prevTime);
     }
 
+    const status = etaInfoForDetails.speed > 5 ? 'Moving' : 'Stopped';
+
     // Create battery indicator
     const batteryLevel = vehicle.battery ?? 0;
     let batteryColor = 'success';
@@ -399,6 +402,10 @@
         <div class="d-flex align-items-center">
           <i class="bi bi-speedometer2 text-primary me-2"></i>
           <span>${etaInfoForDetails.speed || 'N/A'} km/h</span>
+        </div>
+        <div class="d-flex align-items-center">
+          <i class="bi bi-info-circle text-primary me-2"></i>
+          <span>Status: ${status}</span>
         </div>
       </div>
       <div class="eta-info-panel mt-3">
@@ -514,6 +521,7 @@
           // Notify if bus is within 500 meters
           if (distance < 0.5) {
             showToast(`Bus ${vid} is approaching! It's ${formatDistance(distance)} away.`, 'success', 5000);
+            alertSound.play().catch(e => console.log('Audio play error', e));
 
             // Remove the alert after notifying
             delete busAlerts[vid];
@@ -669,11 +677,13 @@
             const { marker, prevCoords, prevTime } = markers[vid];
             const v = vehiclesData[vid];
             const etaInfo = await getETA(v, prevCoords, prevTime);
+            const status = etaInfo.speed > 5 ? 'Moving' : 'Stopped';
             if (marker && marker.setPopupContent) {
               marker.setPopupContent(`
                 <strong>${vid}</strong><br>
                 ${v.vehicleType || 'Unknown'}<br>
                 ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                Status: ${status}<br>
                 <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
                 ${busAlerts[vid] ? '<div class="alert-badge">Alert Set</div>' : ''}
               `);
