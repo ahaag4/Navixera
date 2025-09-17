@@ -17,7 +17,7 @@
   --border-radius: 12px;
   --border-radius-sm: 8px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 极.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -163,7 +163,7 @@ html, body {
 
 .form-control:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 极 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .btn {
@@ -255,7 +255,7 @@ html, body {
   transition: var(--transition);
   border: none;
   border-bottom: 1px solid var(--card-border);
-  padding: 0.75极 1rem;
+  padding: 0.75rem 1rem;
 }
 
 #stopList .list-group-item:last-child {
@@ -276,7 +276,7 @@ html, body {
   box-shadow: var(--shadow-lg);
   transform: translateX(-120%);
   transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
- 极ax-height: calc(100vh - 100px);
+  max-height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
 }
@@ -323,7 +323,7 @@ html, body {
 .bus-stop-name {
   font-weight: 600;
   margin-bottom: 0.5rem;
- 极olor: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .bus-stop-distance {
@@ -388,6 +388,13 @@ html, body {
   height: 20px;
   box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
   animation: pulse 1.5s infinite;
+}
+
+.user-dot {
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
 }
 
 .badge {
@@ -463,7 +470,7 @@ html, body {
 
 .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
 .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
-.vehicle-item:nth-child(3) { animation-delay: 0.3极; }
+.vehicle-item:nth-child(3) { animation-delay: 0.3s; }
 
 /* ETA specific styles */
 .eta-badge {
@@ -477,7 +484,7 @@ html, body {
 
 .eta-info-panel {
   background-color: #f0f9ff;
-  border-left: 4极x solid var(--primary-color);
+  border-left: 4px solid var(--primary-color);
   padding: 0.75rem;
   border-radius: 4px;
   margin-top: 1rem;
@@ -526,7 +533,7 @@ html, body {
     transform: translateY(0);
   }
 
-  .sidebar .极ard-body {
+  .sidebar .card-body {
     max-height: 50vh;
   }
 
@@ -610,4 +617,4 @@ html, body {
   height: 1px;
   background-color: var(--card-border);
   margin: 1rem 0;
-  }
+    }
