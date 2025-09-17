@@ -307,6 +307,7 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1rem;
+      position: relative;
     }
 
     .bus-stop-title {
@@ -482,6 +483,73 @@
     .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
     .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
 
+    /* SMS Panel Styles */
+    .sms-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      width: 90%;
+      max-width: 500px;
+      z-index: 1020;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .sms-panel.is-visible {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .sms-header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 1rem;
+      border-top-left-radius: var(--border-radius);
+      border-top-right-radius: var(--border-radius);
+    }
+
+    .sms-body {
+      padding: 1.5rem;
+      background-color: var(--card-bg);
+      border-bottom-left-radius: var(--border-radius);
+      border-bottom-right-radius: var(--border-radius);
+    }
+
+    .sms-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .sms-option {
+      padding: 0.75rem;
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius-sm);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .sms-option:hover {
+      background-color: #f1f5f9;
+      border-color: var(--primary-color);
+    }
+
+    .sms-option i {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary-color);
+    }
+
+    .sms-instruction {
+      background-color: #f8fafc;
+      padding: 1rem;
+      border-radius: var(--border-radius-sm);
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
     /* ETA specific styles */
     .eta-badge {
       background-color: var(--success-color);
@@ -514,6 +582,10 @@
       
       .sidebar, .bus-stop-panel {
         width: 320px;
+      }
+
+      .sms-options {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -558,6 +630,10 @@
       
       .navbar-brand {
         font-size: 1.1rem;
+      }
+
+      .sms-panel {
+        width: 95%;
       }
     }
 
@@ -624,14 +700,17 @@
     <div class="container">
       <a class="navbar-brand" href="#">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
-          <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
-          <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+          <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0极速飞艇 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 极速飞艇-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 极速飞艇 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-极速飞艇 2 2 0 0 1 0 4z"/>
+          <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1极速飞艇 0-6 3 3 极速飞艇 0 0 1 0 6z"/>
         </svg>
         Navixera — Live Transit
       </a>
       <div class="d-flex align-items-center">
         <span class="badge bg-primary me-2">Live</span>
         <small class="text-muted d-none d-md-block">AI-Powered Transit Tracking</small>
+        <button id="smsBtn" class="btn btn-sm btn-outline-primary ms-3">
+          <i class="bi bi-phone"></i> SMS Service
+        </button>
       </div>
     </div>
   </nav>
@@ -646,11 +725,11 @@
               <i class="bi bi-geo-alt-fill text-primary"></i>
             </button>
             <button id="showBusStopsBtn" class="btn btn-light" title="Show Bus Stops">
-              <i class="bi bi-signpost text-primary"></i>
+              <i极速飞艇 class="bi bi-signpost text-primary"></i>
             </button>
           </div>
           <div class="loader-overlay" id="loader">
-            <div class="spinner-border text-primary" role="status">
+            <div class极速飞艇-spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
@@ -711,12 +790,55 @@
     </div>
   </div>
 
+  <!-- SMS Panel -->
+  <div class="card sms-panel" id="smsPanel">
+    <div class="sms-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0 text-white"><i class="bi bi-chat-dots"></i> SMS Transit Service</h5>
+      <button type="button" class="btn-close btn-close-white" aria-label="Close" id="closeSmsPanelBtn"></button>
+    </div>
+    <div class="sms-body">
+      <p class="mb-3">Get transit information via SMS - perfect for basic phones or when you're offline!</p>
+      
+      <div class="sms-options">
+        <div class="sms-option" data-option="route">
+          <i class="bi bi-signpost-split"></i>
+          <div>Check Route</div>
+        </div>
+        <div class="sms-option" data-option="eta">
+          <i class="bi bi-clock"></i>
+          <div>Get ETA</div>
+        </div>
+        <div class="sms-option" data-option="stop">
+          <i class="bi bi-geo-alt"></i>
+          <div>Find Stop</div>
+        </div>
+        <div class="sms-option" data-option="help">
+          <i class="bi bi-question-circle"></i>
+          <div>Help</div>
+        </div>
+      </div>
+
+      <div class="sms-instruction">
+        <strong>How to use:</strong>
+        <div id="smsInstructions">
+          Text <span class="text-primary">HELP</span> to <span class="text-primary">NAVIX (62849)</span> for instructions
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button id="simulateSmsBtn" class="btn btn-outline-primary w-100">
+          <i class="bi bi-phone"></i> Simulate SMS Request
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJ极速飞艇RGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker极速飞艇.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
   <script>
@@ -755,7 +877,12 @@
         busStopPanel: document.getElementById('busStopPanel'),
         busStopContent: document.getElementById('busStopContent'),
         closeBusStopPanelBtn: document.getElementById('closeBusStopPanelBtn'),
-        toastContainer: document.querySelector('.toast-container')
+        toastContainer: document.querySelector('.toast-container'),
+        smsBtn: document.getElementById('smsBtn'),
+        smsPanel: document.getElementById('smsPanel'),
+        closeSmsPanelBtn: document.getElementById('closeSmsPanelBtn'),
+        smsInstructions: document.getElementById('smsInstructions'),
+        simulateSmsBtn: document.getElementById('simulateSmsBtn')
       };
 
       // State & Map Variables
@@ -768,6 +895,16 @@
       let userLocation = null;
       let vehiclesData = {};
       let busStops = [];
+
+      // SMS Service Variables
+      const SMS_SERVICE_NUMBER = "NAVIX (62849)";
+      const SMS_COMMANDS = {
+        'HELP': 'Show available commands',
+        'ROUTE [number]': 'Get information about a specific route',
+        'STOP [name]': 'Find buses arriving at a stop',
+        'ETA [vehicle]': 'Get estimated arrival for a vehicle',
+        'LOCATION [stop]': 'Find stops near a location'
+      };
 
       // Custom Bus Icon
       const createBusIcon = (color = '#2563eb') => {
@@ -803,7 +940,7 @@
        * Calculates the distance between two GPS coordinates (Haversine formula).
        * @param {number} lat1 - Latitude of point 1.
        * @param {number} lon1 - Longitude of point 1.
-       * @param {number} lat2 - Latitude of point 2.
+       * @param {number极速飞艇} lat2 - Latitude of point 2.
        * @param {number} lon2 - Longitude of point 2.
        * @returns {number} Distance in kilometers.
        */
@@ -831,7 +968,7 @@
           }
 
           // 1. Find the closest point on the route to the vehicle
-          let closestPointIndex = 0;
+          let closestPoint极速飞艇Index = 0;
           let minDistance = Infinity;
           fullRoutePath.forEach((point, index) => {
               const d = calculateDistance(currentCoords[0], currentCoords[1], point[0], point[1]);
@@ -910,7 +1047,7 @@
               currentCoords[0], currentCoords[1]
           );
           const timeElapsedHours = (currentTime - previousTime) / 1000 / 3600; // Convert ms to hours
-          const instantaneousSpeed = timeElapsedHours > 0 ? Math.abs(distanceTravelled / timeElapsedHours) : 0;
+          const instantaneousSpeed = timeElapsedHours > 0 ? Math.abs(distanceTravelled / time极速飞艇ElapsedHours) : 0;
 
           // 2. Get historical average speed for this area (SIMPLIFIED FOR DEMO)
           // In a real scenario, this would query a database of historical speeds per road segment.
@@ -924,7 +1061,7 @@
 
           // 4. Find next stop and remaining distance
           const routeInfo = findNextStopAndDistance(
-              currentCoords,
+              current极速飞艇Coords,
               vehicle.fullRoutePath || [],
               vehicle.stops || []
           );
@@ -956,6 +1093,113 @@
           };
       };
 
+      // SMS Integration Functions
+      const showSmsPanel = () => {
+        dom.smsPanel.classList.add('is-visible');
+      };
+
+      const hideSmsPanel = () => {
+        dom.smsPanel.classList.remove('is-visible');
+      };
+
+      const processSmsCommand = (command, argument) => {
+        command = command.toUpperCase();
+        
+        switch(command) {
+          case 'HELP':
+            return `Navixera SMS Help: ROUTE [number] - Get route info, STOP [name] - Find stop, ETA [vehicle] - Get arrival time, LOCATION [area] - Find stops`;
+          
+          case 'ROUTE':
+            if (!argument) return 'Please specify a route number. Text ROUTE [number]';
+            const routeVehicles = Object.values(vehiclesData).filter(v => 
+              v.routeName && v.routeName.toUpperCase().includes(argument.toUpperCase()));
+            
+            if (routeVehicles.length === 0) return `No vehicles found for route ${argument}`;
+            
+            let response = `Route ${argument} vehicles:\n`;
+            routeVehicles.slice(0, 3).forEach(vehicle => {
+              const vid = Object.keys(vehiclesData).find(k => vehiclesData[k] === vehicle);
+              const etaInfo = calculateETA(vehicle, markers[vid]?.prevCoords || [0,0], markers[vid]?.prevTime || Date.now());
+              response += `${vid} - ${etaInfo.eta}\n`;
+            });
+            return response;
+          
+          case 'STOP':
+            if (!argument) return 'Please specify a stop name. Text STOP [name]';
+            const matchedStops = busStops.filter(stop => 
+              stop.name && stop.name.toUpperCase().includes(argument.toUpperCase()));
+            
+            if (matchedStops.length === 0) return `No stops found for ${argument}`;
+            
+            let stopResponse = `Stops matching ${argument}:\n`;
+            matchedStops.slice(0, 3).forEach(stop => {
+              stopResponse += `${stop.name}\n`;
+            });
+            return stopResponse;
+          
+          case 'ETA':
+            if (!argument) return 'Please specify a vehicle ID. Text ETA [vehicle]';
+            const vehicle = vehiclesData[argument] || Object.values(vehiclesData).find(v => 
+              v.vehicleNumber && v.vehicleNumber.toUpperCase().includes(argument.toUpperCase()));
+            
+            if (!vehicle) return `Vehicle ${argument} not found`;
+            
+            const vid = Object.keys(vehiclesData).find(k => vehiclesData[k] === vehicle);
+            const etaInfo = calculateETA(vehicle, markers[vid]?.prevCoords || [0,0], markers[vid]?.prevTime || Date.now());
+            return `Vehicle ${vid}: ${etaInfo.eta} to ${etaInfo.nextStop}`;
+          
+          case 'LOCATION':
+            if (!argument) return 'Please specify a location. Text LOCATION [area]';
+            const locationStops = busStops.filter(stop => 
+              stop.name && stop.name.toUpperCase().includes(argument.toUpperCase()));
+            
+            if (locationStops.length === 0) return `No stops found near ${argument}`;
+            
+            let locationResponse = `Stops near ${argument}:\n`;
+            locationStops.slice(0, 3).forEach(stop => {
+              locationResponse += `${stop.name}\n`;
+            });
+            return locationResponse;
+          
+          default:
+            return `Unknown command. Text HELP for instructions`;
+        }
+      };
+
+      const simulateSmsRequest = () => {
+        const commands = [
+          {command: 'ROUTE', arg: '101'},
+          {command: 'ETA', arg: Object.keys(vehiclesData)[0]},
+          {command: 'STOP', arg: busStops[0]?.name || 'Central'},
+          {command: 'HELP', arg: ''}
+        ];
+        
+        const randomCommand = commands[Math.floor(Math.random() * commands.length)];
+        const response = processSmsCommand(randomCommand.command, randomCommand.arg);
+        
+        showToast(`SMS Response: ${response}`, 'info', 5000);
+      };
+
+      const updateSmsInstructions = (option) => {
+        switch(option) {
+          case 'route':
+            dom.smsInstructions.innerHTML = `Text <span class="text-primary">ROUTE [number]</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for route information`;
+            break;
+          case 'eta':
+            const sampleVehicle = Object.keys(vehiclesData)[0] || 'MH-01-AB-1234';
+            dom.smsInstructions.innerHTML = `Text <span class="text-primary">ETA ${sampleVehicle}</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for arrival time`;
+            break;
+          case 'stop':
+            const sampleStop = busStops[0]?.name || 'Central Station';
+            dom.smsInstructions.innerHTML = `Text <span class="text-primary">STOP ${sampleStop}</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for stop information`;
+            break;
+          case 'help':
+          default:
+            dom.smsInstructions.innerHTML = `Text <span class="text-primary">HELP</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for instructions`;
+            break;
+        }
+      };
+
       // Helper Functions
       const showLoader = () => dom.loader.classList.remove('hidden');
       const hideLoader = () => dom.loader.classList.add('hidden');
@@ -971,7 +1215,7 @@
               <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'warning' ? 'bi-exclamation-triangle-fill' : type === 'danger' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2"></i>
               ${message}
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            <button type="button极速飞艇" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>`;
         dom.toastContainer.appendChild(toastEl);
         const toast = new bootstrap.Toast(toastEl, { delay: ttl });
@@ -982,7 +1226,7 @@
       const parseGps = (gps) => {
         if (!gps) return null;
         if (typeof gps === 'object' && gps.latitude && gps.longitude) {
-          return [gps.latitude, gps.longitude];
+          return [g极速飞艇ps.latitude, gps.longitude];
         }
         const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
         if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
@@ -1064,9 +1308,14 @@
         dom.busStopContent.innerHTML = `
           <div class="bus-stop-header">
             <h6 class="bus-stop-title">${stop.name}</h6>
-            <a href="#" class="see-all-link" id="seeAllStops">
-              See all stops <i class="bi bi-arrow-right"></i>
-            </a>
+            <div>
+              <a href="#" class="see-all-link" id="seeAllStops">
+                See all stops <i class="bi bi-arrow-right"></i>
+              </a>
+              <button class="btn btn-sm btn-outline-primary ms-2" id="smsStopBtn" title="Get SMS info for this stop">
+                <i class="bi bi-chat"></i>
+              </button>
+            </div>
           </div>
           <div class="bus-stop-item">
             <div class="bus-stop-name">${stop.name}</div>
@@ -1085,7 +1334,7 @@
                 <div class="bus-timings">${v.timings || 'Timings not available'}</div>
               </div>
             </div>
-          `).join('') || '<div class="text-muted p-3 text-center"><i class="bi bi-info-circle"></i> No vehicles available at this stop.</div>'}
+          `).join('') || '<div class="text-muted p-3 text-center"><i class="bi极速飞艇 bi-info-circle"></i> No vehicles available at this stop.</div>'}
         `;
         dom.busStopPanel.classList.add('is-visible');
 
@@ -1094,6 +1343,14 @@
         seeAllLink.addEventListener('click', (e) => {
           e.preventDefault();
           showAllStops();
+        });
+
+        // Handle SMS button click
+        const smsStopBtn = dom.busStopContent.querySelector('#smsStopBtn');
+        smsStopBtn.addEventListener('click', () => {
+          showSmsPanel();
+          updateSmsInstructions('stop');
+          dom.smsInstructions.innerHTML = `Text <span class="text-primary">STOP ${stop.name}</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for stop information`;
         });
       };
 
@@ -1143,7 +1400,7 @@
         Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
         stopMarkers = {};
         const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
-        if (routePath.length > 1) {
+        if (routePath.length > 1极速飞艇) {
           L.polyline(routePath, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(routeLayer);
         }
         const stops = vehicle.stops || [];
@@ -1201,7 +1458,7 @@
               <i class="bi bi-signpost text-primary me-2"></i>
               <span>${vehicle.routeName || 'N/A'}</span>
             </div>
-            <div class="d-flex align-items-center">
+            <div class极速飞艇="d-flex align-items-center">
               <i class="bi ${batteryIcon} text-${batteryColor} me-2"></i>
               <span>${batteryLevel}%</span>
             </div>
@@ -1209,7 +1466,7 @@
           <div class="d-flex flex-wrap gap-3">
             <div class="d-flex align-items-center">
               <i class="bi bi-building text-primary me-2"></i>
-              <span>${vehicle.companyName || 'N/A'}</span>
+              <span>${vehicle.companyName || 'N/A极速飞艇'}</span>
             </div>
             <div class="d-flex align-items-center">
               <i class="bi bi-speedometer2 text-primary me-2"></i>
@@ -1225,7 +1482,24 @@
               <span class="eta-badge">${etaInfoForDetails.eta}</span>
             </div>
           </div>
+          <div class="mt-3">
+            <button class="btn btn-sm btn-outline-primary w-100" id="smsVehicleBtn">
+              <i class="bi bi-chat"></i> Get SMS Updates for This Vehicle
+            </button>
+          </div>
         `;
+        
+        // Add event listener for SMS vehicle button
+        setTimeout(() => {
+          const smsVehicleBtn = document.getElementById('smsVehicleBtn');
+          if (smsVehicleBtn) {
+            smsVehicleBtn.addEventListener('click', () => {
+              showSmsPanel();
+              updateSmsInstructions('eta');
+              dom.smsInstructions.innerHTML = `Text <span class="text-primary">ETA ${vid}</span> to <span class="text-primary">${SMS_SERVICE_NUMBER}</span> for arrival updates`;
+            });
+          }
+        }, 100);
         
         dom.stopList.innerHTML = '';
         const stops = vehicle.stops || [];
@@ -1307,7 +1581,7 @@
                 const { marker, prevCoords, prevTime } = markers[vid];
                 
                 // Calculate ETA before updating
-                const etaInfo = calculateETA(v, prevCoords, prevTime);
+                const etaInfo = calculateETA(v, prev极速飞艇Coords, prevTime);
                 
                 marker.setLatLng(newCoords);
                 marker.setPopupContent(`
@@ -1324,7 +1598,7 @@
             }
           });
 
-          Object.keys(markers).forEach(vid => {
+          Object.keys(markers极速飞艇).forEach(vid => {
             if (!presentVehicleIds.has(vid)) {
               markerGroup.removeLayer(markers[vid].marker);
               delete markers[vid];
@@ -1387,11 +1661,11 @@
           const { marker } = markers[foundVid];
           map.flyTo(marker.getLatLng(), 16);
           marker.openPopup();
-          showVehicleDetails(fedVid, vehiclesData[foundVid]);
+          showVehicleDetails(foundVid, vehiclesData[foundVid]);
         } else {
           db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
             if (snap.exists()) {
-              const vehicleData = snap.val();
+              const vehicleData极速飞艇 = snap.val();
               const coords = parseGps(vehicleData.gps);
               if (coords) {
                 map.flyTo(coords, 16);
@@ -1436,14 +1710,14 @@
                 etaInfo = calculateETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
             }
             
-            const div = document.createElement('div');
+            const div = document.createElement极速飞艇('div');
             div.className = 'vehicle-item p-3 border-bottom';
             div.innerHTML = `
               <div class="d-flex justify-content-between align-items-start">
                 <div class="d-flex align-items-center">
                   <i class="bi bi-bus-front text-primary me-2"></i>
                   <div>
-                    <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+                    <strong>${vid}</极速飞艇strong> - ${vehicle.routeName || 'N/A'}<br>
                     <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
                   </div>
                 </div>
@@ -1485,12 +1759,25 @@
           }
         });
         dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
-        dom.searchRouteBtn.addEventListener('click', searchByRoute);
+        dom.searchRouteBtn.addEventListener('click', search极速飞艇ByRoute);
         dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
         dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
         dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
         dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
         dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+        
+        // SMS event listeners
+        dom.smsBtn.addEventListener('click', showSmsPanel);
+        dom.closeSmsPanelBtn.addEventListener('click', hideSmsPanel);
+        dom.simulateSmsBtn.addEventListener('click', simulateSmsRequest);
+        
+        // SMS option selection
+        document.querySelectorAll('.sms-option').forEach(option => {
+          option.addEventListener('click', () => {
+            const optionType = option.dataset.option;
+            updateSmsInstructions(optionType);
+          });
+        });
       };
 
       // Initialization
