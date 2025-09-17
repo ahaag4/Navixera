@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Public Transit Dashboard — Navixera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-rgb: 37, 99, 235;
+      --primary-hover: #1d4ed8;
+      --secondary-color: #64748b;
+      --accent-color: #8b5cf6;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --danger-color: #ef4444;
+      --bg-light: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --font-family: 'Inter', sans-serif;
+      --border-radius: 12px;
+      --border-radius-sm: 8px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: var(--font-family);
+      background-color: var(--bg-light);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .navbar {
+      background: var(--card-bg);
+      box-shadow: var(--shadow-sm);
+      padding: 0.75rem 0;
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      color: var(--primary-color);
+      font-size: 1.25rem;
+    }
+
+    .navbar-brand svg {
+      color: var(--primary-color);
+    }
+
+    .card {
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+      background: var(--card-bg);
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .card-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+    }
+
+    .card-title {
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-body {
+      padding: 1.25rem;
+    }
+
+    #map {
+      height: 70vh;
+      min-height: 500px;
+      border-radius: var(--border-radius);
+      z-index: 1;
+    }
+
+    .map-card {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .map-controls {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 401;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .map-controls .btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
+    }
+
+    .map-controls .btn:hover {
+      transform: scale(1.05);
+    }
+
+    .loader-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      transition: opacity 0.3s ease;
+      opacity: 1;
+      backdrop-filter: blur(4px);
+    }
+
+    .loader-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .search-panel {
+      padding: 1.5rem;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .search-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-control {
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      transition: var(--transition);
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .btn {
+      border-radius: var(--border-radius-sm);
+      padding: 0.75rem 1.5rem;
+      font-weight: 500;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+      border-color: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-light {
+      background-color: white;
+      border-color: var(--card-border);
+    }
+
+    .btn-light:hover {
+      background-color: #f8f9fa;
+      border-color: #d1d7e0;
+    }
+
+    .result-list {
+      max-height: 350px;
+      overflow-y: auto;
+      margin-top: 1rem;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+    }
+
+    .vehicle-item {
+      cursor: pointer;
+      transition: var(--transition);
+      border-radius: var(--border-radius-sm);
+      opacity: 0;
+      animation: fadeIn 0.5s ease forwards;
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .vehicle-item:last-child {
+      border-bottom: none;
+    }
+
+    .vehicle-item:hover {
+      background-color: #f1f5f9;
+      transform: translateX(4px);
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 380px;
+      max-width: 90%;
+      z-index: 1020;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(120%);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar.is-visible {
+      transform: translateX(0);
+    }
+
+    .sidebar .card-body {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    #stopList .list-group-item {
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+      border-bottom: 1px solid var(--card-border);
+      padding: 0.75rem 1rem;
+    }
+
+    #stopList .list-group-item:last-child {
+      border-bottom: none;
+    }
+
+    #stopList .list-group-item:hover {
+      background-color: #f8fafc;
+    }
+
+    .bus-stop-panel {
+      position: fixed;
+      top: 80px;
+      left: 20px;
+      width: 380px;
+      max-width: 90%;
+      z-index: 1020;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(-120%);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bus-stop-panel.is-visible {
+      transform: translateX(0);
+    }
+
+    .bus-stop-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .bus-stop-title {
+      font-weight: 600;
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .see-all-link {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .see-all-link:hover {
+      text-decoration: underline;
+    }
+
+    .bus-stop-item {
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      background: #f8fafc;
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 1rem;
+    }
+
+    .bus-stop-name {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .bus-stop-distance {
+      color: var(--success-color);
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .bus-route {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .bus-route-title {
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .bus-route-item {
+      padding: 0.75rem;
+      background: #f8fafc;
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 0.75rem;
+    }
+
+    .bus-route-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .bus-number {
+      font-weight: 600;
+      color: var(--primary-color);
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .bus-destination {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .bus-timings {
+      color: var(--success-color);
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .user-location-icon {
+      background-color: var(--primary-color);
+      border: 2px solid white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
+      animation: pulse 1.5s infinite;
+    }
+
+    .badge {
+      font-weight: 500;
+      padding: 0.35em 0.65em;
+      border-radius: 50px;
+      font-size: 0.75em;
+    }
+
+    .badge-primary {
+      background-color: var(--primary-color);
+    }
+
+    .badge-success {
+      background-color: var(--success-color);
+    }
+
+    .badge-warning {
+      background-color: var(--warning-color);
+    }
+
+    /* Bus icon styling */
+    .bus-icon {
+      background-color: var(--primary-color);
+      border-radius: 50% 50% 0 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transform: translate(-12px, -12px);
+    }
+
+    .bus-icon::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid var(--primary-color);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
+      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1080;
+    }
+
+    .toast {
+      border-radius: var(--border-radius-sm);
+      box-shadow: var(--shadow-lg);
+      border: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .vehicle-item:nth-child(1) { animation-delay: 0.1s; }
+    .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
+    .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
+
+    /* ETA specific styles */
+    .eta-badge {
+      background-color: var(--success-color);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .eta-info-panel {
+      background-color: #f0f9ff;
+      border-left: 4px solid var(--primary-color);
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1199.98px) {
+      .sidebar, .bus-stop-panel {
+        width: 340px;
+      }
+    }
+
+    @media (max-width: 991.98px) {
+      #map {
+        height: 50vh;
+      }
+      
+      .sidebar, .bus-stop-panel {
+        width: 320px;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .sidebar {
+        width: 100%;
+        max-width: 100%;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        transform: translateY(120%);
+      }
+
+      .sidebar.is-visible {
+        transform: translateY(0);
+      }
+
+      .sidebar .card-body {
+        max-height: 50vh;
+      }
+
+      .bus-stop-panel {
+        width: 100%;
+        max-width: 100%;
+        left: 0;
+        bottom: 0;
+        top: auto;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        transform: translateY(120%);
+      }
+
+      .bus-stop-panel.is-visible {
+        transform: translateY(0);
+      }
+      
+      .map-controls {
+        flex-direction: row;
+        bottom: 15px;
+        top: auto;
+      }
+      
+      .navbar-brand {
+        font-size: 1.1rem;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .container {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+      
+      .search-panel {
+        padding: 1rem;
+      }
+      
+      .card-body {
+        padding: 1rem;
+      }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Utility classes */
+    .text-muted {
+      color: var(--text-muted) !important;
+    }
+
+    .text-primary {
+      color: var(--primary-color) !important;
+    }
+
+    .text-success {
+      color: var(--success-color) !important;
+    }
+
+    .fw-medium {
+      font-weight: 500;
+    }
+
+    .divider {
+      height: 1px;
+      background-color: var(--card-border);
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-broadcast-pin" viewBox="0 0 16 16" style="margin-right: 8px;">
+          <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.314.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+          <path d="M12.06 13.94a.5.5 0 0 1 .707 0l1.414 1.414a.5.5 0 0 1-.707.707L12.06 14.647a.5.5 0 0 1 0-.707zM4.646 13.94a.5.5 0 0 0-.707 0L2.525 15.354a.5.5 0 0 0 .707.707L4.646 14.647a.5.5 0 0 0 0-.707zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zM8 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+        </svg>
+        Navixera — Live Transit
+      </a>
+      <div class="d-flex align-items-center">
+        <span class="badge bg-primary me-2">Live</span>
+        <small class="text-muted d-none d-md-block">AI-Powered Transit Tracking</small>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container my-4">
+    <div class="row g-4">
+      <div class="col-12 col-lg-8">
+        <div class="card map-card">
+          <div id="map"></div>
+          <div class="map-controls">
+            <button id="locateBtn" class="btn btn-light" title="Find My Location">
+              <i class="bi bi-geo-alt-fill text-primary"></i>
+            </button>
+            <button id="showBusStopsBtn" class="btn btn-light" title="Show Bus Stops">
+              <i class="bi bi-signpost text-primary"></i>
+            </button>
+          </div>
+          <div class="loader-overlay" id="loader">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-4">
+        <div class="card search-panel">
+          <h5 class="card-title mb-3">Find Your Ride</h5>
+          <div class="search-group">
+            <label for="searchVehicle" class="form-label fw-medium">Vehicle Number</label>
+            <input type="text" id="searchVehicle" class="form-control" placeholder="e.g., MH-01-AB-1234">
+            <button id="searchVehicleBtn" class="btn btn-primary w-100 mt-2">
+              <i class="bi bi-search"></i> Search Vehicle
+            </button>
+          </div>
+          <div class="divider"></div>
+          <div class="search-group">
+            <label for="searchRouteFrom" class="form-label fw-medium">Route Planner</label>
+            <input type="text" id="searchRouteFrom" class="form-control" placeholder="From (e.g., Central Station)">
+            <input type="text" id="searchRouteTo" class="form-control mt-2" placeholder="To (e.g., North Park)">
+            <button id="searchRouteBtn" class="btn btn-primary w-100 mt-2">
+              <i class="bi bi-signpost-split"></i> Find Route
+            </button>
+          </div>
+          <div class="mt-auto">
+            <h6 class="fw-medium mb-2">Search Results</h6>
+            <div class="result-list" id="searchResults">
+              <div class="text-center p-3 text-muted">
+                <i class="bi bi-inbox d-block fs-1 mb-2"></i>
+                <span>Your search results will appear here</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="card sidebar" id="vehicleDetails">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0" id="vehicleTitle">Vehicle Details</h5>
+      <button type="button" class="btn-close" aria-label="Close" id="closeSidebarBtn"></button>
+    </div>
+    <div class="card-body">
+      <div id="vehicleInfo" class="mb-3"></div>
+      <h6 class="fw-medium mb-3">Route Stops</h6>
+      <ul id="stopList" class="list-group list-group-flush"></ul>
+    </div>
+  </div>
+
+  <div class="card bus-stop-panel" id="busStopPanel">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Nearest Bus Stop</h5>
+      <button type="button" class="btn-close" aria-label="Close" id="closeBusStopPanelBtn"></button>
+    </div>
+    <div class="card-body" id="busStopContent">
+      <!-- Dynamically populated -->
+    </div>
+  </div>
+
+  <div class="toast-container"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // Firebase Configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+        authDomain: "svms-c0232.firebaseapp.com",
+        databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+        projectId: "svms-c0232",
+        storageBucket: "svms-c0232.appspot.com",
+        messagingSenderId: "359201898609",
+        appId: "1:359201898609:web:893ef076207abb06471bd0"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      // DOM Element Caching
+      const dom = {
+        loader: document.getElementById('loader'),
+        locateBtn: document.getElementById('locateBtn'),
+        showBusStopsBtn: document.getElementById('showBusStopsBtn'),
+        searchVehicleInput: document.getElementById('searchVehicle'),
+        searchVehicleBtn: document.getElementById('searchVehicleBtn'),
+        searchRouteFrom: document.getElementById('searchRouteFrom'),
+        searchRouteTo: document.getElementById('searchRouteTo'),
+        searchRouteBtn: document.getElementById('searchRouteBtn'),
+        searchResults: document.getElementById('searchResults'),
+        vehicleDetails: document.getElementById('vehicleDetails'),
+        vehicleTitle: document.getElementById('vehicleTitle'),
+        vehicleInfo: document.getElementById('vehicleInfo'),
+        stopList: document.getElementById('stopList'),
+        closeSidebarBtn: document.getElementById('closeSidebarBtn'),
+        busStopPanel: document.getElementById('busStopPanel'),
+        busStopContent: document.getElementById('busStopContent'),
+        closeBusStopPanelBtn: document.getElementById('closeBusStopPanelBtn'),
+        toastContainer: document.querySelector('.toast-container')
+      };
+
+      // State & Map Variables
+      let map;
+      const markers = {};
+      let stopMarkers = {};
+      let markerGroup = L.featureGroup();
+      let routeLayer = L.featureGroup();
+      let userLocationMarker = null;
+      let userLocation = null;
+      let vehiclesData = {};
+      let busStops = [];
+
+      // Custom Bus Icon
+      const createBusIcon = (color = '#2563eb') => {
+        return L.divIcon({
+          className: 'bus-marker',
+          html: `<div class="bus-icon" style="background-color: ${color}">
+                  <i class="bi bi-bus-front"></i>
+                </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+          popupAnchor: [0, -12]
+        });
+      };
+
+      const stopIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      });
+
+      const userLocationIcon = L.divIcon({
+        className: 'user-location-icon',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+        popupAnchor: [0, -12]
+      });
+
+      // AI-Powered ETA Calculation Functions
+      /**
+       * Calculates the distance between two GPS coordinates (Haversine formula).
+       * @param {number} lat1 - Latitude of point 1.
+       * @param {number} lon1 - Longitude of point 1.
+       * @param {number} lat2 - Latitude of point 2.
+       * @param {number} lon2 - Longitude of point 2.
+       * @returns {number} Distance in kilometers.
+       */
+      const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+
+      /**
+       * Finds the next stop and its distance for a vehicle.
+       * @param {Array} currentCoords - [latitude, longitude] of the vehicle.
+       * @param {Array} fullRoutePath - Array of [lat, lng] coordinates for the entire route.
+       * @param {Array} stops - Array of stop objects {name, gps}.
+       * @returns {Object} {nextStopName, distanceToNextStop, nextStopIndex}
+       */
+      const findNextStopAndDistance = (currentCoords, fullRoutePath, stops) => {
+          if (!fullRoutePath || fullRoutePath.length === 0 || !stops || stops.length === 0) {
+              return { nextStopName: 'N/A', distanceToNextStop: 0, nextStopIndex: -1 };
+          }
+
+          // 1. Find the closest point on the route to the vehicle
+          let closestPointIndex = 0;
+          let minDistance = Infinity;
+          fullRoutePath.forEach((point, index) => {
+              const d = calculateDistance(currentCoords[0], currentCoords[1], point[0], point[1]);
+              if (d < minDistance) {
+                  minDistance = d;
+                  closestPointIndex = index;
+              }
+          });
+
+          // 2. The next stop is the first stop whose route index is AHEAD of the closest point
+          let nextStopIndex = -1;
+          for (let i = 0; i < stops.length; i++) {
+              const stopCoords = parseGps(stops[i].gps);
+              // Find the index of this stop's coordinates in the fullRoutePath
+              const stopIndexInRoute = fullRoutePath.findIndex(coord =>
+                  calculateDistance(coord[0], coord[1], stopCoords[0], stopCoords[1]) < 0.1 // ~100 meter tolerance
+              );
+              if (stopIndexInRoute > closestPointIndex) {
+                  nextStopIndex = i;
+                  break;
+              }
+          }
+
+          if (nextStopIndex === -1) {
+              // Vehicle might be past the last stop, default to first stop
+              nextStopIndex = 0;
+          }
+
+          const nextStop = stops[nextStopIndex];
+          const nextStopCoords = parseGps(nextStop.gps);
+
+          // 3. Calculate remaining distance by summing segments from closest point to the stop
+          let remainingDistance = 0;
+          for (let i = closestPointIndex; i < fullRoutePath.length; i++) {
+              if (i + 1 < fullRoutePath.length) {
+                  remainingDistance += calculateDistance(
+                      fullRoutePath[i][0], fullRoutePath[i][1],
+                      fullRoutePath[i+1][0], fullRoutePath[i+1][1]
+                  );
+              }
+              // Check if we've reached the stop's approximate location
+              const dToStop = calculateDistance(
+                  fullRoutePath[i][0], fullRoutePath[i][1],
+                  nextStopCoords[0], nextStopCoords[1]
+              );
+              if (dToStop < 0.1) { // ~100 meters
+                  break;
+              }
+          }
+
+          return {
+              nextStopName: nextStop.name,
+              distanceToNextStop: remainingDistance,
+              nextStopIndex: nextStopIndex
+          };
+      };
+
+      /**
+       * Main function to calculate ETA for a vehicle.
+       * @param {Object} vehicle - The vehicle data object from Firebase.
+       * @param {Array} previousCoords - The vehicle's previous coordinates [lat, lng].
+       * @param {number} previousTime - Timestamp of the previous coordinates.
+       * @returns {Object} {eta: string, nextStop: string, speed: number}
+       */
+      const calculateETA = (vehicle, previousCoords, previousTime) => {
+          const currentCoords = parseGps(vehicle.gps);
+          const currentTime = vehicle.lastUpdated || Date.now();
+
+          if (!currentCoords || !previousCoords || !previousTime) {
+              return { eta: 'Calculating...', nextStop: 'N/A', speed: 0 };
+          }
+
+          // 1. Calculate instantaneous speed (km/h)
+          const distanceTravelled = calculateDistance(
+              previousCoords[0], previousCoords[1],
+              currentCoords[0], currentCoords[1]
+          );
+          const timeElapsedHours = (currentTime - previousTime) / 1000 / 3600; // Convert ms to hours
+          const instantaneousSpeed = timeElapsedHours > 0 ? Math.abs(distanceTravelled / timeElapsedHours) : 0;
+
+          // 2. Get historical average speed for this area (SIMPLIFIED FOR DEMO)
+          // In a real scenario, this would query a database of historical speeds per road segment.
+          const historicalAverageSpeed = 25; // Assume 25 km/h average for the city
+
+          // 3. Blend the speeds (weight the real-time speed more heavily if it's valid)
+          let effectiveSpeed = historicalAverageSpeed;
+          if (instantaneousSpeed > 3 && instantaneousSpeed < 100) { // Plausible speed range
+              effectiveSpeed = (instantaneousSpeed * 0.7) + (historicalAverageSpeed * 0.3);
+          }
+
+          // 4. Find next stop and remaining distance
+          const routeInfo = findNextStopAndDistance(
+              currentCoords,
+              vehicle.fullRoutePath || [],
+              vehicle.stops || []
+          );
+
+          if (routeInfo.distanceToNextStop <= 0 || effectiveSpeed <= 0) {
+              return { eta: 'N/A', nextStop: routeInfo.nextStopName, speed: Math.round(effectiveSpeed) };
+          }
+
+          // 5. Calculate time in hours, then convert to minutes
+          const timeInHours = routeInfo.distanceToNextStop / effectiveSpeed;
+          const timeInMinutes = Math.max(1, Math.round(timeInHours * 60)); // At least 1 minute
+
+          // 6. Format the ETA string
+          let etaString;
+          if (timeInMinutes < 2) {
+              etaString = 'Arriving now';
+          } else if (timeInMinutes < 60) {
+              etaString = `~${timeInMinutes} min`;
+          } else {
+              const hours = Math.floor(timeInMinutes / 60);
+              const mins = timeInMinutes % 60;
+              etaString = `~${hours}h ${mins}m`;
+          }
+
+          return {
+              eta: etaString,
+              nextStop: routeInfo.nextStopName,
+              speed: Math.round(effectiveSpeed)
+          };
+      };
+
+      // Helper Functions
+      const showLoader = () => dom.loader.classList.remove('hidden');
+      const hideLoader = () => dom.loader.classList.add('hidden');
+
+      const showToast = (message, type = 'info', ttl = 3500) => {
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body d-flex align-items-center">
+              <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'warning' ? 'bi-exclamation-triangle-fill' : type === 'danger' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2"></i>
+              ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>`;
+        dom.toastContainer.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl, { delay: ttl });
+        toast.show();
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+      };
+
+      const parseGps = (gps) => {
+        if (!gps) return null;
+        if (typeof gps === 'object' && gps.latitude && gps.longitude) {
+          return [gps.latitude, gps.longitude];
+        }
+        const parts = String(gps).split(',').map(s => parseFloat(s.trim()));
+        if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]) || (parts[0] === 0 && parts[1] === 0)) {
+          return null;
+        }
+        return [parts[0], parts[1]];
+      };
+
+      const formatDistance = (distance) => {
+        if (distance < 1) {
+          return `${Math.round(distance * 1000)} m`;
+        }
+        return `${distance.toFixed(2)} km`;
+      };
+
+      // Map Functions
+      const initMap = () => {
+        map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        markerGroup.addTo(map);
+        routeLayer.addTo(map);
+      };
+
+      const locateUser = () => {
+        if (!navigator.geolocation) {
+          showToast("Geolocation is not supported by your browser.", "warning");
+          return Promise.reject("Geolocation not supported");
+        }
+        showToast("Locating you...", "info");
+        return new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              userLocation = [latitude, longitude];
+              if (userLocationMarker) {
+                userLocationMarker.setLatLng(userLocation);
+              } else {
+                userLocationMarker = L.marker(userLocation, { icon: userLocationIcon }).addTo(map);
+                userLocationMarker.bindPopup("<b>You are here</b>");
+              }
+              map.flyTo(userLocation, 16);
+              setTimeout(() => userLocationMarker.openPopup(), 1000);
+              findNearestBusStops();
+              resolve();
+            },
+            (err) => {
+              showToast("Unable to retrieve your location. Please check permissions.", "danger");
+              reject(err);
+            }
+          );
+        });
+      };
+
+      const findNearestBusStops = () => {
+        if (!userLocation || busStops.length === 0) {
+          showToast("Location or bus stops data not available.", "warning");
+          return;
+        }
+        busStops.forEach(stop => {
+          const coords = parseGps(stop.gps);
+          if (coords) {
+            stop.distance = calculateDistance(userLocation[0], userLocation[1], coords[0], coords[1]);
+          } else {
+            stop.distance = Infinity;
+          }
+        });
+        busStops.sort((a, b) => a.distance - b.distance);
+        if (busStops[0].distance !== Infinity) {
+          showBusStopPanel(busStops[0]);
+        } else {
+          showToast("No valid bus stops found.", "warning");
+        }
+      };
+
+      const showBusStopPanel = (stop) => {
+        dom.busStopContent.innerHTML = `
+          <div class="bus-stop-header">
+            <h6 class="bus-stop-title">${stop.name}</h6>
+            <a href="#" class="see-all-link" id="seeAllStops">
+              See all stops <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+          <div class="bus-stop-item">
+            <div class="bus-stop-name">${stop.name}</div>
+            <div class="bus-stop-distance">
+              <i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)} away
+            </div>
+          </div>
+          ${(stop.vehicles || []).map(v => `
+            <div class="bus-route">
+              <h6 class="bus-route-title">${v.type || 'Unknown'}</h6>
+              <div class="bus-route-item">
+                <div class="bus-number">
+                  <i class="bi bi-bus-front"></i> ${v.vehicleId}
+                </div>
+                <div class="bus-destination">${v.routeName || 'N/A'}</div>
+                <div class="bus-timings">${v.timings || 'Timings not available'}</div>
+              </div>
+            </div>
+          `).join('') || '<div class="text-muted p-3 text-center"><i class="bi bi-info-circle"></i> No vehicles available at this stop.</div>'}
+        `;
+        dom.busStopPanel.classList.add('is-visible');
+
+        // Handle "See all stops" click
+        const seeAllLink = dom.busStopContent.querySelector('#seeAllStops');
+        seeAllLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          showAllStops();
+        });
+      };
+
+      const showAllStops = () => {
+        dom.busStopContent.innerHTML = `
+          <div class="bus-stop-header">
+            <h6 class="bus-stop-title">All Bus Stops</h6>
+          </div>
+          <ul class="list-group list-group-flush">
+            ${busStops.map(stop => `
+              <li class="list-group-item" data-stop-id="${stop.id}">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>${stop.name}</strong><br>
+                    <small class="text-success"><i class="bi bi-geo-alt"></i> ${formatDistance(stop.distance)}</small>
+                  </div>
+                  <button class="btn btn-sm btn-outline-primary view-stop-btn">
+                    <i class="bi bi-geo-alt"></i> View
+                  </button>
+                </div>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        dom.busStopPanel.classList.add('is-visible');
+
+        // Add event listeners for view buttons
+        dom.busStopContent.querySelectorAll('.view-stop-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const stopId = btn.closest('.list-group-item').dataset.stopId;
+            const stop = busStops.find(s => s.id == stopId);
+            if (stop) {
+              const coords = parseGps(stop.gps);
+              if (coords) {
+                map.flyTo(coords, 16);
+                if (stopMarkers[stop.id]) {
+                  setTimeout(() => stopMarkers[stop.id].openPopup(), 1000);
+                }
+              }
+            }
+          });
+        });
+      };
+
+      const drawVehicleRoute = (vehicle) => {
+        routeLayer.clearLayers();
+        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
+        stopMarkers = {};
+        const routePath = (vehicle.fullRoutePath || []).map(parseGps).filter(Boolean);
+        if (routePath.length > 1) {
+          L.polyline(routePath, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(routeLayer);
+        }
+        const stops = vehicle.stops || [];
+        stops.forEach((stop, index) => {
+          const coords = parseGps(stop.gps);
+          if (coords) {
+            const marker = L.marker(coords, { icon: stopIcon }).addTo(routeLayer);
+            marker.bindPopup(`
+              <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}<br>
+              <small>Click to view on map</small>
+            `);
+            stopMarkers[`stop-${index}`] = marker;
+            L.circleMarker(coords, {
+              radius: 6,
+              color: '#10b981',
+              fillColor: '#fff',
+              fillOpacity: 1,
+              weight: 2
+            }).addTo(routeLayer);
+          }
+        });
+      };
+
+      // UI Update Functions
+      const showVehicleDetails = (vid, vehicle) => {
+        dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
+        
+        // Calculate ETA for the detailed view
+        const vehicleHistory = markers[vid];
+        let etaInfoForDetails = { eta: 'Calculating...', nextStop: 'N/A', speed: 0 };
+        if (vehicleHistory) {
+            etaInfoForDetails = calculateETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
+        }
+        
+        // Create battery indicator
+        const batteryLevel = vehicle.battery ?? 0;
+        let batteryColor = 'success';
+        let batteryIcon = 'bi-battery-full';
+        
+        if (batteryLevel < 20) {
+          batteryColor = 'danger';
+          batteryIcon = 'bi-battery';
+        } else if (batteryLevel < 50) {
+          batteryColor = 'warning';
+          batteryIcon = 'bi-battery-half';
+        }
+        
+        dom.vehicleInfo.innerHTML = `
+          <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="d-flex align-items-center">
+              <i class="bi bi-bus-front text-primary me-2"></i>
+              <span>${vehicle.vehicleType || 'Unknown'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi bi-signpost text-primary me-2"></i>
+              <span>${vehicle.routeName || 'N/A'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi ${batteryIcon} text-${batteryColor} me-2"></i>
+              <span>${batteryLevel}%</span>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+              <i class="bi bi-building text-primary me-2"></i>
+              <span>${vehicle.companyName || 'N/A'}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <i class="bi bi-speedometer2 text-primary me-2"></i>
+              <span>${etaInfoForDetails.speed || 'N/A'} km/h</span>
+            </div>
+          </div>
+          <div class="eta-info-panel mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Next Stop:</strong> ${etaInfoForDetails.nextStop}<br>
+                <small>AI-Powered Prediction</small>
+              </div>
+              <span class="eta-badge">${etaInfoForDetails.eta}</span>
+            </div>
+          </div>
+        `;
+        
+        dom.stopList.innerHTML = '';
+        const stops = vehicle.stops || [];
+        if (stops.length > 0) {
+          stops.forEach((stop, index) => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerHTML = `
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>Stop ${index + 1}:</strong> ${stop.name || 'Unnamed Stop'}
+                </div>
+                <button class="btn btn-sm btn-outline-primary view-stop-btn" data-index="${index}">
+                  <i class="bi bi-geo-alt"></i> View
+                </button>
+              </div>
+            `;
+            dom.stopList.appendChild(li);
+            li.querySelector('.view-stop-btn').addEventListener('click', () => {
+              const coords = parseGps(stop.gps);
+              if (coords) {
+                map.flyTo(coords, 16);
+                if (stopMarkers[`stop-${index}`]) {
+                  setTimeout(() => stopMarkers[`stop-${index}`].openPopup(), 1000);
+                }
+              }
+            });
+          });
+        } else {
+          dom.stopList.innerHTML = '<li class="list-group-item text-muted text-center py-3"><i class="bi bi-info-circle"></i> No stops available.</li>';
+        }
+        drawVehicleRoute(vehicle);
+        dom.vehicleDetails.classList.add('is-visible');
+      };
+
+      const hideVehicleDetails = () => {
+        dom.vehicleDetails.classList.remove('is-visible');
+        routeLayer.clearLayers();
+        Object.values(stopMarkers).forEach(marker => map.removeLayer(marker));
+        stopMarkers = {};
+      };
+
+      const hideBusStopPanel = () => dom.busStopPanel.classList.remove('is-visible');
+
+      // Data & Business Logic
+      const loadPublicVehicles = () => {
+        const vehiclesRef = db.ref('public_transport/vehicles');
+        vehiclesRef.on('value', snap => {
+          hideLoader();
+          vehiclesData = snap.val() || {};
+          const presentVehicleIds = new Set();
+          const bounds = [];
+
+          Object.entries(vehiclesData).forEach(([vid, v]) => {
+            presentVehicleIds.add(vid);
+            const newCoords = parseGps(v.gps);
+            if (newCoords) {
+              bounds.push(newCoords);
+              if (!markers[vid]) {
+                // Use bus icon instead of default pointer
+                const marker = L.marker(newCoords, { icon: createBusIcon(), title: vid }).addTo(markerGroup);
+                
+                // Calculate initial ETA
+                const etaInfo = calculateETA(v, newCoords, Date.now());
+                
+                marker.bindPopup(`
+                  <strong>${vid}</strong><br>
+                  ${v.vehicleType || 'Unknown'}<br>
+                  ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                  <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
+                `);
+                marker.on('click', () => showVehicleDetails(vid, v));
+                markers[vid] = { 
+                  marker, 
+                  prevCoords: newCoords, 
+                  prevTime: v.lastUpdated || Date.now() 
+                };
+              } else {
+                const { marker, prevCoords, prevTime } = markers[vid];
+                
+                // Calculate ETA before updating
+                const etaInfo = calculateETA(v, prevCoords, prevTime);
+                
+                marker.setLatLng(newCoords);
+                marker.setPopupContent(`
+                  <strong>${vid}</strong><br>
+                  ${v.vehicleType || 'Unknown'}<br>
+                  ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                  <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
+                `);
+                
+                // Update history for next calculation
+                markers[vid].prevCoords = newCoords;
+                markers[vid].prevTime = v.lastUpdated || Date.now();
+              }
+            }
+          });
+
+          Object.keys(markers).forEach(vid => {
+            if (!presentVehicleIds.has(vid)) {
+              markerGroup.removeLayer(markers[vid].marker);
+              delete markers[vid];
+            }
+          });
+
+          if (bounds.length && map.getZoom() <= 12) {
+            try {
+              map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            } catch (e) {
+              console.error("Error fitting bounds:", e);
+            }
+          }
+        }, err => {
+          console.error('Vehicles listener error:', err);
+          showToast('Failed to load vehicles.', 'danger');
+          hideLoader();
+        });
+      };
+
+      const loadBusStops = () => {
+        const stopsRef = db.ref('public_transport/stops');
+        stopsRef.once('value', snap => {
+          const stops = snap.val() || {};
+          busStops = Object.entries(stops).map(([id, stop]) => ({
+            id,
+            name: stop.name,
+            gps: stop.gps,
+            vehicles: stop.vehicles || []
+          }));
+          busStops.forEach(stop => {
+            const coords = parseGps(stop.gps);
+            if (coords) {
+              const marker = L.marker(coords, { icon: stopIcon }).addTo(map);
+              marker.bindPopup(`
+                <strong>${stop.name}</strong><br>
+                <small>Click for more info</small>
+              `);
+              marker.on('click', () => showBusStopPanel(stop));
+              stopMarkers[stop.id] = marker;
+            }
+          });
+          if (userLocation) {
+            findNearestBusStops();
+          }
+        }, err => {
+          console.error('Bus stops listener error:', err);
+          showToast('Failed to load bus stops.', 'danger');
+        });
+      };
+
+      const searchByVehicleNumber = () => {
+        const query = dom.searchVehicleInput.value.trim().toUpperCase();
+        if (!query) {
+          showToast('Please enter a vehicle number.', 'warning');
+          return;
+        }
+        const foundVid = Object.keys(vehiclesData).find(vid => vid.toUpperCase().includes(query));
+        if (foundVid && markers[foundVid]) {
+          const { marker } = markers[foundVid];
+          map.flyTo(marker.getLatLng(), 16);
+          marker.openPopup();
+          showVehicleDetails(fedVid, vehiclesData[foundVid]);
+        } else {
+          db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
+            if (snap.exists()) {
+              const vehicleData = snap.val();
+              const coords = parseGps(vehicleData.gps);
+              if (coords) {
+                map.flyTo(coords, 16);
+                showVehicleDetails(foundVid, vehicleData);
+              } else {
+                showToast('Vehicle has no valid location.', 'warning');
+              }
+            } else {
+              showToast('Vehicle not found.', 'warning');
+            }
+          }).catch(err => {
+            console.error('Error fetching vehicle:', err);
+            showToast('Error fetching vehicle data.', 'danger');
+          });
+        }
+      };
+
+      const searchByRoute = () => {
+        const from = dom.searchRouteFrom.value.trim().toLowerCase();
+        const to = dom.searchRouteTo.value.trim().toLowerCase();
+        if (!from || !to) {
+          showToast('Enter both "From" and "To" locations.', 'warning');
+          return;
+        }
+        dom.searchResults.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Searching...</div>';
+        const results = [];
+        Object.entries(vehiclesData).forEach(([vid, v]) => {
+          const stops = (v.stops || []).map(s => s.name ? s.name.toLowerCase() : '');
+          const hasFrom = stops.some(s => s.includes(from));
+          const hasTo = stops.some(s => s.includes(to));
+          if (hasFrom && hasTo) {
+            results.push({ vid, vehicle: v });
+          }
+        });
+        dom.searchResults.innerHTML = '';
+        if (results.length > 0) {
+          results.forEach(({ vid, vehicle }) => {
+            // Calculate ETA for search results
+            const vehicleHistory = markers[vid];
+            let etaInfo = { eta: 'Calculating...', nextStop: 'N/A' };
+            if (vehicleHistory) {
+                etaInfo = calculateETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
+            }
+            
+            const div = document.createElement('div');
+            div.className = 'vehicle-item p-3 border-bottom';
+            div.innerHTML = `
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-bus-front text-primary me-2"></i>
+                  <div>
+                    <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+                    <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+                  </div>
+                </div>
+                <span class="eta-badge">${etaInfo.eta}</span>
+              </div>
+            `;
+            div.addEventListener('click', () => {
+              if (markers[vid]) {
+                const { marker } = markers[vid];
+                map.flyTo(marker.getLatLng(), 16);
+                marker.openPopup();
+                showVehicleDetails(vid, vehicle);
+              } else {
+                const coords = parseGps(vehicle.gps);
+                if (coords) {
+                  map.flyTo(coords, 16);
+                  showVehicleDetails(vid, vehicle);
+                } else {
+                  showToast('Vehicle location not available.', 'warning');
+                }
+              }
+            });
+            dom.searchResults.appendChild(div);
+          });
+        } else {
+          dom.searchResults.innerHTML = '<div class="text-muted p-3 text-center"><i class="bi bi-exclamation-circle"></i> No routes found.</div>';
+        }
+      };
+
+      // Event Listeners
+      const addEventListeners = () => {
+        dom.locateBtn.addEventListener('click', locateUser);
+        dom.showBusStopsBtn.addEventListener('click', () => {
+          if (userLocation) {
+            findNearestBusStops();
+          } else {
+            showToast("Please enable location services first.", "warning");
+            locateUser();
+          }
+        });
+        dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
+        dom.searchRouteBtn.addEventListener('click', searchByRoute);
+        dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
+        dom.closeBusStopPanelBtn.addEventListener('click', hideBusStopPanel);
+        dom.searchVehicleInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchByVehicleNumber(); });
+        dom.searchRouteFrom.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+        dom.searchRouteTo.addEventListener('keypress', e => { if (e.key === 'Enter') searchByRoute(); });
+      };
+
+      // Initialization
+      document.addEventListener('DOMContentLoaded', () => {
+        showLoader();
+        initMap();
+        loadPublicVehicles();
+        loadBusStops();
+        addEventListeners();
+        locateUser().catch(() => {
+          console.log("Initial geolocation attempt failed; user can manually trigger location.");
+          hideLoader();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
