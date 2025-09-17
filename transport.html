@@ -482,6 +482,24 @@
     .vehicle-item:nth-child(2) { animation-delay: 0.2s; }
     .vehicle-item:nth-child(3) { animation-delay: 0.3s; }
 
+    /* ETA specific styles */
+    .eta-badge {
+      background-color: var(--success-color);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .eta-info-panel {
+      background-color: #f0f9ff;
+      border-left: 4px solid var(--primary-color);
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+    }
+
     /* Responsive adjustments */
     @media (max-width: 1199.98px) {
       .sidebar, .bus-stop-panel {
@@ -613,7 +631,7 @@
       </a>
       <div class="d-flex align-items-center">
         <span class="badge bg-primary me-2">Live</span>
-        <small class="text-muted d-none d-md-block">Real-time transit tracking</small>
+        <small class="text-muted d-none d-md-block">AI-Powered Transit Tracking</small>
       </div>
     </div>
   </nav>
@@ -780,6 +798,164 @@
         popupAnchor: [0, -12]
       });
 
+      // AI-Powered ETA Calculation Functions
+      /**
+       * Calculates the distance between two GPS coordinates (Haversine formula).
+       * @param {number} lat1 - Latitude of point 1.
+       * @param {number} lon1 - Longitude of point 1.
+       * @param {number} lat2 - Latitude of point 2.
+       * @param {number} lon2 - Longitude of point 2.
+       * @returns {number} Distance in kilometers.
+       */
+      const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+
+      /**
+       * Finds the next stop and its distance for a vehicle.
+       * @param {Array} currentCoords - [latitude, longitude] of the vehicle.
+       * @param {Array} fullRoutePath - Array of [lat, lng] coordinates for the entire route.
+       * @param {Array} stops - Array of stop objects {name, gps}.
+       * @returns {Object} {nextStopName, distanceToNextStop, nextStopIndex}
+       */
+      const findNextStopAndDistance = (currentCoords, fullRoutePath, stops) => {
+          if (!fullRoutePath || fullRoutePath.length === 0 || !stops || stops.length === 0) {
+              return { nextStopName: 'N/A', distanceToNextStop: 0, nextStopIndex: -1 };
+          }
+
+          // 1. Find the closest point on the route to the vehicle
+          let closestPointIndex = 0;
+          let minDistance = Infinity;
+          fullRoutePath.forEach((point, index) => {
+              const d = calculateDistance(currentCoords[0], currentCoords[1], point[0], point[1]);
+              if (d < minDistance) {
+                  minDistance = d;
+                  closestPointIndex = index;
+              }
+          });
+
+          // 2. The next stop is the first stop whose route index is AHEAD of the closest point
+          let nextStopIndex = -1;
+          for (let i = 0; i < stops.length; i++) {
+              const stopCoords = parseGps(stops[i].gps);
+              // Find the index of this stop's coordinates in the fullRoutePath
+              const stopIndexInRoute = fullRoutePath.findIndex(coord =>
+                  calculateDistance(coord[0], coord[1], stopCoords[0], stopCoords[1]) < 0.1 // ~100 meter tolerance
+              );
+              if (stopIndexInRoute > closestPointIndex) {
+                  nextStopIndex = i;
+                  break;
+              }
+          }
+
+          if (nextStopIndex === -1) {
+              // Vehicle might be past the last stop, default to first stop
+              nextStopIndex = 0;
+          }
+
+          const nextStop = stops[nextStopIndex];
+          const nextStopCoords = parseGps(nextStop.gps);
+
+          // 3. Calculate remaining distance by summing segments from closest point to the stop
+          let remainingDistance = 0;
+          for (let i = closestPointIndex; i < fullRoutePath.length; i++) {
+              if (i + 1 < fullRoutePath.length) {
+                  remainingDistance += calculateDistance(
+                      fullRoutePath[i][0], fullRoutePath[i][1],
+                      fullRoutePath[i+1][0], fullRoutePath[i+1][1]
+                  );
+              }
+              // Check if we've reached the stop's approximate location
+              const dToStop = calculateDistance(
+                  fullRoutePath[i][0], fullRoutePath[i][1],
+                  nextStopCoords[0], nextStopCoords[1]
+              );
+              if (dToStop < 0.1) { // ~100 meters
+                  break;
+              }
+          }
+
+          return {
+              nextStopName: nextStop.name,
+              distanceToNextStop: remainingDistance,
+              nextStopIndex: nextStopIndex
+          };
+      };
+
+      /**
+       * Main function to calculate ETA for a vehicle.
+       * @param {Object} vehicle - The vehicle data object from Firebase.
+       * @param {Array} previousCoords - The vehicle's previous coordinates [lat, lng].
+       * @param {number} previousTime - Timestamp of the previous coordinates.
+       * @returns {Object} {eta: string, nextStop: string, speed: number}
+       */
+      const calculateETA = (vehicle, previousCoords, previousTime) => {
+          const currentCoords = parseGps(vehicle.gps);
+          const currentTime = vehicle.lastUpdated || Date.now();
+
+          if (!currentCoords || !previousCoords || !previousTime) {
+              return { eta: 'Calculating...', nextStop: 'N/A', speed: 0 };
+          }
+
+          // 1. Calculate instantaneous speed (km/h)
+          const distanceTravelled = calculateDistance(
+              previousCoords[0], previousCoords[1],
+              currentCoords[0], currentCoords[1]
+          );
+          const timeElapsedHours = (currentTime - previousTime) / 1000 / 3600; // Convert ms to hours
+          const instantaneousSpeed = timeElapsedHours > 0 ? Math.abs(distanceTravelled / timeElapsedHours) : 0;
+
+          // 2. Get historical average speed for this area (SIMPLIFIED FOR DEMO)
+          // In a real scenario, this would query a database of historical speeds per road segment.
+          const historicalAverageSpeed = 25; // Assume 25 km/h average for the city
+
+          // 3. Blend the speeds (weight the real-time speed more heavily if it's valid)
+          let effectiveSpeed = historicalAverageSpeed;
+          if (instantaneousSpeed > 3 && instantaneousSpeed < 100) { // Plausible speed range
+              effectiveSpeed = (instantaneousSpeed * 0.7) + (historicalAverageSpeed * 0.3);
+          }
+
+          // 4. Find next stop and remaining distance
+          const routeInfo = findNextStopAndDistance(
+              currentCoords,
+              vehicle.fullRoutePath || [],
+              vehicle.stops || []
+          );
+
+          if (routeInfo.distanceToNextStop <= 0 || effectiveSpeed <= 0) {
+              return { eta: 'N/A', nextStop: routeInfo.nextStopName, speed: Math.round(effectiveSpeed) };
+          }
+
+          // 5. Calculate time in hours, then convert to minutes
+          const timeInHours = routeInfo.distanceToNextStop / effectiveSpeed;
+          const timeInMinutes = Math.max(1, Math.round(timeInHours * 60)); // At least 1 minute
+
+          // 6. Format the ETA string
+          let etaString;
+          if (timeInMinutes < 2) {
+              etaString = 'Arriving now';
+          } else if (timeInMinutes < 60) {
+              etaString = `~${timeInMinutes} min`;
+          } else {
+              const hours = Math.floor(timeInMinutes / 60);
+              const mins = timeInMinutes % 60;
+              etaString = `~${hours}h ${mins}m`;
+          }
+
+          return {
+              eta: etaString,
+              nextStop: routeInfo.nextStopName,
+              speed: Math.round(effectiveSpeed)
+          };
+      };
+
       // Helper Functions
       const showLoader = () => dom.loader.classList.remove('hidden');
       const hideLoader = () => dom.loader.classList.add('hidden');
@@ -813,17 +989,6 @@
           return null;
         }
         return [parts[0], parts[1]];
-      };
-
-      const calculateDistance = (lat1, lon1, lat2, lon2) => {
-        const R = 6371; // Earth's radius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c; // Distance in km
       };
 
       const formatDistance = (distance) => {
@@ -1006,6 +1171,13 @@
       const showVehicleDetails = (vid, vehicle) => {
         dom.vehicleTitle.textContent = `Vehicle: ${vid}`;
         
+        // Calculate ETA for the detailed view
+        const vehicleHistory = markers[vid];
+        let etaInfoForDetails = { eta: 'Calculating...', nextStop: 'N/A', speed: 0 };
+        if (vehicleHistory) {
+            etaInfoForDetails = calculateETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
+        }
+        
         // Create battery indicator
         const batteryLevel = vehicle.battery ?? 0;
         let batteryColor = 'success';
@@ -1041,7 +1213,16 @@
             </div>
             <div class="d-flex align-items-center">
               <i class="bi bi-speedometer2 text-primary me-2"></i>
-              <span>${vehicle.speed || 'N/A'} km/h</span>
+              <span>${etaInfoForDetails.speed || 'N/A'} km/h</span>
+            </div>
+          </div>
+          <div class="eta-info-panel mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Next Stop:</strong> ${etaInfoForDetails.nextStop}<br>
+                <small>AI-Powered Prediction</small>
+              </div>
+              <span class="eta-badge">${etaInfoForDetails.eta}</span>
             </div>
           </div>
         `;
@@ -1106,22 +1287,39 @@
               if (!markers[vid]) {
                 // Use bus icon instead of default pointer
                 const marker = L.marker(newCoords, { icon: createBusIcon(), title: vid }).addTo(markerGroup);
+                
+                // Calculate initial ETA
+                const etaInfo = calculateETA(v, newCoords, Date.now());
+                
                 marker.bindPopup(`
                   <strong>${vid}</strong><br>
                   ${v.vehicleType || 'Unknown'}<br>
-                  ${v.routeName ? `Route: ${v.routeName}` : ''}
+                  ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                  <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
                 `);
                 marker.on('click', () => showVehicleDetails(vid, v));
-                markers[vid] = { marker, prevCoords: newCoords };
+                markers[vid] = { 
+                  marker, 
+                  prevCoords: newCoords, 
+                  prevTime: v.lastUpdated || Date.now() 
+                };
               } else {
-                const { marker, prevCoords } = markers[vid];
+                const { marker, prevCoords, prevTime } = markers[vid];
+                
+                // Calculate ETA before updating
+                const etaInfo = calculateETA(v, prevCoords, prevTime);
+                
                 marker.setLatLng(newCoords);
                 marker.setPopupContent(`
                   <strong>${vid}</strong><br>
                   ${v.vehicleType || 'Unknown'}<br>
-                  ${v.routeName ? `Route: ${v.routeName}` : ''}
+                  ${v.routeName ? `Route: ${v.routeName}` : ''}<br>
+                  <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
                 `);
+                
+                // Update history for next calculation
                 markers[vid].prevCoords = newCoords;
+                markers[vid].prevTime = v.lastUpdated || Date.now();
               }
             }
           });
@@ -1189,7 +1387,7 @@
           const { marker } = markers[foundVid];
           map.flyTo(marker.getLatLng(), 16);
           marker.openPopup();
-          showVehicleDetails(foundVid, vehiclesData[foundVid]);
+          showVehicleDetails(fedVid, vehiclesData[foundVid]);
         } else {
           db.ref(`public_transport/vehicles/${foundVid}`).once('value', snap => {
             if (snap.exists()) {
@@ -1231,15 +1429,25 @@
         dom.searchResults.innerHTML = '';
         if (results.length > 0) {
           results.forEach(({ vid, vehicle }) => {
+            // Calculate ETA for search results
+            const vehicleHistory = markers[vid];
+            let etaInfo = { eta: 'Calculating...', nextStop: 'N/A' };
+            if (vehicleHistory) {
+                etaInfo = calculateETA(vehicle, vehicleHistory.prevCoords, vehicleHistory.prevTime);
+            }
+            
             const div = document.createElement('div');
             div.className = 'vehicle-item p-3 border-bottom';
             div.innerHTML = `
-              <div class="d-flex align-items-center">
-                <i class="bi bi-bus-front text-primary me-2"></i>
-                <div>
-                  <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
-                  <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-bus-front text-primary me-2"></i>
+                  <div>
+                    <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
+                    <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
+                  </div>
                 </div>
+                <span class="eta-badge">${etaInfo.eta}</span>
               </div>
             `;
             div.addEventListener('click', () => {
