@@ -20,6 +20,7 @@
     loader: document.getElementById('loader'),
     locateBtn: document.getElementById('locateBtn'),
     showBusStopsBtn: document.getElementById('showBusStopsBtn'),
+    forgotBtn: document.getElementById('forgotBtn'),
     searchVehicleInput: document.getElementById('searchVehicle'),
     searchVehicleBtn: document.getElementById('searchVehicleBtn'),
     searchRouteFrom: document.getElementById('searchRouteFrom'),
@@ -47,6 +48,7 @@
   let userLocation = null;
   let vehiclesData = {};
   let busStops = [];
+  let subscriptions = []; // For bus arrival alerts
 
   // Custom Bus Icon
   const createBusIcon = (color = '#2563eb') => {
@@ -228,6 +230,7 @@
             </div>
             <div class="bus-destination">${v.routeName || 'N/A'}</div>
             <div class="bus-timings">${v.timings || 'Timings not available'}</div>
+            <button class="btn btn-sm btn-outline-success alert-btn" data-vid="${v.vehicleId}">Alert Me</button>
           </div>
         </div>
       `).join('') || '<div class="text-muted p-3 text-center"><i class="bi bi-info-circle"></i> No vehicles available at this stop.</div>'}
@@ -239,6 +242,20 @@
     seeAllLink.addEventListener('click', (e) => {
       e.preventDefault();
       showAllStops();
+    });
+
+    // Handle alert buttons
+    const alertBtns = dom.busStopContent.querySelectorAll('.alert-btn');
+    alertBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vid = btn.dataset.vid;
+        const stopId = stop.id;
+        const stopName = stop.name;
+        subscriptions.push({ vid, stopId, stopName });
+        showToast(`Subscribed to arrival alert for bus ${vid} at ${stopName}.`, 'success');
+        btn.disabled = true;
+        btn.textContent = 'Subscribed';
+      });
     });
   };
 
@@ -415,6 +432,35 @@
 
   const hideBusStopPanel = () => dom.busStopPanel.classList.remove('is-visible');
 
+  const handleForgotItem = () => {
+    if (!userLocation) {
+      showToast('Please locate yourself first.', 'warning');
+      return;
+    }
+    let minDist = Infinity;
+    let nearestVid = null;
+    Object.entries(vehiclesData).forEach(([vid, v]) => {
+      const coords = parseGps(v.gps);
+      if (coords) {
+        const dist = calculateDistance(userLocation[0], userLocation[1], coords[0], coords[1]);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestVid = vid;
+        }
+      }
+    });
+    if (minDist < 0.05 && nearestVid) { // 50m threshold
+      db.ref(`public_transport/vehicles/${nearestVid}/notifications`).push({
+        type: 'forgot_bag',
+        message: 'Someone forgot their bag in the bus! Please stop and check.',
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+      showToast(`Notification sent to driver of ${nearestVid}.`, 'success');
+    } else {
+      showToast('No bus nearby to notify.', 'warning');
+    }
+  };
+
   // Data & Business Logic
   const loadPublicVehicles = () => {
     const vehiclesRef = db.ref('public_transport/vehicles');
@@ -485,6 +531,24 @@
           <span class="text-success"><i class="bi bi-clock"></i> ETA: ${etaInfo.eta}</span>
         `);
       }
+
+      // Check subscriptions for arrival alerts
+      subscriptions = subscriptions.filter(sub => {
+        const v = vehiclesData[sub.vid];
+        if (!v) return false;
+        const busCoords = parseGps(v.gps);
+        if (!busCoords) return true;
+        const stop = busStops.find(s => s.id === sub.stopId);
+        if (!stop) return false;
+        const stopCoords = parseGps(stop.gps);
+        if (!stopCoords) return true;
+        const dist = calculateDistance(busCoords[0], busCoords[1], stopCoords[0], stopCoords[1]);
+        if (dist < 0.1) { // 100m threshold
+          showToast(`Bus ${sub.vid} is arriving at ${sub.stopName}!`, 'success');
+          return false; // Remove subscription after alerting
+        }
+        return true;
+      });
     }, err => {
       console.error('Vehicles listener error:', err);
       showToast('Failed to load vehicles.', 'danger');
@@ -591,7 +655,7 @@
               <div>
                 <strong>${vid}</strong> - ${vehicle.routeName || 'N/A'}<br>
                 <small class="text-muted">${vehicle.vehicleType || 'Unknown'}</small>
-              </div>
+            </div>
             </div>
             <span class="eta-badge">${etaInfo.eta}</span>
           </div>
@@ -630,6 +694,7 @@
         locateUser();
       }
     });
+    dom.forgotBtn.addEventListener('click', handleForgotItem);
     dom.searchVehicleBtn.addEventListener('click', searchByVehicleNumber);
     dom.searchRouteBtn.addEventListener('click', searchByRoute);
     dom.closeSidebarBtn.addEventListener('click', hideVehicleDetails);
