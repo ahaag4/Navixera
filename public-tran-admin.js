@@ -320,7 +320,7 @@ addBusStopBtn.addEventListener('click', async ()=> {
 
     // generate QR linking to stop page
     // use current origin if available
-    const base = window.location.origin || 'https://your-app.com';
+    const base = window.location.origin || 'https://svms.pages.dev;
     const stopUrl = `${base.replace(/\/$/, '')}/stop.html?id=${encodeURIComponent(id)}`;
 
     // clear previous qrcode
