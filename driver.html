@@ -58,7 +58,7 @@
   const db = firebase.database();
 
   let busId = null;
-  let lastNotifKeys = new Set(); // to track old notifications
+  let lastNotifKeys = new Set(); // track shown notifications
 
   // 🔑 Login Function
   function loginDriver() {
@@ -67,7 +67,8 @@
 
     auth.signInWithEmailAndPassword(email, password)
       .then(user => {
-        busId = email.split("@")[0].toUpperCase(); // e.g. c306@bus.com → C306
+        // busId from email prefix, e.g. c-306@bus.com → C-306
+        busId = email.split("@")[0].toUpperCase(); 
         document.getElementById("loginSection").classList.add("d-none");
         document.getElementById("driverPanel").classList.remove("d-none");
         document.getElementById("busTitle").innerText = "Bus: " + busId;
@@ -84,32 +85,34 @@
     db.ref("public_transport/vehicles/" + busId).update({
       status: status,
       lastUpdated: Date.now()
+    }).then(() => {
+      alert("Status updated to: " + status);
     });
-    alert("Status updated to: " + status);
   }
 
-  // 🔔 Notifications with Sound
+  // 🔔 Load Notifications from correct path
   function loadNotifications() {
-    db.ref("notifications/" + busId).on("value", snapshot => {
-      const notifList = document.getElementById("notifications");
-      notifList.innerHTML = "";
+    db.ref("public_transport/vehicles/" + busId + "/notifications")
+      .on("value", snapshot => {
+        const notifList = document.getElementById("notifications");
+        notifList.innerHTML = "";
 
-      snapshot.forEach(child => {
-        const key = child.key;
-        const msg = child.val().message;
+        snapshot.forEach(child => {
+          const key = child.key;
+          const notif = child.val();
 
-        let li = document.createElement("li");
-        li.className = "list-group-item";
-        li.innerText = msg;
-        notifList.appendChild(li);
+          let li = document.createElement("li");
+          li.className = "list-group-item";
+          li.innerText = `[${notif.type}] ${notif.description}`;
+          notifList.appendChild(li);
 
-        // Play sound only for new notifications
-        if (!lastNotifKeys.has(key)) {
-          document.getElementById("notifSound").play();
-        }
-        lastNotifKeys.add(key);
+          // 🔊 Play sound only for new notifications
+          if (!lastNotifKeys.has(key)) {
+            document.getElementById("notifSound").play();
+          }
+          lastNotifKeys.add(key);
+        });
       });
-    });
   }
 
   // 🚪 Logout
