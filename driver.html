@@ -38,16 +38,19 @@
   </div>
 </div>
 
+<!-- 🔊 Notification Sound -->
+<audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
 <script>
-      // Firebase Configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
-        authDomain: "svms-c0232.firebaseapp.com",
-        databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
-        projectId: "svms-c0232",
-        storageBucket: "svms-c0232.appspot.com",
-        messagingSenderId: "359201898609",
-        appId: "1:359201898609:web:893ef076207abb06471bd0"
+  // Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCn9YSO4-ksWl6JBqIcEEuLx2EJN8jMj4M",
+    authDomain: "svms-c0232.firebaseapp.com",
+    databaseURL: "https://svms-c0232-default-rtdb.firebaseio.com",
+    projectId: "svms-c0232",
+    storageBucket: "svms-c0232.appspot.com",
+    messagingSenderId: "359201898609",
+    appId: "1:359201898609:web:893ef076207abb06471bd0"
   };
   firebase.initializeApp(firebaseConfig);
 
@@ -55,6 +58,7 @@
   const db = firebase.database();
 
   let busId = null;
+  let lastNotifKeys = new Set(); // to track old notifications
 
   // 🔑 Login Function
   function loginDriver() {
@@ -63,8 +67,7 @@
 
     auth.signInWithEmailAndPassword(email, password)
       .then(user => {
-        // busId = email prefix, like c306 from c306@bus.com
-        busId = email.split("@")[0].toUpperCase(); 
+        busId = email.split("@")[0].toUpperCase(); // e.g. c306@bus.com → C306
         document.getElementById("loginSection").classList.add("d-none");
         document.getElementById("driverPanel").classList.remove("d-none");
         document.getElementById("busTitle").innerText = "Bus: " + busId;
@@ -85,16 +88,26 @@
     alert("Status updated to: " + status);
   }
 
-  // 🔔 Notifications
+  // 🔔 Notifications with Sound
   function loadNotifications() {
     db.ref("notifications/" + busId).on("value", snapshot => {
       const notifList = document.getElementById("notifications");
       notifList.innerHTML = "";
+
       snapshot.forEach(child => {
+        const key = child.key;
+        const msg = child.val().message;
+
         let li = document.createElement("li");
         li.className = "list-group-item";
-        li.innerText = child.val().message;
+        li.innerText = msg;
         notifList.appendChild(li);
+
+        // Play sound only for new notifications
+        if (!lastNotifKeys.has(key)) {
+          document.getElementById("notifSound").play();
+        }
+        lastNotifKeys.add(key);
       });
     });
   }
@@ -103,6 +116,7 @@
   function logoutDriver() {
     auth.signOut().then(() => {
       busId = null;
+      lastNotifKeys.clear();
       document.getElementById("driverPanel").classList.add("d-none");
       document.getElementById("loginSection").classList.remove("d-none");
     });
