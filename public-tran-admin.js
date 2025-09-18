@@ -16,6 +16,7 @@ const firebaseConfig = {
   messagingSenderId: "359201898609",
   appId: "1:359201898609:web:893ef076207abb06471bd0"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
@@ -75,6 +76,9 @@ let vehicleMarker, stopMarker, busStopMarker;
 // Live vehicle markers
 const liveMarkers = {};
 
+// ensure maps are initialized only once
+let mapsInitialized = false;
+
 // Utility: toast
 function showToast(msg, type = 'info', ttl = 4000) {
   const div = document.createElement('div');
@@ -86,7 +90,8 @@ function showToast(msg, type = 'info', ttl = 4000) {
       <div class="toast-body">${msg}</div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>`;
-  document.querySelector('.toast-container').appendChild(div);
+  const container = document.querySelector('.toast-container') || document.body;
+  container.appendChild(div);
   const t = new bootstrap.Toast(div, { delay: ttl });
   t.show();
   div.addEventListener('hidden.bs.toast', () => div.remove());
@@ -95,6 +100,7 @@ function showToast(msg, type = 'info', ttl = 4000) {
 // Parse GPS string -> [lat, lng] or null
 function parseGps(gps) {
   if (!gps) return null;
+  // accept "lat,lng" or "lat, lng"
   const parts = String(gps).split(',').map(s => s.trim());
   if (parts.length < 2) return null;
   const lat = Number(parts[0]), lng = Number(parts[1]);
@@ -115,37 +121,45 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Initialize all maps
+// Initialize all maps (idempotent)
 function initMaps() {
-  vehicleMap = L.map('vehicleMap').setView([20.5937,78.9629],5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(vehicleMap);
+  if (mapsInitialized) return;
+  try {
+    vehicleMap = L.map('vehicleMap').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(vehicleMap);
 
-  stopMap = L.map('stopMap').setView([20.5937,78.9629],5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(stopMap);
+    stopMap = L.map('stopMap').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(stopMap);
 
-  busStopMap = L.map('busStopMap').setView([20.5937,78.9629],5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(busStopMap);
+    busStopMap = L.map('busStopMap').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(busStopMap);
 
-  vehicleMap.on('click', e => {
-    const latlng = e.latlng;
-    publicVehicleGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
-    if (vehicleMarker) vehicleMarker.setLatLng(latlng);
-    else vehicleMarker = L.marker(latlng).addTo(vehicleMap).bindPopup('Vehicle Location').openPopup();
-  });
+    vehicleMap.on('click', e => {
+      const latlng = e.latlng;
+      publicVehicleGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+      if (vehicleMarker) vehicleMarker.setLatLng(latlng);
+      else vehicleMarker = L.marker(latlng).addTo(vehicleMap).bindPopup('Vehicle Location').openPopup();
+    });
 
-  stopMap.on('click', e => {
-    const latlng = e.latlng;
-    stopGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
-    if (stopMarker) stopMarker.setLatLng(latlng);
-    else stopMarker = L.marker(latlng).addTo(stopMap).bindPopup('Stop Location').openPopup();
-  });
+    stopMap.on('click', e => {
+      const latlng = e.latlng;
+      stopGps.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+      if (stopMarker) stopMarker.setLatLng(latlng);
+      else stopMarker = L.marker(latlng).addTo(stopMap).bindPopup('Stop Location').openPopup();
+    });
 
-  busStopMap.on('click', e => {
-    const latlng = e.latlng;
-    stopGpsInput.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
-    if (busStopMarker) busStopMarker.setLatLng(latlng);
-    else busStopMarker = L.marker(latlng).addTo(busStopMap).bindPopup('Bus Stop Location').openPopup();
-  });
+    busStopMap.on('click', e => {
+      const latlng = e.latlng;
+      stopGpsInput.value = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+      if (busStopMarker) busStopMarker.setLatLng(latlng);
+      else busStopMarker = L.marker(latlng).addTo(busStopMap).bindPopup('Bus Stop Location').openPopup();
+    });
+
+    mapsInitialized = true;
+  } catch (e) {
+    console.error('initMaps error', e);
+    showToast('Map initialization failed (check Leaflet container IDs)', 'danger');
+  }
 }
 
 // Render temp stops (for vehicle)
@@ -156,7 +170,7 @@ function renderStopList() {
     li.className = 'list-group-item d-flex justify-content-between align-items-center';
     li.innerHTML = `${s.name} (${s.gps}) <button class="btn btn-sm btn-outline-danger" data-i="${idx}">Remove</button>`;
     li.querySelector('button').addEventListener('click', () => {
-      tempStops.splice(idx,1);
+      tempStops.splice(idx, 1);
       renderStopList();
     });
     stopListEl.appendChild(li);
@@ -171,7 +185,7 @@ function renderStopVehicleList() {
     li.className = 'list-group-item d-flex justify-content-between align-items-center';
     li.innerHTML = `${v.vehicleId} - ${v.routeName} (${v.type}) <button class="btn btn-sm btn-outline-danger" data-i="${idx}">Remove</button>`;
     li.querySelector('button').addEventListener('click', () => {
-      tempStopVehicles.splice(idx,1);
+      tempStopVehicles.splice(idx, 1);
       renderStopVehicleList();
     });
     stopVehicleList.appendChild(li);
@@ -206,7 +220,7 @@ addPublicVehicleBtn.addEventListener('click', async () => {
       vehicleType: vtype,
       vehicleNumber: vid,
       gps,
-      battery: Math.floor(Math.random()*20) + 80,
+      battery: Math.floor(Math.random() * 20) + 80,
       companyName: companyName || 'unknown',
       routeName,
       stops: tempStops,
@@ -221,7 +235,7 @@ addPublicVehicleBtn.addEventListener('click', async () => {
     if (vehicleMarker) { vehicleMap.removeLayer(vehicleMarker); vehicleMarker = null; }
     renderStopList();
     loadVehiclesList();
-  } catch(e) {
+  } catch (e) {
     console.error(e); showToast('Failed saving vehicle', 'danger');
   }
 });
@@ -232,12 +246,12 @@ deletePublicVehicleBtn.addEventListener('click', () => {
   if (!vid) { showToast('Enter/select vehicle id to delete', 'warning'); return; }
   if (!confirm(`Delete ${vid}?`)) return;
   db.ref(`public_transport/vehicles/${vid}`).remove()
-    .then(()=> { showToast('Vehicle deleted','success'); publicVehicleId.value=''; loadVehiclesList(); })
-    .catch(err=> { console.error(err); showToast('Delete failed','danger'); });
+    .then(() => { showToast('Vehicle deleted', 'success'); publicVehicleId.value = ''; loadVehiclesList(); })
+    .catch(err => { console.error(err); showToast('Delete failed', 'danger'); });
 });
 
 // Load vehicles list (one-time)
-async function loadVehiclesList(){
+async function loadVehiclesList() {
   try {
     const snap = await db.ref('public_transport/vehicles').once('value');
     const vehicles = snap.val() || {};
@@ -246,9 +260,9 @@ async function loadVehiclesList(){
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${vid}</td>
-        <td>${v.vehicleType||'Unknown'}</td>
-        <td>${v.routeName||'N/A'}</td>
-        <td><span class="badge ${v.status==='active'?'bg-success':'bg-warning'}">${v.status||'unknown'}</span></td>
+        <td>${v.vehicleType || 'Unknown'}</td>
+        <td>${v.routeName || 'N/A'}</td>
+        <td><span class="badge ${v.status === 'active' ? 'bg-success' : 'bg-warning'}">${v.status || 'unknown'}</span></td>
         <td>
           <button class="btn btn-sm btn-outline-primary edit-vehicle" data-vid="${vid}">Edit</button>
           <button class="btn btn-sm btn-outline-danger delete-vehicle" data-vid="${vid}">Delete</button>
@@ -258,8 +272,8 @@ async function loadVehiclesList(){
     });
 
     // attach events
-    vehicleListTbody.querySelectorAll('.edit-vehicle').forEach(btn=>{
-      btn.addEventListener('click', async ()=> {
+    vehicleListTbody.querySelectorAll('.edit-vehicle').forEach(btn => {
+      btn.addEventListener('click', async () => {
         const vid = btn.dataset.vid;
         const snap = await db.ref(`public_transport/vehicles/${vid}`).once('value');
         const v = snap.val() || {};
@@ -276,33 +290,33 @@ async function loadVehiclesList(){
         showToast('Loaded vehicle for edit', 'info');
       });
     });
-    vehicleListTbody.querySelectorAll('.delete-vehicle').forEach(btn=>{
-      btn.addEventListener('click', ()=> {
+    vehicleListTbody.querySelectorAll('.delete-vehicle').forEach(btn => {
+      btn.addEventListener('click', () => {
         const vid = btn.dataset.vid; if (!confirm(`Delete ${vid}?`)) return;
-        db.ref(`public_transport/vehicles/${vid}`).remove().then(()=>{ showToast('Deleted','success'); loadVehiclesList(); })
-        .catch(err=>{ console.error(err); showToast('Delete failed','danger'); });
+        db.ref(`public_transport/vehicles/${vid}`).remove().then(() => { showToast('Deleted', 'success'); loadVehiclesList(); })
+          .catch(err => { console.error(err); showToast('Delete failed', 'danger'); });
       });
     });
 
-  } catch(e) { console.error(e); showToast('Failed to load vehicles','danger'); }
+  } catch (e) { console.error(e); showToast('Failed to load vehicles', 'danger'); }
 }
 
 refreshVehiclesBtn.addEventListener('click', loadVehiclesList);
 
 // Stop vehicle management
-addStopVehicleBtn.addEventListener('click', ()=> {
+addStopVehicleBtn.addEventListener('click', () => {
   const vehicleIdVal = stopVehicleId.value.trim();
   const routeName = stopVehicleRoute.value.trim();
   const type = stopVehicleType.value.trim();
   const timings = stopVehicleTimings.value.trim();
   if (!vehicleIdVal || !routeName || !type) { showToast('Enter vehicle id, route and type', 'warning'); return; }
   tempStopVehicles.push({ vehicleId: vehicleIdVal, routeName, type, timings });
-  stopVehicleId.value=''; stopVehicleRoute.value=''; stopVehicleType.value=''; stopVehicleTimings.value='';
+  stopVehicleId.value = ''; stopVehicleRoute.value = ''; stopVehicleType.value = ''; stopVehicleTimings.value = '';
   renderStopVehicleList();
 });
 
 // Add or update bus stop, generate QR
-addBusStopBtn.addEventListener('click', async ()=> {
+addBusStopBtn.addEventListener('click', async () => {
   const id = stopId.value.trim();
   const name = stopNameInput.value.trim();
   const gps = stopGpsInput.value.trim();
@@ -320,35 +334,53 @@ addBusStopBtn.addEventListener('click', async ()=> {
 
     // generate QR linking to stop page
     // use current origin if available
-    const base = window.location.origin || 'https://svms.pages.dev;
-    const stopUrl = `${base.replace(/\/$/, '')}/stop.html?id=${encodeURIComponent(id)}`;
+    // FIXED: properly closed string and fallback
+    const base = window.location?.origin || 'https://svms.pages.dev';
+    const stopUrl = `${String(base).replace(/\/$/, '')}/stop.html?id=${encodeURIComponent(id)}`;
 
     // clear previous qrcode
     qrcodeContainer.innerHTML = '';
-    // qrcode.js usage
-    const qrcode = new QRCode(qrcodeContainer, {
-      text: stopUrl,
-      width: 160,
-      height: 160,
-      colorDark : "#000000",
-      colorLight : "#ffffff",
-      correctLevel : QRCode.CorrectLevel.H
-    });
+    // qrcode.js usage - library must be loaded in page
+    // create QR
+    let qrcodeInstance;
+    try {
+      qrcodeInstance = new QRCode(qrcodeContainer, {
+        text: stopUrl,
+        width: 160,
+        height: 160,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (err) {
+      // If the QRCode constructor isn't available, fallback to a simple link
+      console.warn('QRCode lib not available', err);
+      qrcodeContainer.innerHTML = `<div class="p-2">QR generation lib not found. <a href="${stopUrl}" target="_blank">Open stop link</a></div>`;
+    }
 
     qrLinkEl.innerHTML = `<a href="${stopUrl}" target="_blank">${stopUrl}</a>`;
-    // prepare download link after short delay
-    setTimeout(()=> {
-      // convert canvas to data url
+
+    // prepare download link after short delay (qrcode lib may render img or canvas)
+    setTimeout(() => {
+      // set default hidden
+      downloadQrBtn.style.display = 'none';
+      // find image
       const img = qrcodeContainer.querySelector('img');
-      if (img) {
+      if (img && img.src) {
         downloadQrBtn.href = img.src;
+        downloadQrBtn.setAttribute('download', `stop-${id}.png`);
         downloadQrBtn.style.display = 'inline-block';
       } else {
         // older qrcode lib uses canvas
         const canvas = qrcodeContainer.querySelector('canvas');
         if (canvas) {
-          downloadQrBtn.href = canvas.toDataURL("image/png");
-          downloadQrBtn.style.display = 'inline-block';
+          try {
+            downloadQrBtn.href = canvas.toDataURL("image/png");
+            downloadQrBtn.setAttribute('download', `stop-${id}.png`);
+            downloadQrBtn.style.display = 'inline-block';
+          } catch (err) {
+            console.warn('QR canvas -> dataURL failed', err);
+          }
         }
       }
     }, 400);
@@ -356,35 +388,35 @@ addBusStopBtn.addEventListener('click', async ()=> {
     lastQrArea.style.display = 'block';
 
     // reset inputs
-    stopId.value=''; stopNameInput.value=''; stopGpsInput.value=''; tempStopVehicles=[]; renderStopVehicleList();
-    if (busStopMarker) { busStopMap.removeLayer(busStopMarker); busStopMarker=null; }
+    stopId.value = ''; stopNameInput.value = ''; stopGpsInput.value = ''; tempStopVehicles = []; renderStopVehicleList();
+    if (busStopMarker) { busStopMap.removeLayer(busStopMarker); busStopMarker = null; }
     loadStopsList();
   } catch (e) {
-    console.error(e); showToast('Failed to save stop','danger');
+    console.error(e); showToast('Failed to save stop', 'danger');
   }
 });
 
 // Delete bus stop
-deleteBusStopBtn.addEventListener('click', ()=> {
+deleteBusStopBtn.addEventListener('click', () => {
   const id = stopId.value.trim();
   if (!id) { showToast('Enter/select stop id', 'warning'); return; }
   if (!confirm(`Delete stop ${id}?`)) return;
   db.ref(`public_transport/stops/${id}`).remove()
-    .then(()=> { showToast('Stop deleted', 'success'); loadStopsList(); })
+    .then(() => { showToast('Stop deleted', 'success'); loadStopsList(); })
     .catch(err => { console.error(err); showToast('Delete failed', 'danger'); });
 });
 
 // Load stops list
-async function loadStopsList(){
+async function loadStopsList() {
   try {
     const snap = await db.ref('public_transport/stops').once('value');
     const stops = snap.val() || {};
     stopListTbody.innerHTML = '';
     Object.entries(stops).forEach(([id, s]) => {
-      const vehicleCount = (s.vehicles || []).length;
+      const vehicleCount = Array.isArray(s.vehicles) ? s.vehicles.length : (s.vehicles ? Object.keys(s.vehicles).length : 0);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${id}</td><td>${s.name||'Unknown'}</td><td>${vehicleCount} vehicles</td>
+        <td>${id}</td><td>${s.name || 'Unknown'}</td><td>${vehicleCount} vehicles</td>
         <td>
           <button class="btn btn-sm btn-outline-primary edit-stop" data-id="${id}">Edit</button>
           <button class="btn btn-sm btn-outline-danger delete-stop" data-id="${id}">Delete</button>
@@ -393,8 +425,8 @@ async function loadStopsList(){
     });
 
     // attach edit/delete buttons
-    stopListTbody.querySelectorAll('.edit-stop').forEach(btn=>{
-      btn.addEventListener('click', async ()=> {
+    stopListTbody.querySelectorAll('.edit-stop').forEach(btn => {
+      btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const snap = await db.ref(`public_transport/stops/${id}`).once('value');
         const s = snap.val() || {};
@@ -405,17 +437,17 @@ async function loadStopsList(){
         const gps = parseGps(s.gps);
         if (gps && busStopMarker) busStopMarker.setLatLng(gps);
         else if (gps) busStopMarker = L.marker(gps).addTo(busStopMap).bindPopup('Bus Stop Location').openPopup();
-        showToast('Loaded stop for edit','info');
+        showToast('Loaded stop for edit', 'info');
       });
     });
-    stopListTbody.querySelectorAll('.delete-stop').forEach(btn=>{
-      btn.addEventListener('click', ()=> {
+    stopListTbody.querySelectorAll('.delete-stop').forEach(btn => {
+      btn.addEventListener('click', () => {
         const id = btn.dataset.id; if (!confirm(`Delete ${id}?`)) return;
-        db.ref(`public_transport/stops/${id}`).remove().then(()=> { showToast('Deleted','success'); loadStopsList();});
+        db.ref(`public_transport/stops/${id}`).remove().then(() => { showToast('Deleted', 'success'); loadStopsList(); });
       });
     });
 
-  } catch(e) { console.error(e); showToast('Failed to load stops','danger'); }
+  } catch (e) { console.error(e); showToast('Failed to load stops', 'danger'); }
 }
 refreshStopsBtn.addEventListener('click', loadStopsList);
 
@@ -423,15 +455,15 @@ refreshStopsBtn.addEventListener('click', loadStopsList);
 // We'll listen to dedicated path public_transport/lost_bags and also to vehicle notifications (legacy)
 const lostBagReports = {}; // key -> report
 
-function renderLostBagTable(){
+function renderLostBagTable() {
   lostBagTbody.innerHTML = '';
-  const rows = Object.entries(lostBagReports).sort((a,b)=> b[1].timestamp - a[1].timestamp);
+  const rows = Object.entries(lostBagReports).sort((a, b) => b[1].timestamp - a[1].timestamp);
   rows.forEach(([key, r]) => {
     const tr = document.createElement('tr');
     const time = new Date(r.timestamp).toLocaleString();
     const bus = r.busId || r.vehicleId || 'N/A';
     const desc = r.description || '';
-    const loc = r.userLocation ? `${r.userLocation[0].toFixed(5)}, ${r.userLocation[1].toFixed(5)}` : 'N/A';
+    const loc = r.userLocation ? `${Number(r.userLocation[0]).toFixed(5)}, ${Number(r.userLocation[1]).toFixed(5)}` : 'N/A';
     tr.innerHTML = `<td>${time}</td><td>${bus}</td><td>${desc}</td><td>${loc}</td>
       <td>
         <button class="btn btn-sm btn-outline-success" data-k="${key}">Mark Resolved</button>
@@ -441,24 +473,29 @@ function renderLostBagTable(){
   });
 
   // attach events
-  lostBagTbody.querySelectorAll('button').forEach(btn=>{
+  lostBagTbody.querySelectorAll('button').forEach(btn => {
     const k = btn.dataset.k;
     if (btn.textContent.includes('Resolved')) {
-      btn.addEventListener('click', ()=> {
+      btn.addEventListener('click', () => {
         // move to resolved (simple: remove)
         if (!confirm('Mark resolved and remove from list?')) return;
-        // optionally write to a resolved path
-        db.ref(`public_transport/lost_bags/${k}`).remove().then(()=> {
-          delete lostBagReports[k]; renderLostBagTable(); showToast('Marked resolved', 'success');
-        }).catch(err=> { console.error(err); showToast('Failed', 'danger'); });
+        // try removing from DB path (may not exist for legacy reports)
+        db.ref(`public_transport/lost_bags/${k}`).remove().catch(() => { /* ignore */ })
+          .finally(() => {
+            delete lostBagReports[k]; renderLostBagTable(); showToast('Marked resolved', 'success');
+          });
       });
     } else { // View on map
-      btn.addEventListener('click', ()=> {
+      btn.addEventListener('click', () => {
         const r = lostBagReports[k];
-        if (r && r.userLocation) {
-          const latlng = [r.userLocation[0], r.userLocation[1]];
-          vehicleMap.flyTo(latlng, 16);
-          L.popup().setLatLng(latlng).setContent(`<strong>Lost bag reported</strong><br>${r.description || ''}`).openOn(vehicleMap);
+        if (r && r.userLocation && r.userLocation.length >= 2) {
+          const latlng = [Number(r.userLocation[0]), Number(r.userLocation[1])];
+          if (vehicleMap && typeof vehicleMap.flyTo === 'function') {
+            vehicleMap.flyTo(latlng, 16);
+            L.popup().setLatLng(latlng).setContent(`<strong>Lost bag reported</strong><br>${r.description || ''}`).openOn(vehicleMap);
+          } else {
+            showToast('Map not ready', 'warning');
+          }
         } else {
           showToast('No user location available', 'warning');
         }
@@ -483,9 +520,9 @@ db.ref('public_transport/lost_bags').on('child_removed', snap => {
 // Also scan vehicle notifications for lost_bag items (legacy path)
 db.ref('public_transport/vehicles').on('value', snap => {
   const vehicles = snap.val() || {};
-  Object.entries(vehicles).forEach(([vid, v])=>{
+  Object.entries(vehicles).forEach(([vid, v]) => {
     if (!v || !v.notifications) return;
-    Object.entries(v.notifications).forEach(([nkey, note])=>{
+    Object.entries(v.notifications).forEach(([nkey, note]) => {
       if (!note) return;
       if (note.type === 'lost_bag') {
         // create unique key combining vehicle and notification key
@@ -507,38 +544,51 @@ db.ref('public_transport/vehicles').on('value', snap => {
 });
 
 // Live vehicles on map: draw markers and update them on change
-function startLiveVehicleListener(){
+function startLiveVehicleListener() {
   const vehiclesRef = db.ref('public_transport/vehicles');
   vehiclesRef.on('value', snap => {
     const vehicles = snap.val() || {};
     // update stats
-    statVehicles.innerText = Object.keys(vehicles).length;
-    // update markers
+    try {
+      statVehicles.innerText = Object.keys(vehicles).length;
+    } catch (e) {
+      // fallback
+      statVehicles.innerText = statVehicles.innerText || '0';
+    }
+
     // remove markers for deleted
     Object.keys(liveMarkers).forEach(id => {
       if (!vehicles[id]) {
-        if (vehicleMap && liveMarkers[id].marker) {
-          try { vehicleMap.removeLayer(liveMarkers[id].marker); } catch(e){}
-        }
+        try {
+          if (vehicleMap && liveMarkers[id].marker) {
+            vehicleMap.removeLayer(liveMarkers[id].marker);
+          }
+        } catch (e) { /* ignore */ }
         delete liveMarkers[id];
       }
     });
 
-    Object.entries(vehicles).forEach(([vid, v])=>{
+    Object.entries(vehicles).forEach(([vid, v]) => {
       const coords = parseGps(v.gps);
       if (!coords) return;
       const latlng = [coords[0], coords[1]];
       if (!liveMarkers[vid]) {
-        const m = L.marker(latlng, { title: vid }).addTo(vehicleMap);
-        m.bindPopup(`<strong>${vid}</strong><br>${v.routeName || ''}<br><small>${v.vehicleType || ''}</small>`);
-        m.on('click', ()=> {
-          // populate edit form for convenience
-          publicVehicleId.value = vid; publicVehicleType.value = v.vehicleType || ''; publicVehicleGps.value = v.gps || ''; publicRouteName.value = v.routeName || '';
-        });
-        liveMarkers[vid] = { marker: m };
+        try {
+          const m = L.marker(latlng, { title: vid }).addTo(vehicleMap);
+          m.bindPopup(`<strong>${vid}</strong><br>${v.routeName || ''}<br><small>${v.vehicleType || ''}</small>`);
+          m.on('click', () => {
+            // populate edit form for convenience
+            publicVehicleId.value = vid; publicVehicleType.value = v.vehicleType || ''; publicVehicleGps.value = v.gps || ''; publicRouteName.value = v.routeName || '';
+          });
+          liveMarkers[vid] = { marker: m };
+        } catch (e) {
+          console.warn('Failed to add live marker', e);
+        }
       } else {
-        liveMarkers[vid].marker.setLatLng(latlng);
-        liveMarkers[vid].marker.setPopupContent(`<strong>${vid}</strong><br>${v.routeName || ''}<br><small>${v.vehicleType || ''}</small>`);
+        try {
+          liveMarkers[vid].marker.setLatLng(latlng);
+          liveMarkers[vid].marker.setPopupContent(`<strong>${vid}</strong><br>${v.routeName || ''}<br><small>${v.vehicleType || ''}</small>`);
+        } catch (e) { console.warn('Failed to update marker', e); }
       }
     });
   });
@@ -549,8 +599,7 @@ async function loadStats() {
   try {
     // companies count - approximate 1 company for this admin
     statCompanies.innerText = 1;
-    // vehicles count handled by live listener
-    // deliveries & alerts: best-effort reading from user's company path (if exists)
+
     if (!uid) return;
     const snap = await db.ref(`users/${uid}/vehicle/companies`).once('value');
     const companies = snap.val() || {};
@@ -558,19 +607,22 @@ async function loadStats() {
     Object.values(companies).forEach(c => {
       if (!c) return;
       const vs = c.vehicle || {};
-      vehicleCount += Object.keys(vs).length;
-      Object.values(vs).forEach(v=>{
-        const d = v.deliveries || {}; deliveries += Object.keys(d).length;
+      try {
+        vehicleCount += (vs && typeof vs === 'object') ? Object.keys(vs).length : 0;
+      } catch (e) { /* ignore */ }
+      Object.values(vs || {}).forEach(v => {
+        const d = v.deliveries || {};
+        try { deliveries += (d && typeof d === 'object') ? Object.keys(d).length : 0; } catch (e) { /* ignore */ }
         const lt = v.last_trigger;
         if (lt && lt.status === 'alert' && lt.time) {
           alerts++;
         }
       });
     });
-    statVehicles.innerText = vehicleCount || statVehicles.innerText;
+    if (vehicleCount) statVehicles.innerText = vehicleCount;
     statDeliveries.innerText = deliveries;
     statAlerts.innerText = alerts;
-  } catch(e) {
+  } catch (e) {
     console.error('loadStats', e);
   }
 }
@@ -592,27 +644,25 @@ auth.onAuthStateChanged(async user => {
     currentUserEl.textContent = `${me.email || user.email} (${companyName})`;
     // initialize UI
     initMaps();
-    loadStats();
+    await loadStats();
     await loadVehiclesList();
     await loadStopsList();
     startLiveVehicleListener();
 
-  } catch(e) {
-    console.error(e); showToast('Init failed','danger');
+  } catch (e) {
+    console.error(e); showToast('Init failed', 'danger');
   }
 });
 
 // logout
-logoutBtn.addEventListener('click', ()=> auth.signOut());
+logoutBtn.addEventListener('click', () => auth.signOut());
 
 // Load initial vehicle & stop lists on page load (if not waiting for auth)
-document.addEventListener('DOMContentLoaded', ()=> {
+document.addEventListener('DOMContentLoaded', () => {
   initMaps();
+  // optionally hide QR area until first generation
+  if (lastQrArea) lastQrArea.style.display = 'none';
 });
-
-// helper: when admin clicks edit vehicle from live map, they can save; already handled
-
-// When stop edit form is used, load stop vehicle list UI when editing (done in loadStopsList edit handler)
 
 // Optional: periodically refresh stats
 setInterval(loadStats, 60_000);
